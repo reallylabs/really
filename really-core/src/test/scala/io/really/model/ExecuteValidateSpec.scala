@@ -34,7 +34,7 @@ class ExecuteValidateSpec extends FlatSpec with Matchers {
       protocol = RequestProtocol.WebSockets)
   )
 
-  val userModel = new Model(r, collMeta, fields, jsHooks, migrationPlan)
+  val userModel = new Model(r, collMeta, fields, jsHooks, migrationPlan, List.empty)
   val input: JsObject = Json.obj("name" -> JsString("Ahmed"),
     "age" -> JsNumber(23),
     "address" -> Json.obj("streetName" -> JsString("BS"), "block" -> JsNumber(23)))
@@ -53,7 +53,7 @@ class ExecuteValidateSpec extends FlatSpec with Matchers {
         | }
       """.stripMargin
     val jsHooks: JsHooks = JsHooks(onValidate = Some(validationScript), None, None, None, None, None, None)
-    val userModel = new Model(r, collMeta, fields, jsHooks, migrationPlan)
+    val userModel = new Model(r, collMeta, fields, jsHooks, migrationPlan, List.empty)
     userModel.executeValidate(context, input) should be(Terminated(401, "Over Age!"))
   }
   it should "deals with the input seamlessly as JSON" in {
@@ -65,7 +65,7 @@ class ExecuteValidateSpec extends FlatSpec with Matchers {
         |print(address);
       """.stripMargin
     val jsHooks: JsHooks = JsHooks(onValidate = Some(validationScript), None, None, None, None, None, None)
-    val userModel = new Model(r, collMeta, fields, jsHooks, migrationPlan)
+    val userModel = new Model(r, collMeta, fields, jsHooks, migrationPlan, List.empty)
     userModel.executeValidate(context, input) should be(Succeeded)
 
   }

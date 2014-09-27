@@ -1,0 +1,13 @@
+version: 1
+fields:
+  name:
+    type: String
+    required : true
+  description:
+    type: String
+  creator:
+    type: reference
+    collectionR: /users
+    fields:
+      - firstName
+      - lastName

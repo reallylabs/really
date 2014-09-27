@@ -2,7 +2,6 @@ package io.really.model
 
 import javax.script.Invocable
 
-import io.really.ReallyGlobals
 import io.really.js.JsTools
 import play.api.data.validation.ValidationError
 import play.api.libs.json._

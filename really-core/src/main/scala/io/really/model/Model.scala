@@ -2,6 +2,7 @@ package io.really
 
 import javax.script.{ScriptException, ScriptContext, Invocable}
 import io.really.js.JsTools
+import io.really.model.ModelExceptions.{InvalidSubCollectionR, InvalidCollectionR}
 import play.api.libs.json._
 import jdk.nashorn.api.scripting.NashornScriptEngineFactory
 
@@ -9,9 +10,6 @@ package object model {
   type ModelVersion = Long
   type JsScript = String
   type FieldKey = String
-
-  trait ModelException extends Exception
-
 
   case class CollectionMetadata(version: ModelVersion)
 
@@ -53,10 +51,20 @@ package object model {
                    collectionMeta: CollectionMetadata,
                    fields: Map[FieldKey, Field[_]],
                    jsHooks: JsHooks,
-                   migrationPlan: MigrationPlan) {
+                   migrationPlan: MigrationPlan,
+                   subCollections: List[R]) {
+
+    if (!r.isCollection) throw new InvalidCollectionR(r)
+    subCollections.foreach {
+      r =>
+        if (!(r.isCollection && r.tailR == this.r)) {
+          throw new InvalidSubCollectionR(r)
+        }
+    }
+
 
     val factory = new NashornScriptEngineFactory
-    val executeValidator:Option[Validator] = jsHooks.onValidate.map { onValidateCode =>
+    val executeValidator: Option[Validator] = jsHooks.onValidate.map { onValidateCode =>
       val validateEngine = factory.getScriptEngine(Array("-strict", "--no-java", "--no-syntax-extensions"))
       JsTools.injectSDK(validateEngine.getContext.getBindings(ScriptContext.ENGINE_SCOPE))
 

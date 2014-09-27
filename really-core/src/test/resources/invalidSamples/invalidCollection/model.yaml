@@ -1,0 +1,7 @@
+version: 1
+fields:
+  name:
+    type: AnyType
+    required : true
+  description:
+    type: String

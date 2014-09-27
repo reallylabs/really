@@ -1,6 +1,5 @@
 package io.really.model
 
-import io.really.js.JsResultHelpers
 import play.api.libs.json._
 import scala.util.{Failure, Success, Try}
 
@@ -48,6 +47,14 @@ object DataType {
 
   case object RDouble extends DataType[Double] {
     protected def fmt = implicitly[Format[Double]]
+  }
+
+  case object RBoolean extends DataType[Boolean] {
+    protected def fmt = implicitly[Format[Boolean]]
+  }
+
+  case object Reference extends DataType[String] {
+    protected def fmt = implicitly[Format[String]]
   }
 
   //todo: this is how to define a custom type

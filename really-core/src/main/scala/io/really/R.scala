@@ -236,6 +236,10 @@ case class R private(tokens: Tokens) {
 
   def isCollection: Boolean = !isObject
 
+  def tailR: R = R(tail)
+
+  def inversedTail: R = R(tokens.dropRight(1))
+
   override def toString() =
     tokens.foldRight("/")((acc, v) => v + acc.toString)
 }

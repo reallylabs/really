@@ -15,8 +15,8 @@ class ObjectPersistorSpec(testActor: String) extends BaseActorSpec(testActor) {
     None,
     None,
     None,
-    None), null)
-  
+    None), null, List.empty)
+
   "ObjectPersistor" should "have the persistenceID as the object's R" in {
     val r = R / 'users / 1
     val userObj = Json.obj("key" -> "value")
@@ -36,12 +36,12 @@ class ObjectPersistorSpec(testActor: String) extends BaseActorSpec(testActor) {
     val model = Model(R / 'users, CollectionMetadata(33), Map("name" -> ValueField("name", DataType.RString, None,
       None, true)),
       JsHooks(Some( """input.name + ' Bey' """),
-      None,
-      None,
-      None,
-      None,
-      None,
-      None), null)
+        None,
+        None,
+        None,
+        None,
+        None,
+        None), null, List.empty)
     val r = R / 'users / 2
     val objectPersistorRef = system.actorOf(ObjectPersistor.props(globals, r, model))
     val userObj = Json.obj("name" -> "Ahmed")
@@ -94,12 +94,12 @@ class ObjectPersistorSpec(testActor: String) extends BaseActorSpec(testActor) {
     val model = Model(R / 'users, CollectionMetadata(33), Map("name" -> ValueField("name", DataType.RString, None, None,
       true)),
       JsHooks(Some( """cancel(400, 'Forbidden!')"""),
-      None,
-      None,
-      None,
-      None,
-      None,
-      None), null)
+        None,
+        None,
+        None,
+        None,
+        None,
+        None), null, List.empty)
     val r = R / 'users / 6
     val objectPersistorRef = system.actorOf(ObjectPersistor.props(globals, r, model))
     val userObj = Json.obj("name" -> "Ahmed")
@@ -127,12 +127,12 @@ class ObjectPersistorSpec(testActor: String) extends BaseActorSpec(testActor) {
     val model = Model(R / 'users, CollectionMetadata(23), Map("name" -> ValueField("name", DataType.RString, None, None,
       true)),
       JsHooks(Some(""),
-      None,
-      None,
-      None,
-      None,
-      None,
-      None), null)
+        None,
+        None,
+        None,
+        None,
+        None,
+        None), null, List.empty)
     val r = R / 'users / 8
     val objectPersistorRef = system.actorOf(ObjectPersistor.props(globals, r, model))
     val userObj = Json.obj("name" -> "Ahmed")

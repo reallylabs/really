@@ -33,15 +33,11 @@ package object really {
 
     def receptionistProps: Props
 
-    def modelRegistryProps: Props
-
     def actorSystem: ActorSystem
 
     def receptionist: ActorRef
 
     def quickSand: QuickSand
-
-    def modelRegistry: ActorRef
   }
 
   trait Request {

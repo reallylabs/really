@@ -1,10 +1,10 @@
 import sbt._
-import Keys._
 
 object Dependencies {
   val scalatest = "org.scalatest" %% "scalatest" % "2.1.5" % "test"
   val logback = "ch.qos.logback" % "logback-classic" % "1.1.2"
   val wsClient = "io.backchat.hookup" %% "hookup" % "0.2.3"
+  val snakeyaml = "org.yaml" % "snakeyaml" % "1.14"
 
   object Akka {
     private val akkaBase = "com.typesafe.akka"

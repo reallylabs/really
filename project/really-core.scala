@@ -15,6 +15,7 @@ object CoreBuild {
       "org.iq80.leveldb" %  "leveldb" %  "0.7",
       Akka.cassandraPersistence,
       logback,
+      snakeyaml,
       Playframework.functional,
       Playframework.json
     )

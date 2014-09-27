@@ -1,5 +1,6 @@
 package io.really.model
 
+import io.really.R
 import org.scalatest._
 import play.api.data.validation.ValidationError
 import play.api.libs.json._
@@ -53,36 +54,36 @@ class ModelFieldsSpec extends FlatSpec with Matchers {
   }
 
   it should "return null when valueField not required and there is no default supported" in {
-    val str_a= ValueField("job", DataType.RString,Some( """job.length > 10 && job.split(' ').length > 2"""), None, false)
-    assert(str_a.read(JsPath(), Json.obj("v" -> "k")) == JsSuccess(Json.obj("job" -> JsNull), JsPath() \ "job"))
+    val strA = ValueField("job", DataType.RString, Some( """job.length > 10 && job.split(' ').length > 2"""), None, false)
+    assert(strA.read(JsPath(), Json.obj("v" -> "k")) == JsSuccess(Json.obj("job" -> JsNull), JsPath() \ "job"))
   }
 
   it should "return error when valueField is required and there is no default supported" in {
-    val str_a= ValueField("job", DataType.RString,Some( """job.length > 10 && job.split(' ').length > 2"""), None, true)
-    assert(str_a.read(JsPath(), Json.obj("v" -> "k")) == JsError((JsPath() \ "job", ValidationError("value.required"))))
+    val strA = ValueField("job", DataType.RString, Some( """job.length > 10 && job.split(' ').length > 2"""), None, true)
+    assert(strA.read(JsPath(), Json.obj("v" -> "k")) == JsError((JsPath() \ "job", ValidationError("value.required"))))
   }
 
   it should "generate a default value if default expression is set for RString" in {
-    val str_a = ValueField("job", DataType.RString,Some( """job.length >= 10"""), Some( """"really developer""""), false)
-    assert(str_a.read(JsPath(), Json.obj("v" -> "k")) == JsSuccess(Json.obj("job" -> "really developer"), JsPath() \ "job"))
+    val strA = ValueField("job", DataType.RString, Some( """job.length >= 10"""), Some( """"really developer""""), false)
+    assert(strA.read(JsPath(), Json.obj("v" -> "k")) == JsSuccess(Json.obj("job" -> "really developer"), JsPath() \ "job"))
 
-    val str_b = ValueField("job", DataType.RString,Some( """job.length > 10 && job.split(' ').length >= 2"""), Some( """"really developer""""), false)
-    assert(str_b.read(JsPath(), Json.obj("v" -> "k")) == JsSuccess(Json.obj("job" -> "really developer"), JsPath() \ "job"))
+    val strB = ValueField("job", DataType.RString, Some( """job.length > 10 && job.split(' ').length >= 2"""), Some( """"really developer""""), false)
+    assert(strB.read(JsPath(), Json.obj("v" -> "k")) == JsSuccess(Json.obj("job" -> "really developer"), JsPath() \ "job"))
   }
 
   it should "return error when valueField default doesn't match data type" in {
-    val str_c= ValueField("job", DataType.RString,Some( """job.length > 10 && job.split(' ').length > 2"""), Some( """3.15"""), false)
-    assert(str_c.read(JsPath(), Json.obj("v" -> "k")) == JsError((JsPath() \ "job", ValidationError("field.default.invalid_return_type"))))
+    val strC = ValueField("job", DataType.RString, Some( """job.length > 10 && job.split(' ').length > 2"""), Some( """3.15"""), false)
+    assert(strC.read(JsPath(), Json.obj("v" -> "k")) == JsError((JsPath() \ "job", ValidationError("field.default.invalid_return_type"))))
   }
 
   it should "return error when valueField value doesn't pass validation script " in {
-    val str_c= ValueField("job", DataType.RString,Some( """job.length > 10 && job.split(' ').length > 2"""), Some( """"really developer""""), false)
-    assert(str_c.read(JsPath(), Json.obj("v" -> "k")) == JsError((JsPath() \ "job", ValidationError("validation.custom.failed"))))
+    val strC = ValueField("job", DataType.RString, Some( """job.length > 10 && job.split(' ').length > 2"""), Some( """"really developer""""), false)
+    assert(strC.read(JsPath(), Json.obj("v" -> "k")) == JsError((JsPath() \ "job", ValidationError("validation.custom.failed"))))
   }
 
   it should "return error when valueField value with validation script deosn't return boolean " in {
-    val str_c= ValueField("job", DataType.RString,Some( """job.length"""), Some( """"really developer""""), false)
-    assert(str_c.read(JsPath(), Json.obj("v" -> "k")) == JsError((JsPath() \ "job", ValidationError("validation.custom.invalid_return_type"))))
+    val strC = ValueField("job", DataType.RString, Some( """job.length"""), Some( """"really developer""""), false)
+    assert(strC.read(JsPath(), Json.obj("v" -> "k")) == JsError((JsPath() \ "job", ValidationError("validation.custom.invalid_return_type"))))
   }
 
 
@@ -163,4 +164,12 @@ class ModelFieldsSpec extends FlatSpec with Matchers {
   //      """.stripMargin, dep1, dep2)
   //    assert(a.read(JsPath(), Json.obj("age" -> 5, "extra" -> JsNull )) == JsError(JsPath() \ "extra" , ValidationError("field.default.invalid_return_type")))
   //  }
+
+  "ReferenceField" should "parse correctly" in {
+    val a = ReferenceField("creator", true, DataType.Reference, R("/users"), List("firstName", "lastName"))
+    assert(a.read(JsPath(), Json.obj("creator" -> "/users/12348905/")) == JsSuccess(Json.obj("creator" -> "/users/12348905/"), JsPath() \ "creator"))
+    assert(a.read(JsPath(), Json.obj("creator" -> "/products/2345678")) == JsError((JsPath() \ "creator", ValidationError("error.invalid.R"))))
+    assert(a.read(JsPath(), Json.obj("creator" -> "amal")) == JsError((JsPath() \ "creator", ValidationError("error.invalid.R"))))
+
+  }
 }
