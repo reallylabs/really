@@ -2,6 +2,7 @@ package io.really.testutil
 
 import scala.concurrent.duration._
 import org.scalatest.{ BeforeAndAfterAll, FlatSpecLike, Matchers }
+import com.typesafe.config.{Config, ConfigFactory}
 import akka.actor.{ Actor, Props, ActorSystem }
 import akka.testkit.{ ImplicitSender, TestKit, TestProbe }
 import io.backchat.hookup._
@@ -15,7 +16,7 @@ class WSSpec(_system: ActorSystem)
   with BeforeAndAfterAll {
 
   def this(name: String) =
-    this(ActorSystem(name))
+    this(ActorSystem(name, ConfigFactory.parseString("akka.remote.netty.tcp.port = 0")))
 
   val app = new io.really.boot.ReallyApp
 

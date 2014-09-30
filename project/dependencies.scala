@@ -5,6 +5,7 @@ object Dependencies {
   val logback = "ch.qos.logback" % "logback-classic" % "1.1.2"
   val wsClient = "io.backchat.hookup" %% "hookup" % "0.2.3"
   val snakeyaml = "org.yaml" % "snakeyaml" % "1.14"
+  val commonsIO= "commons-io" % "commons-io" % "2.4"
 
   object Akka {
     private val akkaBase = "com.typesafe.akka"
@@ -19,6 +20,8 @@ object Dependencies {
 
     val persistance = akkaBase %% "akka-persistence-experimental" % version
     val cassandraPersistence = "com.github.krasserm" %% "akka-persistence-cassandra" % "0.3.3"
+    val multiNode = akkaBase %% "akka-multi-node-testkit" % version
+//    val kafkaPersistence = "com.github.krasserm" %% "akka-persistence-kafka" % "0.3.2"
   }
 
   object Spray {

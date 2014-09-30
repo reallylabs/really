@@ -1,5 +1,6 @@
 package io.really.protocol
 
+import io.really.Result._
 import io.really._
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
@@ -106,7 +107,7 @@ object ProtocolFormats {
      * Represent JSON Writes for Subscribe Response
      */
     object Subscribe {
-      def writes(request: Request.Subscribe, response: Response.SubscribeResult) =
+      def writes(request: Request.Subscribe, response: SubscribeResult) =
         Json.obj(
           Tag -> request.ctx.tag,
           Body -> Json.obj("subscriptions" -> response.subscriptions)
@@ -117,7 +118,7 @@ object ProtocolFormats {
      * Represent JSON Writes for Unsubscribe Response
      */
     object Unsubscribe {
-      def writes(request: Request.Unsubscribe, response: Response.UnsubscribeResult) =
+      def writes(request: Request.Unsubscribe, response: UnsubscribeResult) =
         Json.obj(
           Tag -> request.ctx.tag,
           Body -> Json.obj("unsubscriptions" -> response.unsubscriptions)
@@ -128,7 +129,7 @@ object ProtocolFormats {
      * Represent JSON Writes for [[io.really.Response.GetSubscription]] Response
      */
     object GetSubscription {
-      def writes(request: Request.GetSubscription, response: Response.GetSubscriptionResult) =
+      def writes(request: Request.GetSubscription, response: GetSubscriptionResult) =
         Json.obj(
           Tag -> request.ctx.tag,
           R -> request.r,
@@ -140,7 +141,7 @@ object ProtocolFormats {
      * Represent JSON Writes for [[io.really.Response.Get]] Response
      */
     object Get {
-      def write(request: Request.Get, response: Response.GetResult) =
+      def write(request: Request.Get, response: GetResult) =
         Json.obj(
           Tag -> request.ctx.tag,
           Meta -> Json.obj("fields" -> response.fields),
@@ -153,7 +154,7 @@ object ProtocolFormats {
      * Represent JSON Writes for [[io.really.Response.Update]] Response
      */
     object Update {
-      def write(request: Request.Update, response: Response.UpdateResult) =
+      def write(request: Request.Update, response: UpdateResult) =
         Json.obj(
           Tag -> request.ctx.tag,
           R -> request.r,
@@ -166,7 +167,7 @@ object ProtocolFormats {
      * Represent JSON Writes for [[io.really.Response.Read]] Response
      */
     object Read {
-      def write(request: Request.Read, response: Response.ReadResult) =
+      def write(request: Request.Read, response: ReadResult) =
         Json.obj(
           Tag -> request.ctx.tag,
           Meta -> Json.obj("subscription" -> response.subscription),
@@ -179,7 +180,7 @@ object ProtocolFormats {
      * Represent JSON Writes for [[io.really.Response.Create]] Response
      */
     object Create {
-      def write(request: Request.Create, response: Response.CreateResult) =
+      def write(request: Request.Create, response: CreateResult) =
         Json.obj(
           Tag -> request.ctx.tag,
           R -> request.r,

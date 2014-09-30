@@ -9,11 +9,11 @@ import spray.can.server.UHttp
 import io.really._
 
 class ReallyApp {
-  val config = new ReallyConfig(ConfigFactory.load) with IOConfig
+  val config = new ReallyConfig(ConfigFactory.load("really")) with IOConfig
   implicit val globals: ReallyIOGlobals = new DefaultReallyIOGlobals(config)
   globals.boot()
 
-  implicit val system = ActorSystem("really-io")
+  implicit val system = ActorSystem("ReallyIO", config.ioConfig)
   implicit val ec = system.dispatcher
   import globals._
 

@@ -14,11 +14,13 @@ sealed trait TokenId {
    * Returns true only if this instance id wildcard [[io.really.R.*]]
    */
   def isWildcard: Boolean
+
   /*
    * Returns [[scala.Some]] of [[scala.Long]] id if this instace is not a wildcard
    * otherwise, [[scala.None]] is returned
    */
   def asOpt: Option[Long]
+
   /*
    * Returns [[scala.Long]] id if this instance is not a wildcard,
    * may raise exception if this instance is wildcard.
@@ -35,6 +37,7 @@ sealed trait TokenId {
  * }}}
  */
 object R extends R(Nil) {
+
   /*
    * Represents the actual id of a specific object
    * {{{
@@ -44,8 +47,10 @@ object R extends R(Nil) {
    */
   final case class IdValue(id: Long) extends TokenId {
     def isWildcard = false
+
     lazy val asOpt = Some(id)
     lazy val get = id
+
     override def toString() = id.toString
   }
 
@@ -58,7 +63,9 @@ object R extends R(Nil) {
    */
   final case object * extends TokenId {
     lazy val asOpt = None
+
     def get = throw new NoSuchElementException
+
     override def isWildcard = true
   }
 
@@ -176,6 +183,7 @@ case class R private(tokens: Tokens) {
    * @return a new R with the new appended PathToken
    */
   def /(token: PathToken): R = copy(tokens = addToken(token, tokens))
+
   /*
    * Appends wildcard path token
    * {{{
@@ -185,7 +193,7 @@ case class R private(tokens: Tokens) {
    * @param collection collection name as a string
    * @return a new R with the a new appended PathToken of the collection name and a wildcard id
    */
-  def /(collection: CollectionName): R = / (PathToken(collection, R.*))
+  def /(collection: CollectionName): R = /(PathToken(collection, R.*))
 
   /*
    * Appends wildcard path token
@@ -196,7 +204,7 @@ case class R private(tokens: Tokens) {
    * @param collection collection name as a symbol
    * @return a new R with the a new appended PathToken of the collection name and a wildcard id
    */
-  def /(collection: Symbol): R = / (collection.name)
+  def /(collection: Symbol): R = /(collection.name)
 
   /*
    * Appends an id (ValueId or Wildcard) to last path token (head)
@@ -217,6 +225,7 @@ case class R private(tokens: Tokens) {
   }
 
   def head = tokens.head
+
   def tail = tokens.tail
 
   /*
@@ -232,13 +241,25 @@ case class R private(tokens: Tokens) {
 
   def actorFriendlyStr = this.toString.replace('/', '_')
 
-  def isObject: Boolean = this.head.id.asOpt map(_ => true) getOrElse(false)
+  def isObject: Boolean = this.head.id.asOpt map (_ => true) getOrElse (false)
 
   def isCollection: Boolean = !isObject
 
   def tailR: R = R(tail)
 
-  def inversedTail: R = R(tokens.dropRight(1))
+  def inversedTail: Option[R] = tokens match {
+    case Nil => None
+    case head :: Nil => Some(R)
+    case ts => Some(R(ts.dropRight(1)))
+  }
+
+  def headR: R = R(List(head))
+
+  def inversedHead: Option[R] = tokens match {
+    case Nil => None
+    case head :: Nil => Some(R / head)
+    case ts => Some(R / ts.last)
+  }
 
   override def toString() =
     tokens.foldRight("/")((acc, v) => v + acc.toString)
@@ -298,10 +319,10 @@ class RParser extends JavaTokenParsers {
     "/" ~> """\p{javaJavaIdentifierStart}[\p{javaJavaIdentifierPart}-]*""".r
 
   private val rev: Parser[Revision] =
-    ("/@" ~> """\p{Alnum}+""".r) ^^ { case rev => rev.toLong }
+    ("/@" ~> """\p{Alnum}+""".r) ^^ { case rev => rev.toLong}
 
   private val valueId: Parser[R.IdValue] =
-    ("/" ~> """\p{Alnum}+""".r) ^^ { case id => R.IdValue(id.toLong) }
+    ("/" ~> """\p{Alnum}+""".r) ^^ { case id => R.IdValue(id.toLong)}
 
   private val wildcardId: Parser[TokenId] =
     "/*" ^^^ R.*

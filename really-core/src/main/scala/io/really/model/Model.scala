@@ -89,7 +89,7 @@ package object model {
             ModelHookStatus.Succeeded
           }
           catch {
-            case te: ModelHookStatus.ValidationError => te.terminated
+            case te: ModelHookStatus.JSValidationError => te.terminated
             case se: ScriptException =>
               //TODO Log the error
               println("Validation Script Execution Error: " + se)

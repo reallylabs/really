@@ -1,14 +1,11 @@
 package io.really
 
 import scala.concurrent.duration._
-import akka.actor.{ ActorSystem, Actor, Props, ActorLogging, ActorRef, ActorRefFactory }
+import akka.actor.{Actor, Props, ActorLogging, ActorRef, ActorRefFactory}
 import akka.util.ByteString
-import akka.io.IO
 import spray.can.Http
-import spray.can.server.UHttp
 import spray.can.websocket
-import spray.can.websocket.frame.{ BinaryFrame, TextFrame }
-import spray.http.HttpRequest
+import spray.can.websocket.frame.{BinaryFrame, TextFrame}
 import spray.can.websocket.FrameCommandFailed
 import spray.routing._
 import spray.http._
@@ -29,11 +26,14 @@ class ReallyHttpService(implicit globals: ReallyIOGlobals) extends Actor with Ac
 }
 
 object ServiceWorker {
+
   case class Push(msg: String)
+
   def props(serverConnection: ActorRef) = Props(classOf[ServiceWorker], serverConnection)
 }
 
 class ServiceWorker(val serverConnection: ActorRef) extends HttpServiceActor with websocket.WebSocketServerWorker with HelloWorldRoutes {
+
   import ServiceWorker._
 
   override def receive = handshaking orElse restRoutes orElse closeLogic
@@ -70,11 +70,16 @@ trait HelloWorldRoutes extends HttpService {
   val myRoute =
     path("") {
       get {
-        respondWithMediaType(`text/html`) { // XML is marshalled to `text/xml` by default, so we simply override here
+        respondWithMediaType(`text/html`) {
+          // XML is marshalled to `text/xml` by default, so we simply override here
           complete {
             <html>
               <body>
-                <h1>Say hello to <i>spray-routing</i> on <i>spray-can</i>!</h1>
+                <h1>Say hello to
+                  <i>spray-routing</i>
+                  on
+                  <i>spray-can</i>
+                  !</h1>
               </body>
             </html>
           }

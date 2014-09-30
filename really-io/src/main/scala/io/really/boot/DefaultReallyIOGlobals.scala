@@ -1,12 +1,6 @@
 package io.really.boot
 
-import java.util.concurrent.atomic.AtomicReference
-import akka.actor._
 import io.really._
-import akka.persistence.journal.leveldb.{SharedLeveldbJournal, SharedLeveldbStore}
-import io.really.defaults.{DefaultReceptionist, DefaultRequestActor}
-import play.api.libs.json.JsObject
-import io.really.quickSand.QuickSand
 
 import java.security.{ SecureRandom, KeyStore }
 import javax.net.ssl.{ KeyManagerFactory, SSLContext, TrustManagerFactory }

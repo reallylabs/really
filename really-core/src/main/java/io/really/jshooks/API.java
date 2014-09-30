@@ -4,13 +4,13 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 import io.really.model.ModelHookStatus.Terminated;
-import io.really.model.ModelHookStatus.ValidationError;
+import io.really.model.ModelHookStatus.JSValidationError;
 import scala.Console;
 
 public class API {
     public static BiConsumer<Integer, String> cancel =
             (Integer code, String message) -> {
-                throw new ValidationError(new Terminated(code, message));
+                throw new JSValidationError(new Terminated(code, message));
             };
 
     //todo should be replaced by a user-based log where the user can access that from the web interface

@@ -27,4 +27,10 @@ class HelloWorldRoutesSpec extends FlatSpec with Matchers with ScalatestRouteTes
     }
   }
 
+  override def afterAll: Unit = {
+    super.afterAll()
+    system.shutdown()
+    system.awaitTermination()
+  }
+
 }
