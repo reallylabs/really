@@ -35,7 +35,7 @@ class PushMessageWritesSpec extends FlatSpec with Matchers {
       R("/users/131232344/"),
       24,
       List(
-        FieldUpdatedOp("name", JsString("Ahmed"), UpdateCommand.Set, None, R("/users/131232344/"))))
+        FieldUpdatedOp("name", UpdateCommand.Set, Some(JsString("Ahmed")), R("/users/131232344/"))))
 
     assertResult(Json.obj(
       "r" -> R("/users/131232344/"),
@@ -43,9 +43,8 @@ class PushMessageWritesSpec extends FlatSpec with Matchers {
       "evt" -> "updated",
       "body" -> Json.obj(
         "name" -> Json.obj(
-          "value" -> "Ahmed",
           "op" -> "set",
-          "opValue" -> JsNull,
+          "opValue" -> "Ahmed",
           "opBy" -> R("/users/131232344/")))))(msg)
   }
 

@@ -8,7 +8,9 @@ package object protocol {
   /*
    * Represents request options on get request
    */
-  case class GetOpts(fields: Set[String] = Set.empty) //TODO change fields type
+  case class GetOpts(fields: Set[String] = Set.empty)
+
+  //TODO change fields type
   /*
    * Represent implicit JSON Format for GetOpts
    */
@@ -16,28 +18,19 @@ package object protocol {
     implicit val fmt = Json.format[GetOpts]
   }
 
-  /*
-   * Represents request options on update request
-   */
-  case class UpdateOpts(transaction: Boolean)
-  /*
-   * Represent implicit JSON Format for UpdateOpts
-   */
-  object UpdateOpts {
-    implicit val fmt = Json.format[UpdateOpts]
-  }
 
   /*
    * Represents request options on read request
    */
   case class ReadOpts(fields: Set[String], //TODO change fields type
-                  query: JsObject, //TODO should change to be Query
-                  limit: Int,
-                  sort: String,
-                  paginationToken: String,
-                  skip: Int = 0,
-                  includeTotalCount: Boolean,
-                  subscribe: Boolean)
+                      query: JsObject, //TODO should change to be Query
+                      limit: Int,
+                      sort: String,
+                      paginationToken: String,
+                      skip: Int = 0,
+                      includeTotalCount: Boolean,
+                      subscribe: Boolean)
+
   /*
    * Represent implicit JSON Format for ReadOpts
    */
@@ -47,20 +40,32 @@ package object protocol {
 
 
   sealed trait UpdateCommand
+
   /*
    * Represent Update Operation
    */
   object UpdateCommand {
+
     case object AddNumber extends UpdateCommand
+
     case object Push extends UpdateCommand
+
     case object Pull extends UpdateCommand
+
     case object Set extends UpdateCommand
+
     case object AddToSet extends UpdateCommand
+
+    case object RemoveAt extends UpdateCommand
+
+    case object InsertAt extends UpdateCommand
   }
+
   /*
    * Represent implicit format for Update operation
    */
   implicit object UpdateOperationFmt extends Format[UpdateCommand] {
+
     import UpdateCommand._
 
     def reads(json: JsValue) = json match {
@@ -85,6 +90,7 @@ package object protocol {
    * Represents operation on update request
    */
   case class UpdateOp(op: UpdateCommand, key: String, value: JsValue, opArgs: Option[JsObject] = None)
+
   /*
    * Represent implicit JSON Format for UpdateOp
    */
@@ -96,18 +102,24 @@ package object protocol {
    * Represent body request for update request
    */
   case class UpdateBody(ops: List[UpdateOp])
+
   /*
    * Represent implicit JSON Format for UpdateBody
    */
   object UpdateBody {
-    implicit val fmt = Json.format[UpdateBody]
+    val write = Json.writes[UpdateBody]
+    val read: Reads[UpdateBody] = Json.reads[UpdateBody].filterNot(ValidationError("validate.error.unexpected.value",UpdateBody(List.empty)))(_ == UpdateBody(List.empty))
+    implicit val fmt = Format[UpdateBody](read, write)
+
   }
 
 
   /*
    * Represents subscription operation for one object on subscribe request
    */
-  case class SubscriptionOp(r: R, rev: Int, fields: Set[String] = Set.empty) //TODO change fields type
+  case class SubscriptionOp(r: R, rev: Int, fields: Set[String] = Set.empty)
+
+  //TODO change fields type
   /*
    * Represent implicit JSON Format for SubscriptionOp
    */
@@ -119,6 +131,7 @@ package object protocol {
    * Represent body request for subscribe request
    */
   case class SubscriptionBody(subscriptions: List[SubscriptionOp])
+
   /*
    * Represent implicit JSON Format for SubscriptionBody
    */
@@ -129,7 +142,9 @@ package object protocol {
   /*
    * Represents unsubscription operation for one object on unsubscribe request
    */
-  case class UnsubscriptionOp(r: R, fields: Set[String] = Set.empty) //TODO change fields type
+  case class UnsubscriptionOp(r: R, fields: Set[String] = Set.empty)
+
+  //TODO change fields type
   /*
    * Represent implicit JSON Format for SubscriptionOp
    */
@@ -141,6 +156,7 @@ package object protocol {
    * Represent body request for unsubscribe request
    */
   case class UnsubscriptionBody(subscriptions: List[UnsubscriptionOp])
+
   /*
    * Represent implicit JSON Format for SubscriptionBody
    */
@@ -151,7 +167,9 @@ package object protocol {
   /*
    * Represent subscription result
    */
-  case class SubscriptionOpResult(r: R, fields: Set[String]) //TODO change fields type
+  case class SubscriptionOpResult(r: R, fields: Set[String])
+
+  //TODO change fields type
   /*
    * Represent implicit JSON Format for subscription operation result
    */
@@ -163,6 +181,7 @@ package object protocol {
    * Represent object data and meta data related to this object on read response
    */
   case class ReadItem(body: JsObject, meta: JsObject)
+
   /*
    * Represent implicit JSON Format for ReadItem
    */
@@ -174,6 +193,7 @@ package object protocol {
    * Represent tokens for read response
    */
   case class ReadTokens(nextToken: String, prevToken: String)
+
   /*
    * Represent implicit JSON Format for ReadTokens
    */
@@ -185,6 +205,7 @@ package object protocol {
    * Represent response body for read response
    */
   case class ReadResponseBody(tokens: Option[ReadTokens], totalResults: Option[Int], items: List[ReadItem])
+
   /*
    * Represent implicit JSON Format for Read Response Body
    */
@@ -196,11 +217,13 @@ package object protocol {
    * Represent Snapshot for specific field
    */
   case class FieldSnapshot(key: String, value: JsValue)
+
   /*
    * Represent implicit JSON Format for FieldSnapshot
    */
   object FieldSnapshot {
     val reads = Json.reads[FieldSnapshot]
+
     object FieldSnapshotWrites extends Writes[FieldSnapshot] {
       def writes(f: FieldSnapshot): JsValue =
         Json.obj(f.key -> Json.obj("value" -> f.value))
@@ -211,22 +234,24 @@ package object protocol {
     object FieldSnapshotListWrites extends Writes[List[FieldSnapshot]] {
       def writes(l: List[FieldSnapshot]): JsValue =
         Json.toJson(l.map(f => f.key -> Json.obj("value" -> f.value)).toMap)
-     }
+    }
+
   }
 
   /*
    * Represent update operation that has processed on specific field
    */
-  case class FieldUpdatedOp(key: String, value: JsValue, op: UpdateCommand, opValue: Option[JsValue], opBy: R)
+  case class FieldUpdatedOp(key: String, op: UpdateCommand, opValue: Option[JsValue], opBy: R)
+
   /*
   * Represent implicit JSON Format for FieldSnapshot
   */
   object FieldUpdatedOp {
     val reads = Json.reads[FieldUpdatedOp]
+
     object FieldUpdatedOpWrites extends Writes[FieldUpdatedOp] {
       def writes(o: FieldUpdatedOp): JsValue =
         Json.obj(o.key -> Json.obj(
-          "value" -> o.value,
           "op" -> o.op,
           "opValue" -> o.opValue,
           "opBy" -> o.opBy
@@ -238,12 +263,13 @@ package object protocol {
     object FieldUpdatedOpListWrites extends Writes[List[FieldUpdatedOp]] {
       def writes(l: List[FieldUpdatedOp]): JsValue =
         Json.toJson(l.map(o => o.key -> Json.obj(
-          "value" -> o.value,
           "op" -> o.op,
           "opValue" -> o.opValue,
           "opBy" -> o.opBy
         )).toMap)
     }
+
   }
 
 }
+

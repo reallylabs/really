@@ -54,7 +54,7 @@ package object really {
 
     case class Get(ctx: RequestContext, r: R, cmdOpts: GetOpts) extends Request
 
-    case class Update(ctx: RequestContext, r: R, rev: Int, cmdOpts: UpdateOpts, body: UpdateBody) extends Request
+    case class Update(ctx: RequestContext, r: R, rev: Int, body: UpdateBody) extends Request
 
     case class Read(ctx: RequestContext, r: R, cmdOpts: ReadOpts) extends Request
 
@@ -78,7 +78,7 @@ package object really {
     case class GetResult(body: JsObject, fields: Set[String]) extends Response
 
     //TODO change fields type
-    case class UpdateResult(snapshots: List[FieldSnapshot], rev: Int) extends Response
+    case class UpdateResult(rev: Int) extends Response
 
     case class ReadResult(body: ReadResponseBody, subscription: Option[String]) extends Response
 

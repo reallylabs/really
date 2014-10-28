@@ -64,11 +64,9 @@ object ProtocolFormats {
      * JSON Reads for [[io.really.Request.Update]] Request
      */
     object Update {
-      val cmdOptsReads = (__ \ 'cmdOpts).read[UpdateOpts]
       val bodyReads = (__ \ 'body).read[UpdateBody]
-
       def read(ctx: RequestContext) =
-        (rReads and revReads and cmdOptsReads and bodyReads)((r, rev, cmdOpts, body) => Request.Update(ctx, r, rev, cmdOpts, body))
+        (rReads and revReads and bodyReads)((r, rev, body) => Request.Update(ctx, r, rev, body))
     }
 
     /*
@@ -160,7 +158,7 @@ object ProtocolFormats {
           Tag -> request.ctx.tag,
           R -> request.r,
           Revision -> response.rev,
-          Body -> Json.toJson(response.snapshots)(FieldSnapshot.FieldSnapshotListWrites)
+          Body -> Json.obj()
         )
     }
 

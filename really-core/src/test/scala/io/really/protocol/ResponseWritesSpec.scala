@@ -78,23 +78,18 @@ class ResponseWritesSpec extends FlatSpec with Matchers {
       ctx,
       R("/users/12345654321/"),
       23,
-      UpdateOpts(true),
       UpdateBody(List(
         UpdateOp(UpdateCommand.Set, "firstName", JsString("Ahmed")),
         UpdateOp(UpdateCommand.Set, "lastName", JsString("Mahmoud")))))
 
-    val response = Response.UpdateResult(List(
-      FieldSnapshot("firstName", JsString("Ahmed")),
-      FieldSnapshot("lastName", JsString("Mahmoud"))), 24)
+    val response = Response.UpdateResult(24)
 
     val obj = ProtocolFormats.ResponseWrites.Update.write(request, response)
 
     assertResult(Json.obj("tag" -> ctx.tag,
       "r" -> "/users/12345654321/",
       "rev" -> 24,
-      "body" -> Json.obj(
-        "firstName" -> Json.obj("value" -> "Ahmed"),
-        "lastName" -> Json.obj("value" -> "Mahmoud"))))(obj)
+      "body" -> Json.obj()))(obj)
   }
 
   "Read writes" should "write read response schema" in {

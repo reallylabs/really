@@ -193,7 +193,6 @@ class RequestReadsSpec extends FlatSpec with Matchers {
       ctx,
       R("/users/12345654321/"),
       23,
-      UpdateOpts(true),
       UpdateBody(List(
         UpdateOp(UpdateCommand.Set, "firstname", JsString("Ahmed")),
         UpdateOp(UpdateCommand.Set, "lastname", JsString("Mahmoud"))
@@ -242,7 +241,20 @@ class RequestReadsSpec extends FlatSpec with Matchers {
       "body" -> Json.obj())
 
     val result = req.validate(ProtocolFormats.RequestReads.Update.read(ctx))
+    assert(result.isError == true)
+  }
 
+  it should "return JsError if you sent request with ops but empty list" in {
+    val req = Json.obj(
+      "tag" -> 1,
+      "cmd" -> "update",
+      "cmdOpts" -> Json.obj("transaction" -> true),
+      "r" -> "/users/12345654321/",
+      "rev" -> 23,
+      "body" -> Json.obj(
+        "ops" -> List()))
+
+    val result = req.validate(ProtocolFormats.RequestReads.Update.read(ctx))
     assert(result.isError == true)
   }
 
