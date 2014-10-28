@@ -1,3 +1,6 @@
+/**
+ * Copyright (C) 2014-2015 Really Inc. <http://really.io>
+ */
 package io.really
 
 import play.api.data.validation.ValidationError
@@ -8,9 +11,7 @@ package object protocol {
   /*
    * Represents request options on get request
    */
-  case class GetOpts(fields: Set[String] = Set.empty)
-
-  //TODO change fields type
+  case class GetOpts(fields: Set[String] = Set.empty) //TODO change fields type
   /*
    * Represent implicit JSON Format for GetOpts
    */
@@ -113,13 +114,11 @@ package object protocol {
 
   }
 
-
   /*
    * Represents subscription operation for one object on subscribe request
    */
-  case class SubscriptionOp(r: R, rev: Int, fields: Set[String] = Set.empty)
+  case class SubscriptionOp(r: R, rev: Int, fields: Set[String] = Set.empty) //TODO change fields type
 
-  //TODO change fields type
   /*
    * Represent implicit JSON Format for SubscriptionOp
    */

@@ -1,7 +1,12 @@
+/**
+ * Copyright (C) 2014-2015 Really Inc. <http://really.io>
+ */
 import sbt._
 import Keys._
 import com.typesafe.sbt.SbtMultiJvm
 import com.typesafe.sbt.SbtMultiJvm.MultiJvmKeys.MultiJvm
+import play.Play.autoImport._
+
 
 object CoreBuild {
 
@@ -9,6 +14,7 @@ object CoreBuild {
 
   val settings = BuildSettings.default ++ SbtMultiJvm.multiJvmSettings ++ Seq(
     libraryDependencies ++= Seq(
+      parserCombinator,
       scalatest,
       Akka.actor,
       Akka.testKit,
@@ -17,8 +23,7 @@ object CoreBuild {
       Akka.cassandraPersistence,
       logback,
       snakeyaml,
-      Playframework.functional,
-      Playframework.json,
+      json,
       Akka.multiNode
     ),
     // make sure that MultiJvm test are compiled by the default test compilation

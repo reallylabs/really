@@ -1,3 +1,6 @@
+/**
+ * Copyright (C) 2014-2015 Really Inc. <http://really.io>
+ */
 package io.really
 
 import play.api.data.validation.ValidationError
@@ -239,27 +242,24 @@ case class R private(tokens: Tokens) {
    */
   def looksLike(r: R): Boolean = this.skeleton == r.skeleton
 
+  /*
+   * Extract Actor name form R
+   */
   def actorFriendlyStr = this.toString.replace('/', '_')
 
+  /*
+   * Tests whether this R is represent object.
+   */
   def isObject: Boolean = this.head.id.asOpt map (_ => true) getOrElse (false)
 
+  /*
+   * Tests whether this R is represent collection.
+   */
   def isCollection: Boolean = !isObject
 
   def tailR: R = R(tail)
 
-  def inversedTail: Option[R] = tokens match {
-    case Nil => None
-    case head :: Nil => Some(R)
-    case ts => Some(R(ts.dropRight(1)))
-  }
-
   def headR: R = R(List(head))
-
-  def inversedHead: Option[R] = tokens match {
-    case Nil => None
-    case head :: Nil => Some(R / head)
-    case ts => Some(R / ts.last)
-  }
 
   override def toString() =
     tokens.foldRight("/")((acc, v) => v + acc.toString)

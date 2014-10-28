@@ -1,12 +1,18 @@
+/**
+ * Copyright (C) 2014-2015 Really Inc. <http://really.io>
+ */
 import sbt._
 
 object Dependencies {
-  val scalatest = "org.scalatest" %% "scalatest" % "2.1.5" % "test"
+  val scalatest = "org.scalatest" %% "scalatest" % "2.2.1" % "test"
   val logback = "ch.qos.logback" % "logback-classic" % "1.1.2"
   val wsClient = "io.backchat.hookup" %% "hookup" % "0.2.3"
   val snakeyaml = "org.yaml" % "snakeyaml" % "1.14"
   val commonsIO= "commons-io" % "commons-io" % "2.4"
 
+  val parserCombinator = "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.2"
+
+  val playScalaTest = "org.scalatestplus" %% "play" % "1.2.0" % "test"
   object Akka {
     private val akkaBase = "com.typesafe.akka"
     private val version = "2.3.6"
@@ -24,25 +30,15 @@ object Dependencies {
 //    val kafkaPersistence = "com.github.krasserm" %% "akka-persistence-kafka" % "0.3.2"
   }
 
-  object Spray {
-    private val version = "1.3.2-20140909" // Same version as used in wandoulabs websocket
-    private val sprayBase = "io.spray"
-    private val wandoulabsWebsocketVersion = "0.1.3"
-
-    val can = sprayBase %% "spray-can" % version
-    val routing = sprayBase %% "spray-routing" % version
-    val testkit = sprayBase %% "spray-testkit" % version
-
-    val websocket = "com.wandoulabs.akka" %% "spray-websocket" % wandoulabsWebsocketVersion
-  }
-
-  object Playframework {
-    private val version = "2.3.4"
-    private val playBase = "com.typesafe.play"
-
-    val json = playBase %% "play-json" % version
-    val functional = playBase %% "play-functional" % version
-
-  }
+//  object Playframework {
+//    private val version = "2.3.6"
+//    private val playBase = "com.typesafe.play"
+//
+////    val json = playBase %% "play-json" % version
+////    val ws = playBase %% "play-ws" % version
+////    val cache = playBase %% "play-cache" % version
+////    val functional = playBase %% "play-functional" % version
+//
+//  }
 
 }

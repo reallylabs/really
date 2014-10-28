@@ -1,3 +1,6 @@
+/**
+ * Copyright (C) 2014-2015 Really Inc. <http://really.io>
+ */
 package io.really.protocol
 
 import io.really.Result._
@@ -158,8 +161,7 @@ object ProtocolFormats {
         Json.obj(
           Tag -> request.ctx.tag,
           R -> request.r,
-          Revision -> response.rev,
-          Body -> Json.obj()
+          Revision -> response.rev
         )
     }
 

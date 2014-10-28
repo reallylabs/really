@@ -1,12 +1,18 @@
+/**
+ * Copyright (C) 2014-2015 Really Inc. <http://really.io>
+ */
 package io.really.model
 
 import akka.actor.Props
 import akka.persistence.Update
 import akka.testkit.TestActorRef
-import io.really.{R, BaseActorSpec}
+import com.typesafe.config.ConfigFactory
+import io.really.{TestConf, ReallyConfig, R, BaseActorSpec}
 
 
-class PersistentModelStoreSpec extends BaseActorSpec {
+class PersistentModelStoreSpec(conf: ReallyConfig) extends BaseActorSpec(conf) {
+
+  def this() = this(new ReallyConfig(ConfigFactory.parseString("akka.persistence.view.auto-update-interval = 1s").withFallback(TestConf.getConfig().getRawConfig())))
 
   val persistentModel = system.actorOf(Props(new PersistentModelStore(globals)))
 
@@ -36,62 +42,44 @@ class PersistentModelStoreSpec extends BaseActorSpec {
   }
 
   "Persistent Model Store" should "add models to state if receive updateModels" in {
-    //send GetModel to ModelRegistryRouter
-    modelRouter ! ModelRegistryRouter.CollectionActorMessage.GetModel(profilesR)
-
-    expectMsg(ModelRegistryRouter.ModelResult.ModelNotFound)
-
     //send update models to persistent model
     persistentModel ! PersistentModelStore.UpdateModels(List(profileModel))
 
     //force view to update state
     modelRouter ! Update(await = true)
 
-    Thread.sleep(10000)
+    Thread.sleep(4000)
 
     //send GetModel to ModelRegistryRouter
     modelRouter ! ModelRegistryRouter.CollectionActorMessage.GetModel(profilesR)
 
     expectMsg(ModelRegistryRouter.ModelResult.ModelObject(profileModel))
-  }
 
-  it should "add models to state if receive updateModels second time" in {
-    //send update models to persistent model
+
+    //send update models to persistent model with new models
     persistentModel ! PersistentModelStore.UpdateModels(List(profileModel, boardModel))
 
     //force view to update state
     modelRouter ! Update(await = true)
 
-    Thread.sleep(10000)
+    Thread.sleep(4000)
 
     //send GetModel for board to ModelRegistryRouter
     modelRouter ! ModelRegistryRouter.CollectionActorMessage.GetModel(boardsR)
 
     expectMsg(ModelRegistryRouter.ModelResult.ModelObject(boardModel))
-  }
 
-  it should "update model that changed" in {
-    //send update models to persistent model
-    persistentModel ! PersistentModelStore.UpdateModels(List(newProfileModel, boardModel))
+    //send update models to persistent model with changed models and remove some models
+    persistentModel ! PersistentModelStore.UpdateModels(List(newProfileModel))
 
     //force view to update state
     modelRouter ! Update(await = true)
 
-    Thread.sleep(10000)
+    Thread.sleep(4000)
 
     expectMsg(ModelRegistryRouter.ModelOperation.ModelUpdated(profilesR, newProfileModel))
-  }
 
-  it should "remove model from state that deleted" in {
-    //send update models to persistent model
-    persistentModel ! PersistentModelStore.UpdateModels(List(boardModel))
-
-    //force view to update state
-    modelRouter ! Update(await = true)
-
-    Thread.sleep(10000)
-
-    expectMsg(ModelRegistryRouter.ModelOperation.ModelDeleted(R / "users"))
+    expectMsg(ModelRegistryRouter.ModelOperation.ModelDeleted(boardsR))
   }
 
   it should "calculate changed models" in {

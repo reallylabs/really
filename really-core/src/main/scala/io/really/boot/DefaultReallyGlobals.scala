@@ -1,3 +1,6 @@
+/**
+ * Copyright (C) 2014-2015 Really Inc. <http://really.io>
+ */
 package io.really.boot
 
 import java.util.concurrent.atomic.AtomicReference
@@ -29,7 +32,7 @@ class DefaultReallyGlobals(override val config: ReallyConfig) extends ReallyGlob
   override val modelRegistryRouterProps = Props(new ModelRegistryRouter(this))
   override val collectionActorProps = Props(classOf[CollectionActor], this)
 
-  override def boot() = {
+  override def boot(): Unit = {
     actorSystem_.set(ActorSystem("Really", config.coreConfig))
     receptionist_.set(actorSystem.actorOf(receptionistProps, "requests"))
     quickSand_.set(new QuickSand(config, actorSystem))
@@ -40,5 +43,10 @@ class DefaultReallyGlobals(override val config: ReallyConfig) extends ReallyGlob
       entryProps = Some(collectionActorProps),
       idExtractor = collectionSharding.idExtractor,
       shardResolver = collectionSharding.shardResolver))
+  }
+
+  override def shutdown(): Unit = {
+    actorSystem.shutdown()
+    actorSystem.awaitTermination()
   }
 }

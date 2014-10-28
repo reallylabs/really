@@ -1,3 +1,6 @@
+/**
+ * Copyright (C) 2014-2015 Really Inc. <http://really.io>
+ */
 package io.really
 
 import java.util.concurrent.atomic.AtomicReference
@@ -38,5 +41,10 @@ class TestReallyGlobals(override val config: ReallyConfig, override val actorSys
       entryProps = Some(collectionActorProps),
       idExtractor = collectionSharding.idExtractor,
       shardResolver = collectionSharding.shardResolver))
+  }
+
+  override def shutdown() = {
+    actorSystem.shutdown()
+    actorSystem.awaitTermination()
   }
 }

@@ -1,3 +1,6 @@
+/**
+ * Copyright (C) 2014-2015 Really Inc. <http://really.io>
+ */
 package io.really.model
 
 import akka.actor.{ActorRef, ActorLogging, Actor}
@@ -12,32 +15,21 @@ import akka.persistence.PersistentView
 class ModelRegistryRouter(globals: ReallyGlobals) extends PersistentView with ActorLogging {
   import ModelRegistryRouter._
 
-  override def persistenceId: String = "persistent-model"
-  override def viewId: String = "model-registry-router"
+  override def persistenceId: String = "model-registry-persistent"
+  override def viewId: String = "model-registry-view"
 
-  private var models: List[Model] = List.empty
   private var routingTable: Map[R, Model] = Map.empty
   private var collectionActors: Map[R, Set[ActorRef]] = Map.empty
 
-  def constructRoutingTable(models: List[Model]): Map[R, Model] = {
-    models.map(m => (m.r, m)).toMap
-  }
-
-  private def validR(r: R): Boolean = {
-    routingTable.keySet.exists(k => k == r.skeleton)
-  }
-
-  def updateModelsState(updatedModels: List[Model]): Unit = {
-    routingTable = constructRoutingTable(models)
-  }
+  private def validR(r: R): Boolean =
+    routingTable.contains(r.skeleton)
 
   def receive: Receive = handleEvent orElse handleCollectionRequest orElse handleRequest
 
   def handleEvent: Receive = {
     case PersistentModelStore.UpdatedModels(updatedModels) =>
-      val rs = updatedModels.map(m => m.r)
-      models = models.filter(m => !rs.contains(m.r)) ++ updatedModels
-      routingTable = constructRoutingTable(models)
+      val rs = updatedModels.map(_.r)
+      routingTable ++= updatedModels.map(m => (m.r, m)).toMap
       rs.foreach { r =>
         collectionActors.getOrElse(r, List.empty).foreach { actor =>
           actor ! ModelOperation.ModelUpdated(r, routingTable(r))
@@ -45,44 +37,33 @@ class ModelRegistryRouter(globals: ReallyGlobals) extends PersistentView with Ac
       }
     case PersistentModelStore.DeletedModels(removedModels) =>
       val rs = removedModels.map(m => m.r)
-      models = models.diff(removedModels)
       rs.foreach { r =>
         collectionActors.getOrElse(r, List.empty).foreach { actor =>
           context.unwatch(actor)
           actor ! ModelOperation.ModelDeleted(r)
         }
       }
-      routingTable = constructRoutingTable(models)
+      routingTable --= removedModels.map(_.r)
       collectionActors = collectionActors.filterNot(c => rs.contains(c._1))
     case PersistentModelStore.AddedModels(newModels) =>
-      models ++= newModels
-      routingTable = constructRoutingTable(models)
+      routingTable ++= newModels.map(m => (m.r, m)).toMap
   }
 
   def handleCollectionRequest: Receive = {
+    case CollectionActorMessage.GetModel(r) if validR(r) =>
+      val collectionActor = sender
+      collectionActors += (r -> (collectionActors.getOrElse(r, Set.empty) + collectionActor))
+      context.watch(collectionActor)
+      collectionActor ! ModelResult.ModelObject(routingTable(r))
     case CollectionActorMessage.GetModel(r) =>
-      val collectionActor = sender()
-      if(validR(r)){
-        collectionActors += (r -> (collectionActors.getOrElse(r, Set.empty) + collectionActor))
-        context.watch(collectionActor)
-        collectionActor ! ModelResult.ModelObject(routingTable(r))
-      }
-      else collectionActor ! ModelResult.ModelNotFound
+      sender ! ModelResult.ModelNotFound
   }
 
   def handleRequest: Receive = {
-    case req @ Request.Create(_, r, _) if validR(r) =>
+    case req: Request with RoutableToCollectionActor if validR(req.r) =>
       globals.collectionActor forward req
-    case Request.Create(_, r, _) =>
-      sender ! ModelRouterResponse.RNotFound(r)
-    case req @ Request.Update(_, r, _, _) if validR(r) =>
-      globals.collectionActor forward req
-    case Request.Update(_, r, _, _) =>
-      sender ! ModelRouterResponse.RNotFound(r)
-    case req @ Request.Delete(_, r) if validR(r) =>
-      globals.collectionActor forward req
-    case req @ Request.Delete(_, r) =>
-      sender ! ModelRouterResponse.RNotFound(r)
+    case req: Request with RoutableToCollectionActor =>
+      sender ! ModelRouterResponse.RNotFound(req.r)
     case req: Request =>
       sender ! ModelRouterResponse.UnsupportedCmd(req.getClass.getName)
   }

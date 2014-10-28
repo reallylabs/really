@@ -1,3 +1,6 @@
+/**
+ * Copyright (C) 2014-2015 Really Inc. <http://really.io>
+ */
 import scala.language.implicitConversions
 
 package io {
@@ -31,6 +34,8 @@ package object really {
     def config: ReallyConfig
 
     def boot(): Unit
+
+    def shutdown(): Unit
 
     def requestProps(context: RequestContext, replyTo: ActorRef, body: JsObject): Props
 
@@ -101,7 +106,7 @@ package object really {
     case class GetResult(body: JsObject, fields: Set[String]) extends Result
 
     //TODO change fields type
-    case class UpdateResult(snapshots: List[FieldSnapshot], rev: Long) extends Result
+    case class UpdateResult(rev: Long) extends Result
 
     case class ReadResult(body: ReadResponseBody, subscription: Option[String]) extends Result
 

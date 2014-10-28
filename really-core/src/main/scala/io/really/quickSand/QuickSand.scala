@@ -1,3 +1,7 @@
+/**
+ * Copyright (C) 2014-2015 Really Inc. <http://really.io>
+ */
+
 /** Inspired by Snowflake Twitter */
 
 package io.really.quickSand

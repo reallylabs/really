@@ -1,6 +1,8 @@
+/**
+ * Copyright (C) 2014-2015 Really Inc. <http://really.io>
+ */
 package io.really
 
-import akka.actor.ActorSystem
 import com.typesafe.config.{ConfigFactory, Config}
 import org.scalatest.{ BeforeAndAfterAll, WordSpecLike }
 import org.scalatest.Matchers

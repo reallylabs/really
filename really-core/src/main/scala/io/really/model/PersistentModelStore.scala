@@ -1,3 +1,6 @@
+/**
+ * Copyright (C) 2014-2015 Really Inc. <http://really.io>
+ */
 package io.really.model
 
 import io.really._
@@ -6,7 +9,7 @@ import akka.persistence.{SnapshotOffer, PersistentActor}
 class PersistentModelStore(globals: ReallyGlobals) extends PersistentActor {
   import PersistentModelStore._
 
-  override def persistenceId = "persistent-model"
+  override def persistenceId = "model-registry-persistent"
 
   var state: Models = List.empty
 
@@ -38,8 +41,8 @@ class PersistentModelStore(globals: ReallyGlobals) extends PersistentActor {
 
   def receiveCommand: Receive = {
     case UpdateModels(models) =>
-      val deletedModels = state.diff(models)
-      val addedModels = models.diff(state)
+      val deletedModels = state.filterNot(m => models.map(_.r).contains(m.r))
+      val addedModels = models.filterNot(m => state.map(_.r).contains(m.r))
       val changedModels = getChangedModels(models, state)
       if(!changedModels.isEmpty)
         persist(UpdatedModels(changedModels))(_ => updateModels(changedModels))

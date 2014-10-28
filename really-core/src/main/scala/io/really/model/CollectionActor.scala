@@ -1,3 +1,6 @@
+/**
+ * Copyright (C) 2014-2015 Really Inc. <http://really.io>
+ */
 package io.really.model
 
 import akka.actor._
@@ -219,7 +222,7 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor with Actor
           case ValidationResponse.ValidData(jsObj) =>
             persistEvent(Event.Updated(updateReq.r, updateReq.body.ops, updateReq.rev,
               model.collectionMeta.version, updateReq.ctx), jsObj)
-            UpdateResult(getUpdateSnapshots(obj, updateReq.body.ops), rev(jsObj))
+            UpdateResult(rev(jsObj))
           case ValidationResponse.JSValidationFailed(reason) => JSValidationFailed(reason)
           case ValidationResponse.ModelValidationFailed(error) => ModelValidationFailed(error)
         }
@@ -254,12 +257,6 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor with Actor
   private def getLastTouched(ops: List[UpdateOp], newRev: Revision) =
     ops.foldLeft(Map.empty[FieldKey, Revision]) {
       case (lastTouched, opBody) => lastTouched + (opBody.key -> newRev)
-    }
-
-  private def getUpdateSnapshots(obj: JsObject, ops: List[UpdateOp]): List[FieldSnapshot] =
-    ops.foldLeft(List.empty[FieldSnapshot]) {
-      case (snapshots, opBody) =>
-        FieldSnapshot(opBody.key, obj \ opBody.key) :: snapshots
     }
 
   private def applyCreate(create: Create, model: Model): Response =

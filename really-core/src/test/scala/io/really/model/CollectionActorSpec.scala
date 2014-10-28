@@ -1,3 +1,6 @@
+/**
+ * Copyright (C) 2014-2015 Really Inc. <http://really.io>
+ */
 package io.really.model
 
 import akka.actor.{PoisonPill, Props}
@@ -307,10 +310,7 @@ class CollectionActorSpec extends BaseActorSpec {
     probe.expectMsgType[State]
     val body = UpdateBody(List(UpdateOp(UpdateCommand.Set, "name", JsString("Amal"))))
     globals.collectionActor.tell(Update(ctx, r, 1l, body), probe.ref)
-    val em = probe.expectMsgType[UpdateResult]
-    em.snapshots.size shouldEqual 1
-    em.snapshots(0).key shouldEqual "name"
-    em.snapshots(0).value.as[String] shouldBe "Amal"
+    probe.expectMsgType[UpdateResult]
   }
 
   it should "fail the data revision is lower than the object revision" in {
@@ -366,10 +366,7 @@ class CollectionActorSpec extends BaseActorSpec {
     probe.expectMsgType[State]
     val body = UpdateBody(List(UpdateOp(UpdateCommand.AddNumber, "age", JsNumber(1))))
     globals.collectionActor.tell(Update(ctx, r, 1l, body), probe.ref)
-    val em = probe.expectMsgType[UpdateResult]
-    em.snapshots.size shouldEqual 1
-    em.snapshots(0).key shouldEqual "age"
-    em.snapshots(0).value.as[JsNumber] shouldEqual JsNumber(28)
+    probe.expectMsgType[UpdateResult]
   }
 
   it should "update the calculated Fields too" in {
@@ -381,9 +378,7 @@ class CollectionActorSpec extends BaseActorSpec {
     res.body \ "renual" shouldBe JsNumber(2020)
     val body = UpdateBody(List(UpdateOp(UpdateCommand.Set, "production", JsNumber(2012))))
     globals.collectionActor.tell(Update(ctx, r, 1l, body), probe.ref)
-    val em = probe.expectMsgType[UpdateResult]
-    em.snapshots.size shouldEqual 1
-    em.snapshots(0).value shouldEqual JsNumber(2012)
+    probe.expectMsgType[UpdateResult]
     globals.collectionActor.tell(GetState(r), probe.ref)
     val state = probe.expectMsgType[State]
     state.obj shouldEqual Json.obj("model" -> "Mitsubishi Lancer", "production" -> 2012, "renual" -> 2020,

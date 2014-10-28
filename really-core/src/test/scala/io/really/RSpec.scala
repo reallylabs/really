@@ -191,36 +191,4 @@ class RSpec extends FlatSpec {
     assert((r3.tailR equals(r4.tailR)) == true)
   }
 
-  it should "have a `inversedTail()` helper to get inverted tails as an R" in {
-    val r1 = R / 'users / 1234 / 'boards / 456 / 'posts / 12457
-    val r2 = R / 'boards / 456 / 'posts / 12457
-    assert((r1.inversedTail.get equals(r2)) == true)
-  }
-
-  it should "have a `inversedTail()` helper to get inverted tails as an empty R in case R is contain one token or empty R" in {
-    val r1 = R / 'users / 12345
-    assert(r1.inversedTail  == Some(R))
-  }
-
-  it should "have a `inversedTail()` helper to get inverted tails as an empty R in case R is empty R" in {
-    val r = R
-    assert(r.inversedTail == None)
-  }
-
-  it should "have a `inversedHead()` helper to get the root of R as an R" in {
-    val r1 = R / 'users / 1223 / 'boards / 2343 / 'posts / 6454
-    val r2 = R / 'users / 1223
-    assert((r1.inversedHead.get equals(r2)) == true)
-  }
-
-  it should "have a `inversedHead()` helper to get the root of R as an empty R in case R is empty R" in {
-    val r = R
-    assert(r.inversedHead == None)
-  }
-
-  it should "have a `inversedHead()` helper to get the root of R as an R in case R is contain one token" in {
-    val r = R / 'users / 12345
-    assert(r.inversedHead == Some(r))
-  }
-
 }

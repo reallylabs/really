@@ -1,3 +1,6 @@
+/**
+ * Copyright (C) 2014-2015 Really Inc. <http://really.io>
+ */
 package io.really.protocol
 
 import io.really.Result._
@@ -83,16 +86,13 @@ class ResponseWritesSpec extends FlatSpec with Matchers {
         UpdateOp(UpdateCommand.Set, "firstName", JsString("Ahmed")),
         UpdateOp(UpdateCommand.Set, "lastName", JsString("Mahmoud")))))
 
-    val response = UpdateResult(List(
-      FieldSnapshot("firstName", JsString("Ahmed")),
-      FieldSnapshot("lastName", JsString("Mahmoud"))), 24)
+    val response = UpdateResult(24)
 
     val obj = ProtocolFormats.ResponseWrites.Update.write(request, response)
 
     assertResult(Json.obj("tag" -> ctx.tag,
       "r" -> "/users/12345654321/",
-      "rev" -> 24,
-      "body" -> Json.obj()))(obj)
+      "rev" -> 24))(obj)
   }
 
   "Read writes" should "write read response schema" in {
