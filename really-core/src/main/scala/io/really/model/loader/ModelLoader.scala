@@ -3,14 +3,14 @@
  */
 package io.really.model.loader
 
-import java.io.{File, FileInputStream}
-import java.nio.file.{Path, Paths}
+import java.io.{ File, FileInputStream }
+import java.nio.file.{ Path, Paths }
 import java.util
 import java.util.LinkedHashMap
 
 import akka.actor.ActorSystem
-import io.really.model._
-import io.really.R
+import _root_.io.really.model._
+import _root_.io.really.R
 import org.yaml.snakeyaml.Yaml
 
 import scala.collection.JavaConversions._
@@ -44,15 +44,16 @@ class ModelLoader(dir: String, actorSystem: ActorSystem) {
 
   val models: List[Model] = modelsRegistry.values.map {
     modelInfo =>
-      Model(modelInfo.r,
+      Model(
+        modelInfo.r,
         modelInfo.collectionMeta,
         getFields(modelInfo.fields),
         modelInfo.jsHooks,
         modelInfo.migrationPlan,
-        modelInfo.subCollectionsR)
+        modelInfo.subCollectionsR
+      )
 
   }.toList
-
 
   /**
    * Walk through a directory and return modelInfo
@@ -66,8 +67,7 @@ class ModelLoader(dir: String, actorSystem: ActorSystem) {
     if (file.isFile && file.getName == modelFileName) {
       val modelInfo = readModelFile(file)
       Seq((modelInfo.r, modelInfo))
-    }
-    else if (file.isDirectory) children.flatMap(walkFilesTree(_))
+    } else if (file.isDirectory) children.flatMap(walkFilesTree(_))
     else Seq.empty
   }
 
@@ -89,8 +89,7 @@ class ModelLoader(dir: String, actorSystem: ActorSystem) {
         fields, getJsHooks(parentPath),
         getMigrationPlan(parentPath),
         subCollectionPaths)
-    }
-    catch {
+    } catch {
       case e: Exception =>
         log.error(e, s"Invalid yaml file; An error occurred while parsing this file $file")
         throw new InvalidModelFile(s"Invalid yaml file; An error occurred while parsing this file $file")
@@ -115,15 +114,17 @@ class ModelLoader(dir: String, actorSystem: ActorSystem) {
   private def getJsHooks(parent: Path): JsHooks = {
     def file(name: String): Option[File] = {
       val files = parent.toFile.listFiles.filter(_.getName.matches(name))
-      if (! files.isEmpty) Some(files(0)) else None
+      if (!files.isEmpty) Some(files(0)) else None
     }
-    JsHooks(readJsFile(file("""on-validate.\w+""")),
+    JsHooks(
+      readJsFile(file("""on-validate.\w+""")),
       readJsFile(file("""pre-get.\w+""")),
       readJsFile(file("""/pre-delete.\w+""")),
       readJsFile(file("""/pre-update.\w+""")),
       readJsFile(file("""/post-create.\w+""")),
       readJsFile(file("""/post-update.\w+""")),
-      readJsFile(file(""""/post-delete.\w+""")))
+      readJsFile(file(""""/post-delete.\w+"""))
+    )
   }
 
   /**
@@ -136,7 +137,6 @@ class ModelLoader(dir: String, actorSystem: ActorSystem) {
       case Some(f) => Some(Source.fromFile(f).mkString)
       case None => None
     }
-
 
   private def getMigrationPlan(parent: Path): MigrationPlan = {
     val evolutionFiles = parent.toFile.listFiles.filter(_.getName.matches(migrationFileNameRegx)).iterator
@@ -152,7 +152,6 @@ class ModelLoader(dir: String, actorSystem: ActorSystem) {
     MigrationPlan(scripts.flatten.toMap)
   }
 
-
   private def getFields(fieldsMap: LinkedHashMap[String, Object]): Map[FieldKey, Field[_]] = {
     val fields = fieldsMap.partition {
       case (fieldKey, value) =>
@@ -162,14 +161,13 @@ class ModelLoader(dir: String, actorSystem: ActorSystem) {
     val valueFields = parseValueFields(fields._1.toMap)
 
     val otherFields = fields._2.map {
-      case (key, value) if(key.matches(nameRegx.toString)) =>
+      case (key, value) if (key.matches(nameRegx.toString)) =>
         (key, getFieldObject(valueFields, key, value.asInstanceOf[LinkedHashMap[String, String]]))
       case (key, value) =>
-          throw new InvalidField(s"Field name $key didn't match $nameRegx")
+        throw new InvalidField(s"Field name $key didn't match $nameRegx")
     }
-    valueFields ++ TreeMap(otherFields.toArray:_*)(Ordering.by(_.toLowerCase))
+    valueFields ++ TreeMap(otherFields.toArray: _*)(Ordering.by(_.toLowerCase))
   }
-
 
   private lazy val dataTypes: Map[String, DataType[_]] = Map(
     "string" -> DataType.RString,
@@ -180,11 +178,10 @@ class ModelLoader(dir: String, actorSystem: ActorSystem) {
 
   private def isValueField(kind: String) = dataTypes.contains(kind.toLowerCase)
 
-
   private def parseValueFields(fields: Map[String, Object]): Map[FieldKey, ValueField[_]] = {
     val valueFields = fields map {
       case (k, v) =>
-        if(k.matches(nameRegx.toString)) {
+        if (k.matches(nameRegx.toString)) {
           val field = v.asInstanceOf[LinkedHashMap[String, String]]
           val required = field.get("required").asInstanceOf[Boolean]
           val default = Option(field.get("default"))
@@ -194,10 +191,8 @@ class ModelLoader(dir: String, actorSystem: ActorSystem) {
         } else
           throw new InvalidField(s"Field name $k didn't match $nameRegx")
     }
-    TreeMap(valueFields.toArray:_*)(Ordering.by(_.toLowerCase))
+    TreeMap(valueFields.toArray: _*)(Ordering.by(_.toLowerCase))
   }
-
-
 
   /**
    * Validate the reference field data; make sure that the reference collection is exist
@@ -224,7 +219,7 @@ class ModelLoader(dir: String, actorSystem: ActorSystem) {
    * @return Field Object
    */
   protected def getFieldObject(valueFields: Map[FieldKey, ValueField[_]], fieldKey: String,
-                               field: LinkedHashMap[String, String]): Field[_] = {
+    field: LinkedHashMap[String, String]): Field[_] = {
     val required = field.get("required").asInstanceOf[Boolean]
 
     field.get("type").toLowerCase match {
@@ -255,7 +250,7 @@ class ModelLoader(dir: String, actorSystem: ActorSystem) {
    * @return
    */
   private def getCalculatedField(valueFields: Map[FieldKey, ValueField[_]], fieldKey: String,
-                         field: LinkedHashMap[String, String]): Field[_] = {
+    field: LinkedHashMap[String, String]): Field[_] = {
     val dependencies = field.get("dependsOn").split(",")
     dependencies.length match {
       case 1 =>
@@ -286,9 +281,11 @@ class ModelLoader(dir: String, actorSystem: ActorSystem) {
  * @param migrationPlan
  * @param subCollectionsR
  */
-case class ModelInfo(r: R,
-                     collectionMeta: CollectionMetadata,
-                     fields: LinkedHashMap[String, Object],
-                     jsHooks: JsHooks,
-                     migrationPlan: MigrationPlan,
-                     subCollectionsR: List[R])
+case class ModelInfo(
+  r: R,
+  collectionMeta: CollectionMetadata,
+  fields: LinkedHashMap[String, Object],
+  jsHooks: JsHooks,
+  migrationPlan: MigrationPlan,
+  subCollectionsR: List[R]
+)

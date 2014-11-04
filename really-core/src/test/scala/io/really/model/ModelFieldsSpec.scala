@@ -22,12 +22,12 @@ class ModelFieldsSpec extends FlatSpec with Matchers {
   }
 
   it should "respect the javascript validator" in {
-    val b = ValueField("age", DataType.RLong, Some( """age < 100"""), None, true)
+    val b = ValueField("age", DataType.RLong, Some("""age < 100"""), None, true)
     assert(b.read(JsPath(), Json.obj("age" -> 101)) == JsError((JsPath() \ "age", ValidationError("validation.custom.failed"))))
   }
 
   it should "execute the javascript validator really fast (200k cycles)" in {
-    val b = ValueField("age", DataType.RLong, Some( """age < 100"""), None, true)
+    val b = ValueField("age", DataType.RLong, Some("""age < 100"""), None, true)
     for (i <- 1 to 200000) {
       b.read(JsPath(), Json.obj("age" -> 61))
     }
@@ -35,8 +35,9 @@ class ModelFieldsSpec extends FlatSpec with Matchers {
 
   it should "work properly if grouped into List[Field[_]]" in {
     val fields: Map[String, Field[_]] = Map(
-      "age" -> ValueField("age", DataType.RLong, Some( """age < 100"""), None, true),
-      "name" -> ValueField("name", DataType.RString, None, None, true))
+      "age" -> ValueField("age", DataType.RLong, Some("""age < 100"""), None, true),
+      "name" -> ValueField("name", DataType.RString, None, None, true)
+    )
 
     val obj = Json.obj("age" -> 99, "name" -> "Steve")
     val res = JsResultHelpers.merge(List(fields("age").read(JsPath(), obj), fields("name").read(JsPath(), obj)))
@@ -44,54 +45,53 @@ class ModelFieldsSpec extends FlatSpec with Matchers {
   }
 
   it should "generate a default value if default expression is set" in {
-    val a = ValueField("age", DataType.RLong, Some( """age < 100"""), Some( """50"""), true)
+    val a = ValueField("age", DataType.RLong, Some("""age < 100"""), Some("""50"""), true)
     assert(a.read(JsPath(), Json.obj("v" -> "k")) == JsSuccess(Json.obj("age" -> 50), JsPath() \ "age"))
-    val b = ValueField("age", DataType.RLong, Some( """age > 100"""), Some( """50"""), true)
+    val b = ValueField("age", DataType.RLong, Some("""age > 100"""), Some("""50"""), true)
     assert(b.read(JsPath(), Json.obj("v" -> "k")) == JsError((JsPath() \ "age", ValidationError("validation.custom.failed"))))
 
-    val c = ValueField("age", DataType.RLong, Some( """age > 100"""), Some( """52348652346752347"""), true)
+    val c = ValueField("age", DataType.RLong, Some("""age > 100"""), Some("""52348652346752347"""), true)
     assert(c.read(JsPath(), Json.obj("v" -> "k")) == JsSuccess(Json.obj("age" -> 52348652346752347l), JsPath() \ "age"))
 
-    val d = ValueField("age", DataType.RLong, Some( """age <= 30"""), Some( """15 + 15"""), true)
+    val d = ValueField("age", DataType.RLong, Some("""age <= 30"""), Some("""15 + 15"""), true)
     assert(d.read(JsPath(), Json.obj("v" -> "k")) == JsSuccess(Json.obj("age" -> 30), JsPath() \ "age"))
   }
 
   it should "return null when valueField not required and there is no default supported" in {
-    val strA = ValueField("job", DataType.RString, Some( """job.length > 10 && job.split(' ').length > 2"""), None, false)
+    val strA = ValueField("job", DataType.RString, Some("""job.length > 10 && job.split(' ').length > 2"""), None, false)
     assert(strA.read(JsPath(), Json.obj("v" -> "k")) == JsSuccess(Json.obj("job" -> JsNull), JsPath() \ "job"))
   }
 
   it should "return error when valueField is required and there is no default supported" in {
-    val strA = ValueField("job", DataType.RString, Some( """job.length > 10 && job.split(' ').length > 2"""), None, true)
+    val strA = ValueField("job", DataType.RString, Some("""job.length > 10 && job.split(' ').length > 2"""), None, true)
     assert(strA.read(JsPath(), Json.obj("v" -> "k")) == JsError((JsPath() \ "job", ValidationError("value.required"))))
   }
 
   it should "generate a default value if default expression is set for RString" in {
-    val strA = ValueField("job", DataType.RString, Some( """job.length >= 10"""), Some( """"really developer""""), false)
+    val strA = ValueField("job", DataType.RString, Some("""job.length >= 10"""), Some(""""really developer""""), false)
     assert(strA.read(JsPath(), Json.obj("v" -> "k")) == JsSuccess(Json.obj("job" -> "really developer"), JsPath() \ "job"))
 
-    val strB = ValueField("job", DataType.RString, Some( """job.length > 10 && job.split(' ').length >= 2"""), Some( """"really developer""""), false)
+    val strB = ValueField("job", DataType.RString, Some("""job.length > 10 && job.split(' ').length >= 2"""), Some(""""really developer""""), false)
     assert(strB.read(JsPath(), Json.obj("v" -> "k")) == JsSuccess(Json.obj("job" -> "really developer"), JsPath() \ "job"))
   }
 
   it should "return error when valueField default doesn't match data type" in {
-    val strC = ValueField("job", DataType.RString, Some( """job.length > 10 && job.split(' ').length > 2"""), Some( """3.15"""), false)
+    val strC = ValueField("job", DataType.RString, Some("""job.length > 10 && job.split(' ').length > 2"""), Some("""3.15"""), false)
     assert(strC.read(JsPath(), Json.obj("v" -> "k")) == JsError((JsPath() \ "job", ValidationError("field.default.invalid_return_type"))))
   }
 
   it should "return error when valueField value doesn't pass validation script " in {
-    val strC = ValueField("job", DataType.RString, Some( """job.length > 10 && job.split(' ').length > 2"""), Some( """"really developer""""), false)
+    val strC = ValueField("job", DataType.RString, Some("""job.length > 10 && job.split(' ').length > 2"""), Some(""""really developer""""), false)
     assert(strC.read(JsPath(), Json.obj("v" -> "k")) == JsError((JsPath() \ "job", ValidationError("validation.custom.failed"))))
   }
 
   it should "return error when valueField value with validation script deosn't return boolean " in {
-    val strC = ValueField("job", DataType.RString, Some( """job.length"""), Some( """"really developer""""), false)
+    val strC = ValueField("job", DataType.RString, Some("""job.length"""), Some(""""really developer""""), false)
     assert(strC.read(JsPath(), Json.obj("v" -> "k")) == JsError((JsPath() \ "job", ValidationError("validation.custom.invalid_return_type"))))
   }
 
-
   "CalculatedField" should "return the proper value based on simple js function" in {
-    val dep1 = ValueField("age", DataType.RLong, Some( """age < 100"""), Some( """50"""), true)
+    val dep1 = ValueField("age", DataType.RLong, Some("""age < 100"""), Some("""50"""), true)
     val a = CalculatedField1("spatialAge", DataType.RLong,
       """
         |function calculate(age) {
@@ -103,7 +103,7 @@ class ModelFieldsSpec extends FlatSpec with Matchers {
   }
 
   it should "handle missing dependency properly" in {
-    val dep1 = ValueField("age", DataType.RLong, Some( """age < 100"""), Some( """50"""), true)
+    val dep1 = ValueField("age", DataType.RLong, Some("""age < 100"""), Some("""50"""), true)
     val a = CalculatedField1("spatialAge", DataType.RLong,
       """
         |function calculate(age) {
@@ -118,7 +118,7 @@ class ModelFieldsSpec extends FlatSpec with Matchers {
   }
 
   it should "handle three dependencies properly" in {
-    val dep1 = ValueField("age", DataType.RLong, Some( """age < 100"""), Some( """50"""), true)
+    val dep1 = ValueField("age", DataType.RLong, Some("""age < 100"""), Some("""50"""), true)
     val dep2 = ValueField("extra", DataType.RLong, None, None, true)
     val dep3 = ValueField("count", DataType.RString, None, None, true)
     val a = CalculatedField3("spatialAge", DataType.RLong,
@@ -133,7 +133,7 @@ class ModelFieldsSpec extends FlatSpec with Matchers {
   }
 
   it should "handle two dependencies properly" in {
-    val dep1 = ValueField("age", DataType.RLong, Some( """age < 100"""), Some( """50"""), true)
+    val dep1 = ValueField("age", DataType.RLong, Some("""age < 100"""), Some("""50"""), true)
     val dep2 = ValueField("extra", DataType.RLong, None, None, true)
     val a = CalculatedField2("spatialAge", DataType.RLong,
       """
@@ -145,7 +145,7 @@ class ModelFieldsSpec extends FlatSpec with Matchers {
   }
 
   it should "return error if return type miss match with calculated field type" in {
-    val dep1 = ValueField("age", DataType.RLong, Some( """age < 100"""), Some( """50"""), true)
+    val dep1 = ValueField("age", DataType.RLong, Some("""age < 100"""), Some("""50"""), true)
     val dep2 = ValueField("extra", DataType.RLong, None, None, true)
     val a = CalculatedField2("spatialAge", DataType.RLong,
       """
@@ -153,7 +153,7 @@ class ModelFieldsSpec extends FlatSpec with Matchers {
         |  return (extra + age ).toString();
         |}
       """.stripMargin, dep1, dep2)
-    assert(a.read(JsPath(), Json.obj("age" -> 5, "extra" -> 15)) == JsError(JsPath() \ "spatialAge" , ValidationError("field.default.invalid_return_type")))
+    assert(a.read(JsPath(), Json.obj("age" -> 5, "extra" -> 15)) == JsError(JsPath() \ "spatialAge", ValidationError("field.default.invalid_return_type")))
   }
 
   //  it should "return error if one of dependant type miss match with its field type" in {

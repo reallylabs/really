@@ -3,8 +3,8 @@
  */
 package io.really.model
 
-import io.really.{R, ReallyConfig, TestConf}
-import org.scalatest.{Matchers, FlatSpec}
+import io.really.{ R, ReallyConfig, TestConf }
+import org.scalatest.{ Matchers, FlatSpec }
 
 class HelpersSpec extends FlatSpec with Matchers {
 
@@ -28,7 +28,6 @@ class HelpersSpec extends FlatSpec with Matchers {
     bucketIDVal.length should be > 0
     bucketIDVal(1).toInt should be > 0
   }
-
 
   "Get R from BuckerID" should "return skeleton of original r object" in {
     val r = R / "users" / 123 / "books" / 456

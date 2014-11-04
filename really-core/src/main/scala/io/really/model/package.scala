@@ -3,8 +3,8 @@
  */
 package io.really.model
 
-import play.api.libs.json.{JsObject}
-import io.really._
+import play.api.libs.json.{ JsObject }
+import _root_.io.really._
 
 trait Command
 

@@ -5,7 +5,7 @@ package io.really.model
 
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration._
-import io.really.ReallyConfig
+import _root_.io.really.ReallyConfig
 
 trait CollectionActorConfig {
   this: ReallyConfig =>

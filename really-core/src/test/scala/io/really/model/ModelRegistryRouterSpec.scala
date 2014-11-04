@@ -4,10 +4,10 @@
 package io.really.model
 
 import io.really._
-import akka.actor.{ActorSystem, Props}
+import akka.actor.{ ActorSystem, Props }
 import akka.testkit.TestProbe
-import io.really.model.ModelRegistryRouter.{ModelOperation, ModelResult, CollectionActorMessage}
-import io.really.quickSand.QuickSand
+import _root_.io.really.model.ModelRegistryRouter.{ ModelOperation, ModelResult, CollectionActorMessage }
+import _root_.io.really.quickSand.QuickSand
 import play.api.libs.json.Json
 
 class ModelRegistryRouterSpec extends BaseActorSpec {
@@ -24,25 +24,29 @@ class ModelRegistryRouterSpec extends BaseActorSpec {
 
   val accountsR = R / "profiles"
   val accountsModel = Model(accountsR, collMeta, fields,
-    JsHooks(Some(""),
+    JsHooks(
+      Some(""),
       None,
       None,
       None,
       None,
       None,
-      None), null, List.empty)
+      None
+    ), null, List.empty)
 
   val boardsR = R / "boards"
   val boardsModel = Model(boardsR, collMeta, fields,
-    JsHooks(Some(""),
+    JsHooks(
+      Some(""),
       None,
       None,
       None,
       None,
       None,
-      None), null, List.empty)
+      None
+    ), null, List.empty)
 
-  val models = List(accountsModel,boardsModel)
+  val models = List(accountsModel, boardsModel)
   val modelRouterRef = system.actorOf(Props(new ModelRegistryRouter(globals)))
   modelRouterRef ! PersistentModelStore.AddedModels(models)
 
@@ -129,22 +133,25 @@ class ModelRegistryRouterSpec extends BaseActorSpec {
   }
 
   it should "return error if required R not listed in models" in {
-    val r = R / "images" /123
+    val r = R / "images" / 123
     modelRouterRef ! Request.Create(
       ctx,
-      r ,
+      r,
       Json.obj(
         "name" -> "Hatem",
-        "age" -> "29"))
+        "age" -> "29"
+      )
+    )
     expectMsgType[ModelRegistryRouter.ModelRouterResponse.RNotFound]
   }
 
   it should "return unsupported command error in case of invalid command" in {
-    val r = R / "users" /123/"boards"/3
+    val r = R / "users" / 123 / "boards" / 3
     modelRouterRef ! Request.Get(
       ctx,
-      r ,
-      null)
+      r,
+      null
+    )
     expectMsgType[ModelRegistryRouter.ModelRouterResponse.UnsupportedCmd]
   }
 
@@ -161,7 +168,6 @@ class ModelRegistryRouterSpec extends BaseActorSpec {
     modelRouterRef ! req
     globals.collectionProps.expectMsg(req)
   }
-
 
   it should "forward message to collection actor if command is Delete" in {
     val r = R / "boards" / 3

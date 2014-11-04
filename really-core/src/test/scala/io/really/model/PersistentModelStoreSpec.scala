@@ -7,12 +7,11 @@ import akka.actor.Props
 import akka.persistence.Update
 import akka.testkit.TestActorRef
 import com.typesafe.config.ConfigFactory
-import io.really.{TestConf, ReallyConfig, R, BaseActorSpec}
-
+import io.really.{ TestConf, ReallyConfig, R, BaseActorSpec }
 
 class PersistentModelStoreSpec(conf: ReallyConfig) extends BaseActorSpec(conf) {
 
-  def this() = this(new ReallyConfig(ConfigFactory.parseString("akka.persistence.view.auto-update-interval = 1s").withFallback(TestConf.getConfig().getRawConfig())))
+  def this() = this(new ReallyConfig(ConfigFactory.parseString("akka.persistence.view.auto-update-interval = 1s").withFallback(TestConf.getConfig().getRawConfig)))
 
   val persistentModel = system.actorOf(Props(new PersistentModelStore(globals)))
 
@@ -48,13 +47,12 @@ class PersistentModelStoreSpec(conf: ReallyConfig) extends BaseActorSpec(conf) {
     //force view to update state
     modelRouter ! Update(await = true)
 
-    Thread.sleep(4000)
+    Thread.sleep(6000)
 
     //send GetModel to ModelRegistryRouter
     modelRouter ! ModelRegistryRouter.CollectionActorMessage.GetModel(profilesR)
 
     expectMsg(ModelRegistryRouter.ModelResult.ModelObject(profileModel))
-
 
     //send update models to persistent model with new models
     persistentModel ! PersistentModelStore.UpdateModels(List(profileModel, boardModel))
@@ -62,7 +60,7 @@ class PersistentModelStoreSpec(conf: ReallyConfig) extends BaseActorSpec(conf) {
     //force view to update state
     modelRouter ! Update(await = true)
 
-    Thread.sleep(4000)
+    Thread.sleep(6000)
 
     //send GetModel for board to ModelRegistryRouter
     modelRouter ! ModelRegistryRouter.CollectionActorMessage.GetModel(boardsR)
@@ -75,7 +73,7 @@ class PersistentModelStoreSpec(conf: ReallyConfig) extends BaseActorSpec(conf) {
     //force view to update state
     modelRouter ! Update(await = true)
 
-    Thread.sleep(4000)
+    Thread.sleep(6000)
 
     expectMsg(ModelRegistryRouter.ModelOperation.ModelUpdated(profilesR, newProfileModel))
 

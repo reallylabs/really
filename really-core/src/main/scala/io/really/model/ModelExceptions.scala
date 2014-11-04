@@ -3,7 +3,7 @@
  */
 package io.really.model
 
-import io.really.R
+import _root_.io.really.R
 
 abstract class ModelException(message: String) extends Exception(message)
 

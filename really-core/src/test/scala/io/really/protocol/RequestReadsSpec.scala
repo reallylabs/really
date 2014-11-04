@@ -4,36 +4,48 @@
 package io.really.protocol
 
 import org.joda.time.DateTime
-import org.scalatest.{Matchers, FlatSpec}
+import org.scalatest.{ Matchers, FlatSpec }
 import play.api.libs.json._
 import io.really._
 
-
 class RequestReadsSpec extends FlatSpec with Matchers {
-  val ctx = RequestContext(1, AuthInfo.Anonymous, None, RequestMetadata(None, DateTime.now, "localhost", RequestProtocol.WebSockets))
+  val ctx = RequestContext(
+    1,
+    UserInfo(AuthProvider.Anonymous, R("/_anonymous/1234567"), Application("reallyApp")),
+    None, RequestMetadata(None, DateTime.now, "localhost", RequestProtocol.WebSockets)
+  )
 
   "Subscribe request reads" should "create subscribe request if you sent correct request" in {
-    val req = Json.obj("tag" -> 1,
+    val req = Json.obj(
+      "tag" -> 1,
       "cmd" -> "subscribe",
       "body" -> Json.obj(
         "subscriptions" -> List(
           Json.obj("r" -> "/users/12131231232/", "rev" -> 2, "fields" -> Set("name", "age")),
           Json.obj("r" -> "/users/121312787632/", "rev" -> 2, "fields" -> Set.empty[String])
         )
-      ))
+      )
+    )
 
     val result = req.validate(ProtocolFormats.RequestReads.Subscribe.read(ctx))
 
-    assertResult(Request.Subscribe(ctx,
+    assertResult(Request.Subscribe(
+      ctx,
       SubscriptionBody(
-        List(SubscriptionOp(R("/users/12131231232/"), 2, Set("name", "age")),
-          SubscriptionOp(R("/users/121312787632/"), 2, Set.empty)))))(result.get)
+        List(
+          SubscriptionOp(R("/users/12131231232/"), 2, Set("name", "age")),
+          SubscriptionOp(R("/users/121312787632/"), 2, Set.empty)
+        )
+      )
+    ))(result.get)
   }
 
   it should "return JsError if you don't sent subscription list" in {
-    val req = Json.obj("tag" -> 1,
+    val req = Json.obj(
+      "tag" -> 1,
       "cmd" -> "subscribe",
-      "body" -> Json.obj())
+      "body" -> Json.obj()
+    )
 
     val result = req.validate(ProtocolFormats.RequestReads.Subscribe.read(ctx))
 
@@ -41,13 +53,15 @@ class RequestReadsSpec extends FlatSpec with Matchers {
   }
 
   it should "return JsError if you sent subscrptionOp without rev" in {
-    val req = Json.obj("tag" -> 1,
+    val req = Json.obj(
+      "tag" -> 1,
       "cmd" -> "subscribe",
       "body" -> Json.obj(
         "subscriptions" -> List(
           Json.obj("r" -> "/users/12131231232/", "fields" -> Set("name", "age"))
         )
-      ))
+      )
+    )
 
     val result = req.validate(ProtocolFormats.RequestReads.Subscribe.read(ctx))
 
@@ -55,13 +69,15 @@ class RequestReadsSpec extends FlatSpec with Matchers {
   }
 
   it should "return JsError if you sent subscrptionOp with invalid R" in {
-    val req = Json.obj("tag" -> 1,
+    val req = Json.obj(
+      "tag" -> 1,
       "cmd" -> "subscribe",
       "body" -> Json.obj(
         "subscriptions" -> List(
           Json.obj("r" -> "users/", "rev" -> 3, "fields" -> Set("name", "age"))
         )
-      ))
+      )
+    )
 
     val result = req.validate(ProtocolFormats.RequestReads.Subscribe.read(ctx))
 
@@ -69,27 +85,36 @@ class RequestReadsSpec extends FlatSpec with Matchers {
   }
 
   "Unsubscribe request reads" should "create unsubscribe request if you sent correct request" in {
-    val req = Json.obj("tag" -> 1,
+    val req = Json.obj(
+      "tag" -> 1,
       "cmd" -> "unsubscribe",
       "body" -> Json.obj(
         "subscriptions" -> List(
           Json.obj("r" -> "/users/12131231232/", "fields" -> Set("name", "age")),
           Json.obj("r" -> "/users/121312787632/", "fields" -> Set.empty[String])
         )
-      ))
+      )
+    )
 
     val result = req.validate(ProtocolFormats.RequestReads.Unsubscribe.read(ctx))
 
-    assertResult(Request.Unsubscribe(ctx,
+    assertResult(Request.Unsubscribe(
+      ctx,
       UnsubscriptionBody(
-        List(UnsubscriptionOp(R("/users/12131231232/"), Set("name", "age")),
-          UnsubscriptionOp(R("/users/121312787632/"), Set.empty)))))(result.get)
+        List(
+          UnsubscriptionOp(R("/users/12131231232/"), Set("name", "age")),
+          UnsubscriptionOp(R("/users/121312787632/"), Set.empty)
+        )
+      )
+    ))(result.get)
   }
 
   it should "return JsError if you don't sent subscription list" in {
-    val req = Json.obj("tag" -> 1,
+    val req = Json.obj(
+      "tag" -> 1,
       "cmd" -> "unsubscribe",
-      "body" -> Json.obj())
+      "body" -> Json.obj()
+    )
 
     val result = req.validate(ProtocolFormats.RequestReads.Unsubscribe.read(ctx))
 
@@ -97,13 +122,15 @@ class RequestReadsSpec extends FlatSpec with Matchers {
   }
 
   it should "return JsError if you sent unsubscrptionOp with invalid R" in {
-    val req = Json.obj("tag" -> 1,
+    val req = Json.obj(
+      "tag" -> 1,
       "cmd" -> "unsubscribe",
       "body" -> Json.obj(
         "subscriptions" -> List(
           Json.obj("r" -> "users/", "fields" -> Set("name", "age"))
         )
-      ))
+      )
+    )
 
     val result = req.validate(ProtocolFormats.RequestReads.Unsubscribe.read(ctx))
 
@@ -111,9 +138,11 @@ class RequestReadsSpec extends FlatSpec with Matchers {
   }
 
   "Get Subscription request read" should "create Get Subscription request if you sent correct request" in {
-    val req = Json.obj("tag" -> 1,
+    val req = Json.obj(
+      "tag" -> 1,
       "cmd" -> "get-subscription",
-      "r" -> "/users/1123123/")
+      "r" -> "/users/1123123/"
+    )
 
     val result = req.validate(ProtocolFormats.RequestReads.GetSubscription.read(ctx))
 
@@ -121,8 +150,10 @@ class RequestReadsSpec extends FlatSpec with Matchers {
   }
 
   it should "return JsError if you sent request without r" in {
-    val req = Json.obj("tag" -> 1,
-      "cmd" -> "get-subscription")
+    val req = Json.obj(
+      "tag" -> 1,
+      "cmd" -> "get-subscription"
+    )
 
     val result = req.validate(ProtocolFormats.RequestReads.GetSubscription.read(ctx))
 
@@ -130,12 +161,14 @@ class RequestReadsSpec extends FlatSpec with Matchers {
   }
 
   "Get request read" should "create Get request if you sent correct request" in {
-    val req = Json.obj("tag" -> 1,
+    val req = Json.obj(
+      "tag" -> 1,
       "cmd" -> "get",
       "r" -> "/users/1123123/",
       "cmdOpts" -> Json.obj(
         "fields" -> Set("firstname", "lastname")
-      ))
+      )
+    )
 
     val result = req.validate(ProtocolFormats.RequestReads.Get.read(ctx))
 
@@ -143,12 +176,14 @@ class RequestReadsSpec extends FlatSpec with Matchers {
   }
 
   it should "create Get request if you sent fields as empty set" in {
-    val req = Json.obj("tag" -> 1,
+    val req = Json.obj(
+      "tag" -> 1,
       "cmd" -> "get",
       "r" -> "/users/1123123/",
       "cmdOpts" -> Json.obj(
         "fields" -> Set.empty[String]
-      ))
+      )
+    )
 
     val result = req.validate(ProtocolFormats.RequestReads.Get.read(ctx))
 
@@ -156,11 +191,13 @@ class RequestReadsSpec extends FlatSpec with Matchers {
   }
 
   it should "return JsError if you didn't sent r" in {
-    val req = Json.obj("tag" -> 1,
+    val req = Json.obj(
+      "tag" -> 1,
       "cmd" -> "get",
       "cmdOpts" -> Json.obj(
         "fields" -> Set.empty[String]
-      ))
+      )
+    )
 
     val result = req.validate(ProtocolFormats.RequestReads.Get.read(ctx))
 
@@ -168,10 +205,12 @@ class RequestReadsSpec extends FlatSpec with Matchers {
   }
 
   it should "return JsError if you didn't sent fields" in {
-    val req = Json.obj("tag" -> 1,
+    val req = Json.obj(
+      "tag" -> 1,
       "cmd" -> "get",
       "r" -> "/users/1123123/",
-      "cmdOpts" -> Json.obj())
+      "cmdOpts" -> Json.obj()
+    )
 
     val result = req.validate(ProtocolFormats.RequestReads.Get.read(ctx))
 
@@ -188,7 +227,10 @@ class RequestReadsSpec extends FlatSpec with Matchers {
       "body" -> Json.obj(
         "ops" -> List(
           Json.obj("op" -> "set", "key" -> "firstname", "value" -> "Ahmed"),
-          Json.obj("op" -> "set", "key" -> "lastname", "value" -> "Mahmoud"))))
+          Json.obj("op" -> "set", "key" -> "lastname", "value" -> "Mahmoud")
+        )
+      )
+    )
 
     val result = req.validate(ProtocolFormats.RequestReads.Update.read(ctx))
 
@@ -199,7 +241,8 @@ class RequestReadsSpec extends FlatSpec with Matchers {
       UpdateBody(List(
         UpdateOp(UpdateCommand.Set, "firstname", JsString("Ahmed")),
         UpdateOp(UpdateCommand.Set, "lastname", JsString("Mahmoud"))
-      ))))(result.get)
+      ))
+    ))(result.get)
   }
 
   it should "return JsError if you sent request without r" in {
@@ -211,7 +254,10 @@ class RequestReadsSpec extends FlatSpec with Matchers {
       "body" -> Json.obj(
         "ops" -> List(
           Json.obj("op" -> "set", "key" -> "firstname", "value" -> "Ahmed"),
-          Json.obj("op" -> "set", "key" -> "lastname", "value" -> "Mahmoud"))))
+          Json.obj("op" -> "set", "key" -> "lastname", "value" -> "Mahmoud")
+        )
+      )
+    )
 
     val result = req.validate(ProtocolFormats.RequestReads.Update.read(ctx))
 
@@ -227,7 +273,10 @@ class RequestReadsSpec extends FlatSpec with Matchers {
       "body" -> Json.obj(
         "ops" -> List(
           Json.obj("op" -> "set", "key" -> "firstname", "value" -> "Ahmed"),
-          Json.obj("op" -> "set", "key" -> "lastname", "value" -> "Mahmoud"))))
+          Json.obj("op" -> "set", "key" -> "lastname", "value" -> "Mahmoud")
+        )
+      )
+    )
 
     val result = req.validate(ProtocolFormats.RequestReads.Update.read(ctx))
 
@@ -241,7 +290,8 @@ class RequestReadsSpec extends FlatSpec with Matchers {
       "cmdOpts" -> Json.obj("transaction" -> true),
       "r" -> "/users/12345654321/",
       "rev" -> 23,
-      "body" -> Json.obj())
+      "body" -> Json.obj()
+    )
 
     val result = req.validate(ProtocolFormats.RequestReads.Update.read(ctx))
     assert(result.isError == true)
@@ -255,12 +305,13 @@ class RequestReadsSpec extends FlatSpec with Matchers {
       "r" -> "/users/12345654321/",
       "rev" -> 23,
       "body" -> Json.obj(
-        "ops" -> List()))
+        "ops" -> JsArray()
+      )
+    )
 
     val result = req.validate(ProtocolFormats.RequestReads.Update.read(ctx))
     assert(result.isError == true)
   }
-
 
   "Delete request read" should "create delete request if you sent correct request" in {
     val req = Json.obj(
@@ -293,7 +344,8 @@ class RequestReadsSpec extends FlatSpec with Matchers {
       "body" -> Json.obj(
         "firstname" -> "Salma",
         "lastname" -> "Khater"
-      ))
+      )
+    )
 
     val result = req.validate(ProtocolFormats.RequestReads.Create.read(ctx))
 
@@ -310,7 +362,8 @@ class RequestReadsSpec extends FlatSpec with Matchers {
       "body" -> Json.obj(
         "firstname" -> "Salma",
         "lastname" -> "Khater"
-      ))
+      )
+    )
 
     val result = req.validate(ProtocolFormats.RequestReads.Create.read(ctx))
 
@@ -321,7 +374,8 @@ class RequestReadsSpec extends FlatSpec with Matchers {
     val req = Json.obj(
       "tag" -> 1,
       "cmd" -> "create",
-      "r" -> "/users/")
+      "r" -> "/users/"
+    )
 
     val result = req.validate(ProtocolFormats.RequestReads.Create.read(ctx))
 

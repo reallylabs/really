@@ -3,17 +3,17 @@
  */
 package io.really.model
 
-import akka.actor.{PoisonPill, Props}
-import akka.testkit.{TestActorRef, TestProbe}
+import akka.actor.{ PoisonPill, Props }
+import akka.testkit.{ TestActorRef, TestProbe }
 import io.really.CommandError.ParentNotFound
-import io.really.Request.{Update, Delete, Create}
-import io.really.Result.{UpdateResult, CreateResult}
-import io.really.model.CollectionActor.{GetExistenceState, GetState, State}
+import io.really.Request.{ Update, Delete, Create }
+import io.really.Result.{ UpdateResult, CreateResult }
+import io.really.model.CollectionActor.{ GetExistenceState, GetState, State }
 import io.really.model.ModelRegistryRouter.ModelResult
-import io.really.protocol.{UpdateCommand, UpdateOp, UpdateBody}
+import io.really.protocol.{ UpdateCommand, UpdateOp, UpdateBody }
 import io.really.CommandError.InvalidCommand
 import io.really._
-import play.api.libs.json.{JsNumber, Json}
+import play.api.libs.json.{ JsNumber, Json }
 
 import play.api.data.validation.ValidationError
 import play.api.libs.json._
@@ -58,7 +58,8 @@ class CollectionActorSpec extends BaseActorSpec {
     res.body \ "_rev" shouldBe JsNumber(1)
 
     globals.modelRegistryRouter.tell(PersistentModelStore.UpdatedModels(List(BaseActorSpec.userModel.copy(
-      fields = BaseActorSpec.userModel.fields + ("address" -> ValueField("address", DataType.RString, None, None, true))))), probe.ref)
+      fields = BaseActorSpec.userModel.fields + ("address" -> ValueField("address", DataType.RString, None, None, true))
+    ))), probe.ref)
     val rx = R / 'users / 445
     val userObjx = Json.obj("name" -> "Ahmed Refaey", "age" -> 23)
     globals.collectionActor.tell(Create(ctx, rx, userObjx), probe.ref)
@@ -164,7 +165,7 @@ class CollectionActorSpec extends BaseActorSpec {
 
   }
 
-  "Create Command" should "create object succesfully" in {
+  "Create Command" should "create object sucessfully" in {
     val r = R / 'users / 124
     val userObj = Json.obj("name" -> "Hatem AlSum", "age" -> 30)
     val probe = TestProbe()
@@ -215,7 +216,7 @@ class CollectionActorSpec extends BaseActorSpec {
     val probe = TestProbe()
     globals.collectionActor.tell(Create(ctx, r, userObj), probe.ref)
     val res = probe.expectMsgType[Result.CreateResult]
-    res.body \ "renual" shouldBe JsNumber(2020)
+    res.body \ "renewal" shouldBe JsNumber(2020)
   }
 
   it should "reply with created object and contain CALCULATED values if dependant values not in model" in {
@@ -224,7 +225,7 @@ class CollectionActorSpec extends BaseActorSpec {
     val probe = TestProbe()
     globals.collectionActor.tell(Create(ctx, r, userObj), probe.ref)
     val res = probe.expectMsgType[Result.CreateResult]
-    res.body \ "renual" shouldBe JsNumber(1990)
+    res.body \ "renewal" shouldBe JsNumber(1990)
   }
 
   it should "have the _r as a key in the persisted object" in {
@@ -238,7 +239,7 @@ class CollectionActorSpec extends BaseActorSpec {
     state.obj \ "_r" shouldBe JsString(r.toString)
   }
 
-  it should "have the model version as a part of the state" in {
+  it should "have the object revision as a part of the state" in {
     val r = R / 'users / 129
     val userObj = Json.obj("name" -> "Hatem AlSum", "age" -> 30)
     val probe = TestProbe()
@@ -371,17 +372,17 @@ class CollectionActorSpec extends BaseActorSpec {
 
   it should "update the calculated Fields too" in {
     val r = R / 'cars / 199
-    val userObj = Json.obj("model" -> "Mitsubishi Lancer", "production" -> 2010, "renual" -> 2030)
+    val userObj = Json.obj("model" -> "Mitsubishi Lancer", "production" -> 2010, "renewal" -> 2030)
     val probe = TestProbe()
     globals.collectionActor.tell(Create(ctx, r, userObj), probe.ref)
     val res = probe.expectMsgType[Result.CreateResult]
-    res.body \ "renual" shouldBe JsNumber(2020)
+    res.body \ "renewal" shouldBe JsNumber(2020)
     val body = UpdateBody(List(UpdateOp(UpdateCommand.Set, "production", JsNumber(2012))))
     globals.collectionActor.tell(Update(ctx, r, 1l, body), probe.ref)
     probe.expectMsgType[UpdateResult]
     globals.collectionActor.tell(GetState(r), probe.ref)
     val state = probe.expectMsgType[State]
-    state.obj shouldEqual Json.obj("model" -> "Mitsubishi Lancer", "production" -> 2012, "renual" -> 2020,
+    state.obj shouldEqual Json.obj("model" -> "Mitsubishi Lancer", "production" -> 2012, "renewal" -> 2020,
       "_r" -> "/cars/199/", "_rev" -> 2)
   }
 

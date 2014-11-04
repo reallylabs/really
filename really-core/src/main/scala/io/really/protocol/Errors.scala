@@ -3,32 +3,22 @@
  */
 package io.really.protocol
 
-import io.really._
-import play.api.libs.json.{Json, JsObject}
-
+import play.api.libs.json._
 
 object ProtocolError {
 
   /*
    * Represent Error message
    */
-  case class Error(code: Int, message: String, errors: JsObject)
+  case class Error(code: Int, message: String, errors: Option[JsError])
+
   /*
    * Represent Json Format for Error
    */
-  object Error{
-    implicit val fmt = Json.format[Error]
+  object Error {
+    implicit val jsErrWrites = new Writes[JsError] {
+      override def writes(e: JsError): JsValue = JsError.toFlatJson(e)
+    }
+    implicit val writes = Json.writes[Error]
   }
-
-  /*
-   * Represent Json writes for error response
-   */
-  object ErrorResponse{
-    def writes(tag: Int, r: R, error: Error) =
-      Json.obj(
-        "tag" -> tag,
-        "r" -> r,
-        "error" -> error)
-  }
-
 }

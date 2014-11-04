@@ -3,14 +3,9 @@
  */
 package io.really.model
 
-import akka.actor.{ActorRef, ActorLogging, Actor}
-import akka.cluster.routing.{ClusterRouterPoolSettings, ClusterRouterPool}
+import _root_.io.really._
+import akka.actor.{ ActorRef, ActorLogging }
 import akka.persistence.PersistentView
-import akka.routing.RoundRobinPool
-import io.really._
-import akka.actor.{ActorRef, ActorLogging}
-import akka.persistence.PersistentView
-
 
 class ModelRegistryRouter(globals: ReallyGlobals) extends PersistentView with ActorLogging {
   import ModelRegistryRouter._

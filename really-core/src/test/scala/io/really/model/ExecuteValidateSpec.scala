@@ -3,20 +3,21 @@
  */
 package io.really.model
 
-import io.really.R
+import io.really._
 import org.joda.time.DateTime
 import org.scalatest._
-import io.really.{AuthInfo, RequestContext, RequestMetadata, RequestProtocol}
-import play.api.libs.json.{JsNumber, JsString, Json, JsObject}
-import io.really.model.ModelHookStatus.{Succeeded, Terminated}
+import play.api.libs.json.{ JsNumber, JsString, Json, JsObject }
+import _root_.io.really.model.ModelHookStatus.{ Succeeded, Terminated }
 
 class ExecuteValidateSpec extends FlatSpec with Matchers {
   val r = R / "users"
   val collMeta: CollectionMetadata = CollectionMetadata(1L)
   val nameField = ValueField("name", DataType.RString, None, None, true)
   val ageField = ValueField("age", DataType.RLong, None, None, true)
-  val fields: Map[FieldKey, Field[_]] = Map("name" -> nameField,
-    "age" -> ageField)
+  val fields: Map[FieldKey, Field[_]] = Map(
+    "name" -> nameField,
+    "age" -> ageField
+  )
   val validationScript: JsScript =
     """
       |var x = 14;
@@ -28,19 +29,24 @@ class ExecuteValidateSpec extends FlatSpec with Matchers {
 
   val migrationPlan: MigrationPlan = MigrationPlan(Map.empty)
 
-  val context = RequestContext(tag = 1,
-    auth = AuthInfo.Anonymous,
+  val context = RequestContext(
+    tag = 1,
+    auth = UserInfo(AuthProvider.Anonymous, R("/_anonymous/1234567"), Application("reallyApp")),
     pushChannel = None,
-    meta = RequestMetadata(traceId = None,
+    meta = RequestMetadata(
+      traceId = None,
       when = DateTime.now,
       host = "localhost",
-      protocol = RequestProtocol.WebSockets)
+      protocol = RequestProtocol.WebSockets
+    )
   )
 
   val userModel = new Model(r, collMeta, fields, jsHooks, migrationPlan, List.empty)
-  val input: JsObject = Json.obj("name" -> JsString("Ahmed"),
+  val input: JsObject = Json.obj(
+    "name" -> JsString("Ahmed"),
     "age" -> JsNumber(23),
-    "address" -> Json.obj("streetName" -> JsString("BS"), "block" -> JsNumber(23)))
+    "address" -> Json.obj("streetName" -> JsString("BS"), "block" -> JsNumber(23))
+  )
 
   "Validate JsHooks" should "pass if the JS validation script ended without calling cancel()" in {
 

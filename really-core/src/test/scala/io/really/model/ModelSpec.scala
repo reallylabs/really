@@ -4,8 +4,8 @@
 package io.really.model
 
 import io.really.R
-import io.really.model.ModelExceptions.{InvalidSubCollectionR, InvalidCollectionR}
-import org.scalatest.{Matchers, FlatSpec}
+import io.really.model.ModelExceptions.{ InvalidSubCollectionR, InvalidCollectionR }
+import org.scalatest.{ Matchers, FlatSpec }
 
 class ModelSpec extends FlatSpec with Matchers {
   "Model" should "raise exception if the passed R is not a collection R" in {
@@ -16,13 +16,15 @@ class ModelSpec extends FlatSpec with Matchers {
     val fields: Map[FieldKey, Field[_]] = Map("name" -> nameField, "age" -> ageField)
     val thrown = intercept[InvalidCollectionR] {
       Model(r, collMeta, fields,
-        JsHooks(Some(""),
+        JsHooks(
+          Some(""),
           None,
           None,
           None,
           None,
           None,
-          None), null, List.empty)
+          None
+        ), null, List.empty)
     }
     thrown.getMessage shouldBe s"Invalid collection R: $r"
   }
@@ -41,13 +43,15 @@ class ModelSpec extends FlatSpec with Matchers {
 
     val usersR = R / "users"
     Model(usersR, collMeta, fields,
-      JsHooks(Some(""),
+      JsHooks(
+        Some(""),
         None,
         None,
         None,
         None,
         None,
-        None), null, subCollections)
+        None
+      ), null, subCollections)
   }
 
   it should "refuse to create a model with any sub collection its R is not a direct child of the model under creation" in {
@@ -65,13 +69,15 @@ class ModelSpec extends FlatSpec with Matchers {
     val usersR = R / "users"
     val thrown = intercept[InvalidSubCollectionR] {
       Model(usersR, collMeta, fields,
-        JsHooks(Some(""),
+        JsHooks(
+          Some(""),
           None,
           None,
           None,
           None,
           None,
-          None), null, subCollections)
+          None
+        ), null, subCollections)
     }
     thrown.getMessage shouldBe s"Invalid sub collection R: $accountsR"
   }

@@ -3,25 +3,24 @@
  */
 package io.really.model
 
-import io.really.js.JsResultHelpers
+import _root_.io.really.js.JsResultHelpers
 import play.api.libs.json._
-
 
 trait Field[T] {
   def key: FieldKey
 
   def dataType: DataType[T]
 
-  /** *
-    * Reads the full json input object and cuts the fields it's interested in, validates, generates default value
-    * if the field was missing in the input, returns only the portion of interest from this field `key -> value`
-    * @param path
-    * @param in the whole document
-    * @return [[JsResult[JsObject]] instance that holds only the value of the field-in-interest
-    */
+  /**
+   * *
+   * Reads the full json input object and cuts the fields it's interested in, validates, generates default value
+   * if the field was missing in the input, returns only the portion of interest from this field `key -> value`
+   * @param path
+   * @param in the whole document
+   * @return [[JsResult[JsObject]] instance that holds only the value of the field-in-interest
+   */
   def read(path: JsPath, in: JsObject): JsResult[JsObject]
 }
-
 
 trait ActiveField[T] extends Field[T] {
   def required: Boolean
@@ -60,8 +59,5 @@ trait ActiveField[T] extends Field[T] {
 
 }
 
-
 trait ReactiveField[T] extends Field[T]
-
-
 

@@ -10,7 +10,7 @@ import akka.actor.ActorSystem
 //import akka.event.LogSource
 
 import org.joda.time.DateTime
-import io.really.ReallyConfig
+import _root_.io.really.ReallyConfig
 
 class QuickSand(val config: ReallyConfig, actorSystem: ActorSystem) {
 
@@ -56,7 +56,8 @@ class QuickSand(val config: ReallyConfig, actorSystem: ActorSystem) {
       if (timestamp < lastTimestamp) {
         log.error("clock is moving backwards. Rejecting requests until %d.", lastTimestamp);
         throw new InvalidSystemClock("Clock moved backwards. Refusing to generate id for %d milliseconds".format(
-          lastTimestamp - timestamp))
+          lastTimestamp - timestamp
+        ))
       }
 
       if (lastTimestamp == timestamp) {

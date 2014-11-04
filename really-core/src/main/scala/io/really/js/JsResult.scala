@@ -11,7 +11,7 @@ object JsResultHelpers {
       (r, acc) match {
         case (JsSuccess(o1, _), JsSuccess(o2, _)) => JsSuccess(o1 ++ o2)
         case (a: JsSuccess[_], b: JsError) => b
-        case (a: JsError, b:JsSuccess[_]) => a
+        case (a: JsError, b: JsSuccess[_]) => a
         case (a: JsError, b: JsError) => b ++ a
       }
   }

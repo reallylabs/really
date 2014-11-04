@@ -1,6 +1,8 @@
 /**
  * Copyright (C) 2014-2015 Really Inc. <http://really.io>
  */
+
+import com.typesafe.sbt.SbtScalariform._
 import sbt._
 import Keys._
 
@@ -11,8 +13,8 @@ object BuildSettings {
     testOptions in Test += Tests.Argument("-oD"),
     resolvers ++= Seq(
       Resolver.sonatypeRepo("releases"),
-      "Spray" at "http://repo.spray.io",
+      "Typesafe repository releases" at "http://repo.typesafe.com/typesafe/releases/",
       "krasserm at bintray" at "http://dl.bintray.com/krasserm/maven"
     )
-  )
+  ) ++ FormatSettings.settings
 }

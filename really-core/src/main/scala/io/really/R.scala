@@ -166,7 +166,7 @@ object R extends R(Nil) {
  * rev: io.really.Revision = 55
  * }}}
  */
-case class R private(tokens: Tokens) {
+case class R private (tokens: Tokens) {
 
   private def addToken(token: PathToken, tokens: Tokens): Tokens = token.id match {
     case _: R.IdValue => //no loopholes allowed
@@ -219,7 +219,7 @@ case class R private(tokens: Tokens) {
    * @return a new R with a modified head to contain the new id
    */
   def /(id: TokenId): R = tokens match {
-    case (x@PathToken(_, R.*)) :: xs =>
+    case (x @ PathToken(_, R.*)) :: xs =>
       copy(tokens = addToken(x.setId(id), xs))
     case Nil =>
       throw new IllegalArgumentException("Assigning ID to an empty R")
@@ -319,10 +319,10 @@ class RParser extends JavaTokenParsers {
     "/" ~> """\p{javaJavaIdentifierStart}[\p{javaJavaIdentifierPart}-]*""".r
 
   private val rev: Parser[Revision] =
-    ("/@" ~> """\p{Alnum}+""".r) ^^ { case rev => rev.toLong}
+    ("/@" ~> """\p{Alnum}+""".r) ^^ { case rev => rev.toLong }
 
   private val valueId: Parser[R.IdValue] =
-    ("/" ~> """\p{Alnum}+""".r) ^^ { case id => R.IdValue(id.toLong)}
+    ("/" ~> """\p{Alnum}+""".r) ^^ { case id => R.IdValue(id.toLong) }
 
   private val wildcardId: Parser[TokenId] =
     "/*" ^^^ R.*

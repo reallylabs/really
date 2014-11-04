@@ -3,7 +3,7 @@
  */
 package io.really
 
-import com.typesafe.config.{ConfigFactory, Config}
+import com.typesafe.config.{ ConfigFactory, Config }
 import org.scalatest.{ BeforeAndAfterAll, WordSpecLike }
 import org.scalatest.Matchers
 import akka.remote.testkit.MultiNodeSpecCallbacks
@@ -12,7 +12,7 @@ import akka.remote.testkit.MultiNodeSpecCallbacks
  * Hooks up MultiNodeSpec with ScalaTest
  */
 trait STMultiNodeSpec extends MultiNodeSpecCallbacks
-with WordSpecLike with Matchers with BeforeAndAfterAll {
+    with WordSpecLike with Matchers with BeforeAndAfterAll {
 
   override def beforeAll() = multiNodeSpecBeforeAll()
 
@@ -21,7 +21,7 @@ with WordSpecLike with Matchers with BeforeAndAfterAll {
 }
 object MJVMActorConf {
   def apply(): Config = {
-    ConfigFactory.parseString( s"""
+    ConfigFactory.parseString(s"""
     akka.actor.provider = "akka.cluster.ClusterActorRefProvider"
     akka.persistence.journal.plugin = "akka.persistence.journal.leveldb-shared"
     akka.persistence.journal.leveldb-shared.store {

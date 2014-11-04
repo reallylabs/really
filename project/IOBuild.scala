@@ -15,6 +15,7 @@ object IOBuild {
       Akka.actor,
       Akka.testKit,
       playScalaTest,
+      jwtScala,
       cache,
       ws
     ),

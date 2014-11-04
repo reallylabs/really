@@ -3,9 +3,9 @@
  */
 package io.really.js
 
-import javax.script.{ScriptEngine, ScriptContext, Invocable, Bindings}
+import javax.script.{ ScriptEngine, ScriptContext, Invocable, Bindings }
 
-import io.really.jshooks.API
+import _root_.io.really.jshooks.API
 import jdk.nashorn.api.scripting.NashornScriptEngineFactory
 
 object JsTools {

@@ -3,7 +3,7 @@
  */
 package io.really.model
 
-import io.really.{ReallyConfig, BucketID, R}
+import _root_.io.really.{ ReallyConfig, BucketID, R }
 
 object Helpers {
   def getBucketIDFromR(r: R)(implicit config: ReallyConfig): BucketID = {

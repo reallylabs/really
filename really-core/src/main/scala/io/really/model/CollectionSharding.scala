@@ -4,7 +4,7 @@
 package io.really.model
 
 import akka.contrib.pattern.ShardRegion
-import io.really.{RoutableToCollectionActor, ReallyConfig}
+import _root_.io.really.{ RoutableToCollectionActor, ReallyConfig }
 
 class CollectionSharding(config: ReallyConfig) {
 

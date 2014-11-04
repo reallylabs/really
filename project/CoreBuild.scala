@@ -20,10 +20,15 @@ object CoreBuild {
       Akka.testKit,
       Akka.contrib,
       Akka.slf4j,
-      Akka.cassandraPersistence,
+//      Akka.cassandraPersistence,
       logback,
       snakeyaml,
       json,
+      snakeyaml,
+      embedmongo,
+      reactivemongo,
+      slick,
+      h2,
       Akka.multiNode
     ),
     // make sure that MultiJvm test are compiled by the default test compilation

@@ -49,7 +49,7 @@ class RSpec extends FlatSpec {
   it should "support equals" in {
     val a = R / 'users / 512 / 'books / 442 / 'book / 222
     val b = R / 'users / 512 / 'books / 442 / 'book / 222
-    assert (a == b)
+    assert(a == b)
   }
 
   it should "support looksLike comparison that ignore ids and just checks for skeletons" in {
@@ -57,11 +57,11 @@ class RSpec extends FlatSpec {
     val b = R / 'users / 512 / 'books / 442 / 'book / 222
     val c = R / 'users / 512 / 'books / 222
     assert(a looksLike b)
-    assert(! (a looksLike c))
+    assert(!(a looksLike c))
   }
 
   "R.toString" should "resolve to /users/*/friends/*/" in {
-    assert((R / 'users/'friends).toString == "/users/*/friends/*/")
+    assert((R / 'users / 'friends).toString == "/users/*/friends/*/")
   }
 
   it should "resolve to / for root path" in {
@@ -69,7 +69,7 @@ class RSpec extends FlatSpec {
   }
 
   it should "resolve to /users/221/friends/552" in {
-    assert((R/'users/221/'friends/552).toString == "/users/221/friends/552/")
+    assert((R / 'users / 221 / 'friends / 552).toString == "/users/221/friends/552/")
   }
 
   "R parser" should "parse top level wildcard collection" in {
@@ -173,13 +173,13 @@ class RSpec extends FlatSpec {
     val r3 = R / 'users / 'boards
     val r4 = R / 'users / 234
     val r5 = R / 'boards
-    assert((r1 equals(r1)) == true)
-    assert((r1 equals(r2)) == false)
-    assert((r1 equals(r3)) == false)
-    assert((r3 equals(r4)) == false)
-    assert((r1 equals(r5)) == false)
-    assert((r3 equals(r5)) == false)
-    assert((r3.tailR equals(r2)) == true)
+    assert((r1 equals (r1)) == true)
+    assert((r1 equals (r2)) == false)
+    assert((r1 equals (r3)) == false)
+    assert((r3 equals (r4)) == false)
+    assert((r1 equals (r5)) == false)
+    assert((r3 equals (r5)) == false)
+    assert((r3.tailR equals (r2)) == true)
   }
 
   it should "have a `tailR()` helper to get the tails as an R" in {
@@ -187,8 +187,8 @@ class RSpec extends FlatSpec {
     val r2 = R / 'users
     val r3 = R / 'users / 123 / 'boards / 456
     val r4 = R / 'users / 123 / 'bills / 456
-    assert((r1.tailR equals(r2)) == true)
-    assert((r3.tailR equals(r4.tailR)) == true)
+    assert((r1.tailR equals (r2)) == true)
+    assert((r3.tailR equals (r4.tailR)) == true)
   }
 
 }

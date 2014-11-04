@@ -19,26 +19,25 @@ package object protocol {
     implicit val fmt = Json.format[GetOpts]
   }
 
-
   /*
    * Represents request options on read request
    */
-  case class ReadOpts(fields: Set[String], //TODO change fields type
-                      query: JsObject, //TODO should change to be Query
-                      limit: Int,
-                      sort: String,
-                      paginationToken: String,
-                      skip: Int = 0,
-                      includeTotalCount: Boolean,
-                      subscribe: Boolean)
-
+  case class ReadOpts(
+    fields: Set[String], //TODO change fields type
+    query: JsObject, //TODO should change to be Query
+    limit: Int,
+    sort: String,
+    paginationToken: String,
+    skip: Int = 0,
+    includeTotalCount: Boolean,
+    subscribe: Boolean
+  )
   /*
    * Represent implicit JSON Format for ReadOpts
    */
   object ReadOpts {
     implicit val fmt = Json.format[ReadOpts]
   }
-
 
   sealed trait UpdateCommand
 
@@ -71,19 +70,23 @@ package object protocol {
 
     def reads(json: JsValue) = json match {
       case JsString("add-number") => JsSuccess(AddNumber)
-      case JsString("push") => JsSuccess(Push)
-      case JsString("pull") => JsSuccess(Pull)
+      //      case JsString("push") => JsSuccess(Push)
+      //      case JsString("pull") => JsSuccess(Pull)
       case JsString("set") => JsSuccess(Set)
-      case JsString("addToSet") => JsSuccess(AddToSet)
+      //      case JsString("addToSet") => JsSuccess(AddToSet)
+      //      case JsString("insertAt") => JsSuccess(InsertAt)
+      //      case JsString("removeAt") => JsSuccess(RemoveAt)
       case _ => JsError(Seq(JsPath() -> Seq(ValidationError("error.unsupported.command"))))
     }
 
     def writes(o: UpdateCommand): JsString = o match {
       case AddNumber => JsString("add-number")
-      case Push => JsString("push")
-      case Pull => JsString("pull")
+      //      case Push => JsString("push")
+      //      case Pull => JsString("pull")
       case Set => JsString("set")
-      case AddToSet => JsString("addToSet")
+      //      case AddToSet => JsString("addToSet")
+      //      case RemoveAt => JsString("removeAt")
+      //      case InsertAt => JsString("insertAt")
     }
   }
 
@@ -109,9 +112,8 @@ package object protocol {
    */
   object UpdateBody {
     val write = Json.writes[UpdateBody]
-    val read: Reads[UpdateBody] = Json.reads[UpdateBody].filterNot(ValidationError("validate.error.unexpected.value",UpdateBody(List.empty)))(_ == UpdateBody(List.empty))
+    val read: Reads[UpdateBody] = Json.reads[UpdateBody].filterNot(ValidationError("validate.error.unexpected.value", UpdateBody(List.empty)))(_ == UpdateBody(List.empty))
     implicit val fmt = Format[UpdateBody](read, write)
-
   }
 
   /*
@@ -234,7 +236,6 @@ package object protocol {
       def writes(l: List[FieldSnapshot]): JsValue =
         Json.toJson(l.map(f => f.key -> Json.obj("value" -> f.value)).toMap)
     }
-
   }
 
   /*

@@ -5,15 +5,17 @@ package io.really
 
 import java.util.concurrent.TimeUnit
 import akka.actor.ActorSystem
-import akka.testkit.{TestKit, ImplicitSender}
+import akka.testkit.{ TestKit, ImplicitSender }
 import akka.util.Timeout
 import com.typesafe.config.ConfigFactory
-import io.really.model._
+import _root_.io.really.model._
 import org.joda.time.DateTime
 import org.scalatest._
 
-abstract class BaseActorSpec(conf: ReallyConfig = TestConf.getConfig()) extends TestKit(TestActorSystem("TestActorSystem",
-  conf)) with ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
+abstract class BaseActorSpec(conf: ReallyConfig = TestConf.getConfig()) extends TestKit(TestActorSystem(
+  "TestActorSystem",
+  conf
+)) with ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
 
   import BaseActorSpec._
 
@@ -21,8 +23,12 @@ abstract class BaseActorSpec(conf: ReallyConfig = TestConf.getConfig()) extends 
   implicit val executionContext = system.dispatcher
   implicit val config: ReallyConfig = conf
   val globals = new TestReallyGlobals(config, system)
-  val ctx = RequestContext(1, AuthInfo.Anonymous, None, RequestMetadata(None, DateTime.now, "localhost",
-    RequestProtocol.WebSockets))
+  val ctx = RequestContext(
+    1,
+    UserInfo(AuthProvider.Anonymous, R("/_anonymous/1234567"), Application("reallyApp")),
+    None, RequestMetadata(None, DateTime.now, "localhost",
+      RequestProtocol.WebSockets)
+  )
 
   override def beforeAll() = {
     globals.boot()
@@ -44,15 +50,18 @@ object BaseActorSpec {
       "name" -> ValueField("name", DataType.RString, None, None, true),
       "age" -> ValueField("age", DataType.RLong, None, None, true)
     ),
-    JsHooks(None,
+    JsHooks(
       None,
       None,
       None,
       None,
       None,
-      None),
+      None,
+      None
+    ),
     null,
-    List.empty)
+    List.empty
+  )
   val companyModel = Model(
     R / 'companies,
     CollectionMetadata(23),
@@ -60,16 +69,18 @@ object BaseActorSpec {
       "name" -> ValueField("name", DataType.RString, None, None, true),
       "employees" -> ValueField("employees", DataType.RLong, None, None, true)
     ),
-    JsHooks(None,
+    JsHooks(
       None,
       None,
       None,
       None,
       None,
-      None),
+      None,
+      None
+    ),
     null,
-    List.empty)
-
+    List.empty
+  )
   val postModel = Model(
     R / 'authors / 'posts,
     CollectionMetadata(23),
@@ -77,34 +88,39 @@ object BaseActorSpec {
       "title" -> ValueField("title", DataType.RString, None, None, true),
       "body" -> ValueField("body", DataType.RString, None, None, true)
     ),
-    JsHooks(None,
+    JsHooks(
       None,
       None,
       None,
       None,
       None,
-      None),
+      None,
+      None
+    ),
     null,
-    List.empty)
+    List.empty
+  )
   val authorModel = Model(
     R / 'authors,
     CollectionMetadata(23),
     Map(
       "name" -> ValueField("name", DataType.RString, None, None, true)
     ),
-    JsHooks(None,
+    JsHooks(
       None,
       None,
       None,
       None,
       None,
-      None),
+      None,
+      None
+    ),
     null,
-    List(postModel.r))
-
-  val model = ValueField("model", DataType.RString, Some( """model.split(' ').length >= 2"""), None, true)
-  val production = ValueField("production", DataType.RLong, Some( """production >= 1980"""), Some( """1980"""), true)
-  val renual = CalculatedField1("renual", DataType.RLong,
+    List(postModel.r)
+  )
+  val model = ValueField("model", DataType.RString, Some("""model.split(' ').length >= 2"""), None, true)
+  val production = ValueField("production", DataType.RLong, Some("""production >= 1980"""), Some("""1980"""), true)
+  val renewal = CalculatedField1("renewal", DataType.RLong,
     """
       |function calculate(production) {
       | return production + 10;
@@ -114,20 +130,20 @@ object BaseActorSpec {
     R / 'cars,
     CollectionMetadata(33),
     Map(
-      "model" -> model
-      , "production" -> production
-      , "renual" -> renual
+      "model" -> model, "production" -> production, "renewal" -> renewal
     ),
     JsHooks(
-      Some( """ input.renual >= 1980 """),
+      Some(""" input.renewal >= 1980 """),
       None,
       None,
       None,
       None,
       None,
-      None),
+      None
+    ),
     null,
-    List.empty)
+    List.empty
+  )
 }
 
 object TestActorSystem {

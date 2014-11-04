@@ -4,7 +4,7 @@
 package io.really.model
 
 import play.api.libs.json._
-import scala.util.{Failure, Success, Try}
+import scala.util.{ Failure, Success, Try }
 
 class DataTypeException(msg: String) extends Exception(msg)
 
@@ -13,7 +13,6 @@ trait DataType[T] {
   protected def fmt: Format[T]
 
   def readJsValue(in: JsValue): JsResult[JsValue] = in.validate(fmt).map(a => fmt.writes(a))
-
 
   def readValue(in: JsValue): JsResult[T] = in.validate(fmt)
 

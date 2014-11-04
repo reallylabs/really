@@ -3,7 +3,7 @@
  */
 package io.really.views
 
-import io.really._
+import _root_.io.really._
 import akka.actor._
 import akka.persistence._
 

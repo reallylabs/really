@@ -5,23 +5,37 @@ package io.really
 
 import java.util.concurrent.atomic.AtomicReference
 
-import akka.actor.{ActorSystem, Props, ActorRef}
-import akka.contrib.pattern.ClusterSharding
-import io.really.defaults.{DefaultRequestActor, DefaultReceptionist}
-import io.really.model.{ModelRegistryRouter, CollectionActor, CollectionSharding}
-import io.really.quickSand.QuickSand
+import akka.actor.{ ActorSystem, Props, ActorRef }
+import akka.contrib.pattern.{ DistributedPubSubExtension, ClusterSharding }
+import _root_.io.really.defaults.{ DefaultRequestActor, DefaultReceptionist }
+import _root_.io.really.gorilla.{ SubscriptionManager, GorillaEventCenterSharding, GorillaEventCenter }
+import _root_.io.really.model.{ ModelRegistryRouter, CollectionActor, CollectionSharding }
+import _root_.io.really.quickSand.QuickSand
 import play.api.libs.json.JsObject
+import reactivemongo.api.{ DefaultDB, MongoDriver }
+import scala.collection.JavaConversions._
+import scala.slick.driver.H2Driver.simple._
 
 class TestReallyGlobals(override val config: ReallyConfig, override val actorSystem: ActorSystem) extends ReallyGlobals {
   protected val receptionist_ = new AtomicReference[ActorRef]
   protected val quickSand_ = new AtomicReference[QuickSand]
   protected val modelRegistry_ = new AtomicReference[ActorRef]
   protected val collectionActor_ = new AtomicReference[ActorRef]
+  protected val gorillaEventCenter_ = new AtomicReference[ActorRef]
+  private val mongodbConntection_ = new AtomicReference[DefaultDB]
+  private val subscriptionManager_ = new AtomicReference[ActorRef]
+  private val mediator_ = new AtomicReference[ActorRef]
 
   override lazy val receptionist = receptionist_.get
   override lazy val quickSand = quickSand_.get
   override lazy val modelRegistryRouter = modelRegistry_.get
   override lazy val collectionActor = collectionActor_.get
+  override lazy val gorillaEventCenter = gorillaEventCenter_.get
+  override lazy val mongodbConntection = mongodbConntection_.get
+  override lazy val subscriptionManager = subscriptionManager_.get
+  override lazy val mediator = mediator_.get
+
+  private val db = Database.forURL(config.EventLogStorage.databaseUrl, driver = config.EventLogStorage.driver)
 
   def requestProps(context: RequestContext, replyTo: ActorRef, body: JsObject): Props =
     Props(new DefaultRequestActor(context, replyTo, body))
@@ -31,7 +45,18 @@ class TestReallyGlobals(override val config: ReallyConfig, override val actorSys
   override val modelRegistryRouterProps = Props(new ModelRegistryRouter(this))
   override val collectionActorProps = Props(classOf[CollectionActor], this)
 
+  implicit val session = db.createSession()
+  GorillaEventCenter.initializeDB()
+
+  override def gorillaEventCenterProps = Props(classOf[GorillaEventCenter], this, session)
+  override val subscriptionManagerProps = Props(classOf[SubscriptionManager], this)
+
   override def boot() = {
+    implicit val ec = actorSystem.dispatcher
+    val driver = new MongoDriver
+    val connection = driver.connection(config.Mongodb.servers)
+    mongodbConntection_.set(connection(config.Mongodb.dbName))
+
     receptionist_.set(actorSystem.actorOf(receptionistProps, "requests"))
     quickSand_.set(new QuickSand(config, actorSystem))
     modelRegistry_.set(actorSystem.actorOf(modelRegistryRouterProps, "model-registry"))
@@ -40,7 +65,21 @@ class TestReallyGlobals(override val config: ReallyConfig, override val actorSys
       typeName = "CollectionActor",
       entryProps = Some(collectionActorProps),
       idExtractor = collectionSharding.idExtractor,
-      shardResolver = collectionSharding.shardResolver))
+      shardResolver = collectionSharding.shardResolver
+    ))
+
+    val gorillaEventCenterSharding = new GorillaEventCenterSharding(config)
+
+    gorillaEventCenter_.set(ClusterSharding(actorSystem).start(
+      typeName = "GorillaEventCenter",
+      entryProps = Some(gorillaEventCenterProps),
+      idExtractor = gorillaEventCenterSharding.idExtractor,
+      shardResolver = gorillaEventCenterSharding.shardResolver
+    ))
+
+    mediator_.set(DistributedPubSubExtension(actorSystem).mediator)
+
+    subscriptionManager_.set(actorSystem.actorOf(subscriptionManagerProps, "subscription-manager"))
   }
 
   override def shutdown() = {

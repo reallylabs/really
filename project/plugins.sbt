@@ -15,3 +15,11 @@ addSbtPlugin("com.typesafe.play" % "sbt-plugin" % "2.3.6")
 addSbtPlugin("com.github.mpeltonen" % "sbt-idea" % "1.6.0")
 
 addSbtPlugin("com.timushev.sbt" % "sbt-updates" % "0.1.6")
+
+addSbtPlugin("org.scalastyle" %% "scalastyle-sbt-plugin" % "0.6.0")
+
+addSbtPlugin("com.typesafe.sbt" % "sbt-scalariform" % "1.3.0")
+
+javaOptions in Global += "-Dfile.encoding=UTF-8"
+
+scalacOptions in Global ++= Seq("-feature", "-deprecation")

@@ -3,9 +3,9 @@
  */
 package io.really
 
-import javax.script.{ScriptException, ScriptContext, Invocable}
-import io.really.js.JsTools
-import io.really.model.ModelExceptions.{InvalidSubCollectionR, InvalidCollectionR}
+import javax.script.{ ScriptException, ScriptContext, Invocable }
+import _root_.io.really.js.JsTools
+import _root_.io.really.model.ModelExceptions.{ InvalidSubCollectionR, InvalidCollectionR }
 import play.api.libs.json._
 import jdk.nashorn.api.scripting.NashornScriptEngineFactory
 
@@ -20,27 +20,27 @@ package object model {
 
   /**
    * - Validate (cancel) – called before create and update
-      - OnGet (cancel/hide) – called on get and query/read
-      - PreUpdate (prev, after) -- cancel –– called before saving the update
-      - PreDelete (cancel)
-      - PostCreate
-      - PostUpdate
-      - PostDelete
+   * - OnGet (cancel/hide) – called on get and query/read
+   * - PreUpdate (prev, after) -- cancel –– called before saving the update
+   * - PreDelete (cancel)
+   * - PostCreate
+   * - PostUpdate
+   * - PostDelete
    * @param onValidate
    */
-  case class JsHooks(onValidate: Option[JsScript],
-                     preGet: Option[JsScript],
-                     preUpdate: Option[JsScript],
-                     preDelete: Option[JsScript],
-                     postCreate: Option[JsScript],
-                     postUpdate: Option[JsScript],
-                     postDelete: Option[JsScript])
-
+  case class JsHooks(
+    onValidate: Option[JsScript],
+    preGet: Option[JsScript],
+    preUpdate: Option[JsScript],
+    preDelete: Option[JsScript],
+    postCreate: Option[JsScript],
+    postUpdate: Option[JsScript],
+    postDelete: Option[JsScript]
+  )
 
   case class MigrationPlan(scripts: Map[ModelVersion, JsScript]) {
     def migrate(from: ModelVersion, to: ModelVersion): JsObject => JsObject = ???
   }
-
 
   /**
    * Model Class defines and declares the schema and validators of a certain model
@@ -50,12 +50,14 @@ package object model {
    * @param jsHooks
    * @param migrationPlan
    */
-  case class Model(r: R,
-                   collectionMeta: CollectionMetadata,
-                   fields: Map[FieldKey, Field[_]],
-                   jsHooks: JsHooks,
-                   migrationPlan: MigrationPlan,
-                   subCollections: List[R]) {
+  case class Model(
+      r: R,
+      collectionMeta: CollectionMetadata,
+      fields: Map[FieldKey, Field[_]],
+      jsHooks: JsHooks,
+      migrationPlan: MigrationPlan,
+      subCollections: List[R]
+  ) {
 
     if (!r.isCollection) throw new InvalidCollectionR(r)
     subCollections.foreach {
@@ -64,7 +66,6 @@ package object model {
           throw new InvalidSubCollectionR(r)
         }
     }
-
 
     val factory = new NashornScriptEngineFactory
     val executeValidator: Option[Validator] = jsHooks.onValidate.map { onValidateCode =>
@@ -90,8 +91,7 @@ package object model {
           try {
             validator.validate(input.toString)
             ModelHookStatus.Succeeded
-          }
-          catch {
+          } catch {
             case te: ModelHookStatus.JSValidationError => te.terminated
             case se: ScriptException =>
               //TODO Log the error

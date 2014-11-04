@@ -23,6 +23,7 @@
     <!-- Our Own Loggers -->
     <logger name="io.really" level="WARN" />
     <logger name="io.really.io" level="WARN" />
+    <logger name="io.really.io.socket" level="INFO" />
     <logger name="akka" level="INFO" />
     <logger name="play" level="INFO" />
     <logger name="application" level="INFO" />

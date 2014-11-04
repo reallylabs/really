@@ -20,7 +20,6 @@ object Global extends GlobalSettings {
   lazy val ioGlobals = _ioGlobals.get
   lazy val reallyConfig = _reallyConfig.get
 
-
   override def onStart(app: Application) {
     _reallyConfig.set(new DefaultIOConfig(app.configuration.underlying))
     val core = new DefaultReallyGlobals(_reallyConfig.get)
@@ -68,7 +67,8 @@ object Global extends GlobalSettings {
         |                          ▀▓▓   █▓▓▄▄ ▓▓▌
         |                            ▀░    ▀█▓▓▓▓▓
         |                                     ▀▀▓▓
-      """)
+      """
+    )
 
     Logger.info("Hello from Really!")
   }

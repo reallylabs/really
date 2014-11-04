@@ -8,7 +8,7 @@ import java.util.concurrent.atomic.AtomicReference
 
 import akka.actor.ActorSystem
 
-class IOGlobals(config: IOConfig) {
+class IOGlobals(val config: IOConfig) {
   import play.api.Logger
   private[this] val _actorSystem = new AtomicReference[ActorSystem]
   private val logger = Logger(getClass)

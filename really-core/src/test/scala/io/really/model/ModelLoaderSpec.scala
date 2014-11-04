@@ -4,14 +4,13 @@
 package io.really.model.loader
 
 import akka.actor.ActorSystem
-import akka.testkit.{TestKit}
+import akka.testkit.{ TestKit }
 import io.really.R
 import io.really.model._
-import org.scalatest.{FlatSpecLike, BeforeAndAfterAll, Matchers}
-
+import org.scalatest.{ FlatSpecLike, BeforeAndAfterAll, Matchers }
 
 class ModelLoaderSpec(_system: ActorSystem) extends TestKit(_system)
-with FlatSpecLike with Matchers with BeforeAndAfterAll {
+    with FlatSpecLike with Matchers with BeforeAndAfterAll {
 
   def this() = this(ActorSystem("ModelLoaderSpec"))
 
@@ -122,7 +121,7 @@ with FlatSpecLike with Matchers with BeforeAndAfterAll {
     val creatorField = creator.asInstanceOf[ReferenceField[_]]
     creatorField.key shouldBe "creator"
     creatorField.dataType shouldEqual DataType.Reference
-    creatorField.collectionR shouldEqual  R("/users")
+    creatorField.collectionR shouldEqual R("/users")
     creatorField.fields shouldEqual List("firstName", "lastName")
   }
 
@@ -138,6 +137,5 @@ with FlatSpecLike with Matchers with BeforeAndAfterAll {
   override def afterAll() {
     TestKit.shutdownActorSystem(system)
   }
-
 
 }

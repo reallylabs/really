@@ -3,7 +3,7 @@
  */
 package io.really.model
 
-import io.really.ReallyConfig
+import _root_.io.really.ReallyConfig
 
 trait ShardingConfig {
   this: ReallyConfig =>

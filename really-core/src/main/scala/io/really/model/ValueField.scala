@@ -3,20 +3,20 @@
  */
 package io.really.model
 
-import javax.script.{ScriptException, Invocable}
-import io.really.js.JsTools
+import javax.script.{ ScriptException, Invocable }
+import _root_.io.really.js.JsTools
 import play.api.data.validation.ValidationError
 import play.api.libs.json._
-import java.lang.{Boolean => JBoolean}
-import scala.util.{Failure, Success}
+import java.lang.{ Boolean => JBoolean }
+import scala.util.{ Failure, Success }
 
 case class ValueField[T](
-                          key: FieldKey,
-                          dataType: DataType[T],
-                          validationExpression: Option[JsScript],
-                          default: Option[JsScript],
-                          required: Boolean
-                          ) extends ActiveField[T] {
+    key: FieldKey,
+    dataType: DataType[T],
+    validationExpression: Option[JsScript],
+    default: Option[JsScript],
+    required: Boolean
+) extends ActiveField[T] {
 
   private[this] val validateExecutor: Option[Invocable] = validationExpression.map { onValidateCode =>
     val validateEngine = JsTools.newEngineWithSDK
@@ -58,14 +58,14 @@ case class ValueField[T](
       //notice that we are (semi-safely) performing .get on the Option given that it has been checked by validateInput
       validateExecutor match {
         case Some(v) =>
-        v.invokeFunction("validate", dataType.valueAsOpt(in).get.asInstanceOf[Object]) match {
-          case b: JBoolean if b =>
-            JsSuccess(Json.obj(key -> in), path)
-          case b: JBoolean =>
-            JsError((path, ValidationError("validation.custom.failed")))
-          case _ => //returned type is not Boolean as expected
-            JsError((path, ValidationError("validation.custom.invalid_return_type")))
-        }
+          v.invokeFunction("validate", dataType.valueAsOpt(in).get.asInstanceOf[Object]) match {
+            case b: JBoolean if b =>
+              JsSuccess(Json.obj(key -> in), path)
+            case b: JBoolean =>
+              JsError((path, ValidationError("validation.custom.failed")))
+            case _ => //returned type is not Boolean as expected
+              JsError((path, ValidationError("validation.custom.invalid_return_type")))
+          }
         case None => JsSuccess(Json.obj(key -> in), path)
       }
     } catch {

@@ -21,7 +21,7 @@ class ApplicationSpec extends PlaySpec with BeforeAndAfterAll {
 
       assert(status(home) == OK)
       contentType(home) mustBe Some("text/plain")
-      contentAsString(home) must include ("Howdy!")
+      contentAsString(home) must include("Howdy!")
     }
   }
 }

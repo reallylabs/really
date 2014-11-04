@@ -4,23 +4,22 @@
 package io.really.model
 
 import akka.actor._
-import akka.persistence.{RecoveryFailure, SnapshotOffer}
+import akka.persistence.{ RecoveryFailure, SnapshotOffer }
 import akka.contrib.pattern.ShardRegion.Passivate
-import akka.persistence.{RecoveryCompleted, PersistentActor}
+import akka.persistence.{ RecoveryCompleted, PersistentActor }
 import akka.util.Timeout
 import io.really.CommandError._
-import io.really.Result.{CreateResult, UpdateResult}
+import io.really.Result.{ CreateResult, UpdateResult }
 import io.really._
-import io.really.Request._
-import akka.pattern.{AskTimeoutException, ask, pipe}
-import io.really.js.JsResultHelpers
-import io.really.model.ModelRegistryRouter.CollectionActorMessage.GetModel
-import io.really.model.ModelRegistryRouter.ModelOperation.ModelUpdated
-import io.really.model.ModelRegistryRouter.ModelOperation.ModelDeleted
-import io.really.model.ModelRegistryRouter.ModelResult
+import _root_.io.really.Request._
+import akka.pattern.{ AskTimeoutException, ask, pipe }
+import _root_.io.really.js.JsResultHelpers
+import _root_.io.really.model.ModelRegistryRouter.CollectionActorMessage.GetModel
+import _root_.io.really.model.ModelRegistryRouter.ModelOperation.{ ModelUpdated, ModelDeleted }
+import _root_.io.really.model.ModelRegistryRouter.ModelResult
 import play.api.data.validation.ValidationError
 import play.api.libs.json._
-import io.really.protocol.{UpdateOp, UpdateCommand, FieldSnapshot}
+import _root_.io.really.protocol.{ UpdateOp, UpdateCommand }
 import scala.concurrent.Future
 import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -60,7 +59,7 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor with Actor
       log.debug(s"$persistenceId Persistor received a Create replay event: $evt")
       updateState(evt)
 
-    case evt@Event.Updated(r, ops, revision, modelVersion, ctx) if state.get(r).isDefined =>
+    case evt @ Event.Updated(r, ops, revision, modelVersion, ctx) if state.get(r).isDefined =>
       log.debug(s"$persistenceId Persistor received an Update replay event: $evt")
       getUpdatedData(state(r), ops, revision) match {
         case JsSuccess(obj, _) => updateState(evt, Some(obj))
@@ -74,7 +73,7 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor with Actor
     //TODO: handle other events
 
     //TODO handle saveSnapshot()
-    case SnapshotOffer(_, snapshot: Buckets) => state = snapshot
+    case SnapshotOffer(_, snapshot: Map[R @unchecked, ModelObject @unchecked]) => state = snapshot
 
     case RecoveryCompleted =>
       log.debug(s"$persistenceId Persistor took to recover was {}ms", System.currentTimeMillis - t1)
@@ -152,20 +151,18 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor with Actor
     case GetState(r) =>
       log.debug(s"$persistenceId Persistor received a GetState message for: $r")
       state.get(r).map(obj =>
-        sender() ! State(obj.data)
-      ).getOrElse {
+        sender() ! State(obj.data)).getOrElse {
         sender() ! ObjectNotFound
       }
 
     case GetExistenceState(r) =>
       log.debug(s"$persistenceId Persistor received a GetExistenceState message for: $r")
       state.get(r).map(_ =>
-        sender() ! ObjectExists
-      ).getOrElse {
+        sender() ! ObjectExists).getOrElse {
         sender() ! ObjectNotFound
       }
 
-    case req@Create(ctx, r, body) =>
+    case req @ Create(ctx, r, body) =>
       state.get(r) match {
         case Some(obj) =>
           sender() ! AlreadyExists(r)
@@ -180,8 +177,10 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor with Actor
             case ObjectNotFound =>
               catchTheSender ! ParentNotFound(403, "Object parent doesn't exist")
           } recover {
-            case _ => catchTheSender ! InternalServerError(500,
-              s"Server encountered a problem while checking for parent object existence, for request: $req")
+            case _ => catchTheSender ! InternalServerError(
+              500,
+              s"Server encountered a problem while checking for parent object existence, for request: $req"
+            )
           }
       }
 
@@ -243,7 +242,6 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor with Actor
       //todo: publish the event on the Event Stream
     }
 
-
   private def validateObject(obj: JsObject, model: Model)(implicit context: RequestContext): ValidationResponse =
     validateFields(obj, model) match {
       case JsSuccess(jsObj: JsObject, _) => // Continue to JS Validation
@@ -291,20 +289,19 @@ object CollectionActor {
 
   case object ObjectExists extends Response
 
-
   trait Event {
     def context: RequestContext
+
+    def r: R
   }
 
   object Event {
 
-    case class Created(r: R, obj: JsObject, modelVersion: ModelVersion, ctx: RequestContext) extends Event {
-      val context = ctx
-    }
+    case class Created(r: R, obj: JsObject, modelVersion: ModelVersion, context: RequestContext) extends Event
 
-    case class Updated(r: R, ops: List[UpdateOp], rev: Revision, modelVersion: ModelVersion, ctx: RequestContext) extends Event {
-      val context = ctx
-    }
+    case class Updated(r: R, ops: List[UpdateOp], rev: Revision, modelVersion: ModelVersion, context: RequestContext) extends Event
+
+    case class Deleted(r: R, context: RequestContext) extends Event
 
   }
 
@@ -352,7 +349,7 @@ object CollectionActor {
   private def validateActiveFields(obj: JsObject, fields: Map[FieldKey, Field[_]]): List[JsResult[JsObject]] = {
     fields.map {
       case (keyField, valueField) =>
-        val fieldBranch= (__ \ keyField).json.pickBranch
+        val fieldBranch = (__ \ keyField).json.pickBranch
         val fieldObj = obj.validate(fieldBranch).getOrElse(Json.obj())
         valueField.read(JsPath(), fieldObj)
     }.toList
@@ -366,7 +363,7 @@ object CollectionActor {
   }
 
   private def validateFields(obj: JsObject, model: Model): JsResult[JsObject] = {
-    val (activeFields, reactiveFields) = model.fields.partition { case (_, v) => v.isInstanceOf[ValueField[_]]}
+    val (activeFields, reactiveFields) = model.fields.partition { case (_, v) => v.isInstanceOf[ValueField[_]] }
     JsResultHelpers.merge(validateActiveFields(obj, activeFields)) match {
       case JsSuccess(active: JsObject, _) =>
         val calculated = JsResultHelpers.merge(evaluateReActiveFields(active, reactiveFields))

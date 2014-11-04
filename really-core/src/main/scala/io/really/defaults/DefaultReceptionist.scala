@@ -4,7 +4,7 @@
 package io.really.defaults
 
 import akka.actor._
-import io.really._
+import _root_.io.really._
 
 /**
  * Receives a [[Request]] instance and a requester [[ActorRef]] and instantiates a RequestActor

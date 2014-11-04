@@ -3,8 +3,8 @@
  */
 package io.really.model
 
-import io.really._
-import akka.persistence.{SnapshotOffer, PersistentActor}
+import _root_.io.really._
+import akka.persistence.{ SnapshotOffer, PersistentActor }
 
 class PersistentModelStore(globals: ReallyGlobals) extends PersistentActor {
   import PersistentModelStore._
@@ -36,7 +36,7 @@ class PersistentModelStore(globals: ReallyGlobals) extends PersistentActor {
     case UpdatedModels(models) => updateModels(models)
     case DeletedModels(models) => deleteModels(models)
     case AddedModels(models) => addModels(models)
-    case SnapshotOffer(_, snapshot: Models) => updateState(snapshot)
+    case SnapshotOffer(_, snapshot: List[Model @unchecked]) => updateState(snapshot)
   }
 
   def receiveCommand: Receive = {
@@ -44,11 +44,11 @@ class PersistentModelStore(globals: ReallyGlobals) extends PersistentActor {
       val deletedModels = state.filterNot(m => models.map(_.r).contains(m.r))
       val addedModels = models.filterNot(m => state.map(_.r).contains(m.r))
       val changedModels = getChangedModels(models, state)
-      if(!changedModels.isEmpty)
+      if (!changedModels.isEmpty)
         persist(UpdatedModels(changedModels))(_ => updateModels(changedModels))
-      if(!deletedModels.isEmpty)
+      if (!deletedModels.isEmpty)
         persist(DeletedModels(deletedModels))(_ => deleteModels(deletedModels))
-      if(!addedModels.isEmpty)
+      if (!addedModels.isEmpty)
         persist(AddedModels(addedModels))(_ => addModels(addedModels))
   }
 
