@@ -29,6 +29,8 @@ package object gorilla {
 
   case class ModelUpdatedEvent(bucketID: BucketID, model: Model) extends ModelEvent
 
+  case class ModelDeletedEvent(bucketID: BucketID) extends ModelEvent
+
   //Todo define the streaming event
   case class StreamingEvent(r: R)
 

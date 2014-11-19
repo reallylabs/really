@@ -261,6 +261,8 @@ case class R private (tokens: Tokens) {
 
   def headR: R = R(List(head))
 
+  def collectionName: String = this.tokens.map(_.collection).mkString("_")
+
   override def toString() =
     tokens.foldRight("/")((acc, v) => v + acc.toString)
 }

@@ -9,9 +9,9 @@ package io {
   import play.api.data.validation.ValidationError
   import reactivemongo.api.DefaultDB
   import akka.actor.{ Props, ActorSystem, ActorRef }
-  import _root_.io.really.model.ModelObject
-  import _root_.io.really.quickSand.QuickSand
-  import _root_.io.really.protocol._
+  import io.really.model.DataObject
+  import io.really.quickSand.QuickSand
+  import io.really.protocol._
   import org.joda.time.DateTime
   import play.api.libs.json._
 
@@ -21,7 +21,7 @@ package io {
     type CollectionName = String
     type Tokens = List[PathToken]
     type BucketID = String
-    type Buckets = Map[R, ModelObject]
+    type Buckets = Map[R, DataObject]
     type AppId = String
 
     implicit def IntToToken(id: Int): TokenId = LongToToken(id)
@@ -49,6 +49,8 @@ package io {
 
       def requestRouterProps: Props
 
+      def persistentModelStoreProps: Props
+
       def collectionActorProps: Props
 
       def gorillaEventCenterProps: Props
@@ -56,6 +58,8 @@ package io {
       def subscriptionManagerProps: Props
 
       def readHandlerProps: Props
+
+      def materializerProps: Props
 
       def actorSystem: ActorSystem
 
@@ -67,7 +71,13 @@ package io {
 
       def requestRouter: ActorRef
 
+      def persistentModelStore: ActorRef
+
+      def collectionActor: ActorRef
+
       def gorillaEventCenter: ActorRef
+
+      def materializerView: ActorRef
 
       def mongodbConntection: DefaultDB
 
@@ -77,7 +87,6 @@ package io {
 
       def mediator: ActorRef
 
-      def collectionActor: ActorRef
     }
 
     trait withRequestContext {

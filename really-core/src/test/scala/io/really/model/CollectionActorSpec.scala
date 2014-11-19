@@ -3,7 +3,7 @@
  */
 package io.really.model
 
-import akka.actor.{ PoisonPill, Props }
+import akka.actor.{ ActorSystem, PoisonPill, Props }
 import akka.testkit.{ TestActorRef, TestProbe }
 import io.really.CommandError.ParentNotFound
 import io.really.Request.{ Update, Delete, Create }
@@ -19,7 +19,11 @@ import play.api.libs.json.{ JsNumber, Json }
 import play.api.data.validation.ValidationError
 import play.api.libs.json._
 
+import scala.util.Random
+
 class CollectionActorSpec extends BaseActorSpec {
+
+  override val globals = new CollectionTestReallyGlobals(config, system)
 
   case class UnsupportedCommand(r: R, cmd: String) extends RoutableToCollectionActor
 
@@ -70,8 +74,8 @@ class CollectionActorSpec extends BaseActorSpec {
   }
 
   it should "invalidate the internal state when it receives the ModelDeleted message" in {
-    val r = R / 'companies / 223
-    val userObj = Json.obj("name" -> "Foo Bar", "employees" -> 40)
+    val r = R / 'companies / Random.nextInt(100)
+    val userObj = Json.obj("name" -> "Foo Bar", "employees" -> 43)
     val probe = TestProbe()
     globals.collectionActor.tell(Create(ctx, r, userObj), probe.ref)
     val res = probe.expectMsgType[Result.CreateResult]
@@ -413,4 +417,8 @@ class CollectionActorSpec extends BaseActorSpec {
     probe.expectMsg(CommandError.OutdatedRevision)
   }
 
+}
+
+class CollectionTestReallyGlobals(override val config: ReallyConfig, override val actorSystem: ActorSystem) extends TestReallyGlobals(config, actorSystem) {
+  override val materializerProps = Props.empty
 }

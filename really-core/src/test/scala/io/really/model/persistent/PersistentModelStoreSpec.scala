@@ -51,9 +51,9 @@ class PersistentModelStoreSpec(conf: ReallyConfig) extends BaseActorSpec(conf) {
     Thread.sleep(6000)
 
     //send GetModel to ModelRegistryRouter
-    modelRegistry ! ModelRegistry.CollectionActorMessage.GetModel(profilesR)
+    modelRegistry ! ModelRegistry.CollectionActorMessage.GetModel(profilesR, self)
 
-    expectMsg(ModelRegistry.ModelResult.ModelObject(profileModel))
+    expectMsg(ModelRegistry.ModelResult.ModelObject(profileModel, List.empty))
 
     //send update models to persistent model with new models
     persistentModel ! PersistentModelStore.UpdateModels(List(profileModel, boardModel))
@@ -64,9 +64,9 @@ class PersistentModelStoreSpec(conf: ReallyConfig) extends BaseActorSpec(conf) {
     Thread.sleep(6000)
 
     //send GetModel for board to ModelRegistryRouter
-    modelRegistry ! ModelRegistry.CollectionActorMessage.GetModel(boardsR)
+    modelRegistry ! ModelRegistry.CollectionActorMessage.GetModel(boardsR, self)
 
-    expectMsg(ModelRegistry.ModelResult.ModelObject(boardModel))
+    expectMsg(ModelRegistry.ModelResult.ModelObject(boardModel, List.empty))
 
     //send update models to persistent model with changed models and remove some models
     persistentModel ! PersistentModelStore.UpdateModels(List(newProfileModel))
@@ -76,7 +76,7 @@ class PersistentModelStoreSpec(conf: ReallyConfig) extends BaseActorSpec(conf) {
 
     Thread.sleep(6000)
 
-    expectMsg(ModelRegistry.ModelOperation.ModelUpdated(profilesR, newProfileModel))
+    expectMsg(ModelRegistry.ModelOperation.ModelUpdated(profilesR, newProfileModel, List.empty))
 
     expectMsg(ModelRegistry.ModelOperation.ModelDeleted(boardsR))
   }

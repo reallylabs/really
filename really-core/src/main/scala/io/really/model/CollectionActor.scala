@@ -8,16 +8,17 @@ import akka.persistence.{ RecoveryFailure, SnapshotOffer }
 import akka.contrib.pattern.ShardRegion.Passivate
 import akka.persistence.{ RecoveryCompleted, PersistentActor }
 import akka.util.Timeout
-import io.really.CommandError._
-import io.really.Result.{ CreateResult, UpdateResult }
+import _root_.io.really.CommandError._
+import _root_.io.really.Result.{ CreateResult, UpdateResult }
 import io.really._
 import _root_.io.really.Request._
 import akka.pattern.{ AskTimeoutException, ask, pipe }
 import _root_.io.really.js.JsResultHelpers
 import _root_.io.really.model.persistent.ModelRegistry
 import ModelRegistry.CollectionActorMessage.GetModel
-import ModelRegistry.ModelOperation.{ ModelUpdated, ModelDeleted }
+import _root_.io.really.model.persistent.ModelRegistry.ModelOperation.{ ModelCreated, ModelUpdated, ModelDeleted }
 import ModelRegistry.ModelResult
+import _root_.io.really.model.materializer.CollectionViewMaterializer
 import play.api.data.validation.ValidationError
 import play.api.libs.json._
 import _root_.io.really.protocol.{ UpdateOp, UpdateCommand }
@@ -75,13 +76,13 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor with Actor
     //TODO: handle other events
 
     //TODO handle saveSnapshot()
-    case SnapshotOffer(_, snapshot: Map[R @unchecked, ModelObject @unchecked]) => state = snapshot
+    case SnapshotOffer(_, snapshot: Map[R @unchecked, DataObject @unchecked]) => state = snapshot
 
     case RecoveryCompleted =>
       log.debug(s"$persistenceId Persistor took to recover was {}ms", System.currentTimeMillis - t1)
       implicit val timeout = Timeout(globals.config.CollectionActorConfig.waitForModel)
       log.debug(s"$persistenceId Persistor received a Recovery Complete message")
-      val f = (globals.modelRegistry ? GetModel(r)).mapTo[ModelResult]
+      val f = (globals.modelRegistry ? GetModel(r, self)).mapTo[ModelResult]
       f.recoverWith {
         case e: AskTimeoutException =>
           log.debug(s"$persistenceId Persistor timed out waiting for the model object")
@@ -100,10 +101,10 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor with Actor
     evt match {
       case Event.Created(r, obj, modelVersion, ctx) =>
         val lastTouched = obj.keys.map(k => (k, 1l)).toMap
-        state += r -> ModelObject(obj, modelVersion, lastTouched)
+        state += r -> DataObject(obj, modelVersion, lastTouched)
 
       case Event.Updated(r, ops, newRev, modelVersion, ctx) if data.isDefined =>
-        val modelObject = ModelObject(data.get, modelVersion, state(r).lastTouched ++ getLastTouched(ops, rev(data.get)))
+        val modelObject = DataObject(data.get, modelVersion, state(r).lastTouched ++ getLastTouched(ops, rev(data.get)))
         state += r -> modelObject
 
       case Event.Updated(r, ops, newRev, modelVersion, ctx) =>
@@ -139,13 +140,18 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor with Actor
   }
 
   def withModel(m: Model): Receive = {
-    case ModelUpdated(_, newModel) =>
+    case evt @ ModelUpdated(_, newModel, _) =>
       log.debug(s"$persistenceId Persistor received a ModelUpdated message for: $r")
+      persist(evt) {
+        event =>
+          globals.materializerView ! CollectionViewMaterializer.UpdateProjection(bucketID)
+      }
       context.become(withModel(newModel))
 
     case ModelDeleted(deletedR) if deletedR == r =>
       //Sanity check, ModelRegistryRouter should only send me ModelDeleted for my own R
       log.debug(s"$persistenceId Persistor received a DeletedModel message for: $r")
+      globals.materializerView ! CollectionViewMaterializer.UpdateProjection(bucketID)
       context.become(invalid)
       context.parent ! Passivate(stopMessage = Stop)
 
@@ -211,15 +217,19 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor with Actor
       context.parent ! Passivate(stopMessage = Stop)
       unstashAll()
       context.become(invalid)
-    case ModelResult.ModelObject(m) =>
+    case evt @ ModelResult.ModelObject(m, refL) =>
       log.debug(s"$persistenceId Persistor found the model for r: $r")
+      persist(ModelCreated(m.r, m, refL)) {
+        event =>
+          globals.materializerView ! CollectionViewMaterializer.UpdateProjection(bucketID)
+      }
       unstashAll()
       context.become(withModel(m))
     case _ =>
       stash()
   }
 
-  private def applyUpdate(modelObj: ModelObject, model: Model, updateReq: Request.Update): Response =
+  private def applyUpdate(modelObj: DataObject, model: Model, updateReq: Request.Update): Response =
     getUpdatedData(modelObj, updateReq.body.ops, updateReq.rev) match {
       case JsSuccess(obj, _) =>
         validateObject(obj, model)(updateReq.ctx) match {
@@ -240,12 +250,13 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor with Actor
    * @param evt
    * @param jsObj
    */
-  private def persistEvent(evt: Event, jsObj: JsObject) =
+  private def persistEvent(evt: Event, jsObj: JsObject) = {
     persist(evt) {
       event =>
         updateState(event, Some(jsObj))
-      //todo: publish the event on the Event Stream
+        globals.materializerView ! CollectionViewMaterializer.UpdateProjection(bucketID)
     }
+  }
 
   private def validateObject(obj: JsObject, model: Model)(implicit context: RequestContext): ValidationResponse =
     validateFields(obj, model) match {
@@ -268,11 +279,7 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor with Actor
         model.executeValidate(create.ctx, jsObj) match {
           case ModelHookStatus.Succeeded =>
             val newObj = jsObj ++ Json.obj("_rev" -> 1l, "_r" -> create.r.toString)
-            persist(Event.Created(create.r, newObj, model.collectionMeta.version, create.ctx)) {
-              event =>
-                updateState(event)
-              //todo: publish the event on the Event Stream
-            }
+            persistEvent(Event.Created(create.r, newObj, model.collectionMeta.version, create.ctx), newObj)
             CreateResult(newObj)
           case ModelHookStatus.Terminated(code, reason) =>
             JSValidationFailed(reason) //todo fix me, needs comprehensive reason to be communicated
@@ -295,9 +302,9 @@ object CollectionActor {
   case object ObjectExists extends Response
 
   trait Event {
-    def context: RequestContext
-
     def r: R
+
+    def context: RequestContext
   }
 
   object Event {
@@ -308,7 +315,6 @@ object CollectionActor {
       context: RequestContext) extends Event
 
     case class Deleted(r: R, context: RequestContext) extends Event
-
   }
 
   trait ValidationResponse
@@ -325,7 +331,7 @@ object CollectionActor {
 
   def rev(obj: JsObject): Revision = (obj \ "_rev").as[Revision]
 
-  def getUpdatedData(obj: ModelObject, ops: List[UpdateOp], reqRev: Revision): JsResult[JsObject] = {
+  def getUpdatedData(obj: DataObject, ops: List[UpdateOp], reqRev: Revision): JsResult[JsObject] = {
     val newObj = obj.data ++ Json.obj("_rev" -> (rev(obj.data) + 1))
     val result = ops map {
       opBody =>
@@ -338,7 +344,7 @@ object CollectionActor {
     }
   }
 
-  def parseUpdateOperation(opBody: UpdateOp, oldObject: ModelObject, reqRev: Revision, errorKey: String): JsResult[JsObject] =
+  def parseUpdateOperation(opBody: UpdateOp, oldObject: DataObject, reqRev: Revision, errorKey: String): JsResult[JsObject] =
     opBody match {
       case UpdateOp(UpdateCommand.Set, _, _, _) if reqRev < oldObject.lastTouched(opBody.key) =>
         JsError(__ \ errorKey, ValidationError(s"error.revision.outdated"))

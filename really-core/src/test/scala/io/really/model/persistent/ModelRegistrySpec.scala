@@ -55,13 +55,13 @@ class ModelRegistrySpec extends BaseActorSpec {
 
     val modelRouterRef = system.actorOf(Props(new ModelRegistry(globals)))
 
-    modelRouterRef ! CollectionActorMessage.GetModel(profilesR)
+    modelRouterRef ! CollectionActorMessage.GetModel(profilesR, self)
     expectMsg(ModelResult.ModelNotFound)
 
     modelRouterRef ! PersistentModelStore.AddedModels(models)
 
-    modelRouterRef ! CollectionActorMessage.GetModel(profilesR)
-    expectMsg(ModelResult.ModelObject(profileModel))
+    modelRouterRef ! CollectionActorMessage.GetModel(profilesR, self)
+    expectMsg(ModelResult.ModelObject(profileModel, List.empty))
   }
 
   it should "handle model updated event" in {
@@ -75,8 +75,8 @@ class ModelRegistrySpec extends BaseActorSpec {
     modelRouterRef ! PersistentModelStore.AddedModels(models)
 
     //get profile model
-    modelRouterRef ! CollectionActorMessage.GetModel(profilesR)
-    expectMsg(ModelResult.ModelObject(profileModel))
+    modelRouterRef ! CollectionActorMessage.GetModel(profilesR, self)
+    expectMsg(ModelResult.ModelObject(profileModel, List.empty))
 
     //update models
     val f1 = ValueField("firstName", DataType.RString, None, None, true)
@@ -87,7 +87,7 @@ class ModelRegistrySpec extends BaseActorSpec {
       JsHooks(Some(""), None, None, None, None, None, None), null, List.empty)
     modelRouterRef ! PersistentModelStore.UpdatedModels(List(newProfileModel))
 
-    expectMsg(ModelOperation.ModelUpdated(profilesR, newProfileModel))
+    expectMsg(ModelOperation.ModelUpdated(profilesR, newProfileModel, List.empty))
   }
 
   it should "handle model deleted event" in {
@@ -101,15 +101,15 @@ class ModelRegistrySpec extends BaseActorSpec {
     modelRouterRef ! PersistentModelStore.AddedModels(models)
 
     //get profile model
-    modelRouterRef ! CollectionActorMessage.GetModel(profilesR)
-    expectMsg(ModelResult.ModelObject(profileModel))
+    modelRouterRef ! CollectionActorMessage.GetModel(profilesR, self)
+    expectMsg(ModelResult.ModelObject(profileModel, List.empty))
 
     //delete users model
     modelRouterRef ! PersistentModelStore.DeletedModels(models)
 
     expectMsg(ModelOperation.ModelDeleted(profilesR))
 
-    modelRouterRef ! CollectionActorMessage.GetModel(profilesR)
+    modelRouterRef ! CollectionActorMessage.GetModel(profilesR, self)
     expectMsg(ModelResult.ModelNotFound)
   }
 
@@ -124,8 +124,8 @@ class ModelRegistrySpec extends BaseActorSpec {
     modelRouterRef ! PersistentModelStore.AddedModels(models)
 
     //get profile model
-    modelRouterRef ! CollectionActorMessage.GetModel(profilesR)
-    expectMsg(ModelResult.ModelObject(profileModel))
+    modelRouterRef ! CollectionActorMessage.GetModel(profilesR, self)
+    expectMsg(ModelResult.ModelObject(profileModel, List.empty))
   }
 
 }

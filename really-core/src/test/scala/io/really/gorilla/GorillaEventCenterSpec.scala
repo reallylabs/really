@@ -15,6 +15,7 @@ import scala.slick.driver.H2Driver.simple._
 class GorillaEventCenterSpec extends BaseActorSpec {
 
   implicit val session = globals.session
+
   val events: TableQuery[EventLogs] = TableQuery[EventLogs]
 
   "Gorilla Event Center" should "should have the correct BucketID and R" in {

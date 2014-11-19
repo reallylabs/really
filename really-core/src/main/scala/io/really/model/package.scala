@@ -11,7 +11,7 @@ trait Command
 case object Ping extends Command //for testing purposes only
 
 //State Definition
-case class ModelObject(data: JsObject, modelVersion: ModelVersion, lastTouched: Map[FieldKey, Revision])
+case class DataObject(data: JsObject, modelVersion: ModelVersion, lastTouched: Map[FieldKey, Revision])
 
 trait ModelHookStatus
 
