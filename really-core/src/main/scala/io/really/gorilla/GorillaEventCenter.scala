@@ -48,11 +48,11 @@ class GorillaEventCenter(globals: ReallyGlobals)(implicit session: Session) exte
   private def persistEvent(persistentEvent: PersistentEvent): GorillaLogResponse =
     persistentEvent match {
       case PersistentCreatedEvent(event) =>
-        events += EventLog("create", event.r.toString, 1l, event.modelVersion, Json.stringify(event.obj),
+        events += EventLog("create", event.r.toString, event.modelVersion, Json.stringify(event.obj),
           Json.stringify(UserInfo.fmt.writes(event.context.auth)), None)
         EventStored
       case PersistentUpdatedEvent(event, obj) =>
-        events += EventLog("update", event.r.toString, event.rev, event.modelVersion, Json.stringify(obj),
+        events += EventLog("update", event.r.toString, event.modelVersion, Json.stringify(obj),
           Json.stringify(UserInfo.fmt.writes(event.context.auth)), Some(Json.stringify(Json.toJson(event.ops))))
         EventStored
       case _ => GorillaLogError.UnsupportedEvent

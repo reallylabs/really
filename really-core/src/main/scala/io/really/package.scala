@@ -45,7 +45,9 @@ package io {
 
       def receptionistProps: Props
 
-      def modelRegistryRouterProps: Props
+      def modelRegistryProps: Props
+
+      def requestRouterProps: Props
 
       def collectionActorProps: Props
 
@@ -53,19 +55,25 @@ package io {
 
       def subscriptionManagerProps: Props
 
+      def readHandlerProps: Props
+
       def actorSystem: ActorSystem
 
       def receptionist: ActorRef
 
       def quickSand: QuickSand
 
-      def modelRegistryRouter: ActorRef
+      def modelRegistry: ActorRef
+
+      def requestRouter: ActorRef
 
       def gorillaEventCenter: ActorRef
 
       def mongodbConntection: DefaultDB
 
       def subscriptionManager: ActorRef
+
+      def readHandler: ActorRef
 
       def mediator: ActorRef
 
@@ -82,21 +90,25 @@ package io {
 
     trait RoutableToCollectionActor extends RoutableByR
 
+    trait RoutableToReadHandler extends RoutableByR
+
+    trait RoutableToSubscriptionManager
+
     trait Request extends withRequestContext
 
     object Request {
 
-      case class Subscribe(ctx: RequestContext, body: SubscriptionBody) extends Request
+      case class Subscribe(ctx: RequestContext, body: SubscriptionBody) extends Request with RoutableToSubscriptionManager
 
-      case class Unsubscribe(ctx: RequestContext, body: UnsubscriptionBody) extends Request
+      case class Unsubscribe(ctx: RequestContext, body: UnsubscriptionBody) extends Request with RoutableToSubscriptionManager
 
-      case class GetSubscription(ctx: RequestContext, r: R) extends Request with RoutableByR
+      case class GetSubscription(ctx: RequestContext, r: R) extends Request with RoutableByR with RoutableToSubscriptionManager
 
-      case class Get(ctx: RequestContext, r: R, cmdOpts: GetOpts) extends Request with RoutableByR
+      case class Get(ctx: RequestContext, r: R, cmdOpts: GetOpts) extends Request with RoutableToReadHandler
 
       case class Update(ctx: RequestContext, r: R, rev: Long, body: UpdateBody) extends Request with RoutableToCollectionActor
 
-      case class Read(ctx: RequestContext, r: R, cmdOpts: ReadOpts) extends Request with RoutableByR
+      case class Read(ctx: RequestContext, r: R, cmdOpts: ReadOpts) extends Request with RoutableToReadHandler
 
       case class Create(ctx: RequestContext, r: R, body: JsObject) extends Request with RoutableToCollectionActor
 

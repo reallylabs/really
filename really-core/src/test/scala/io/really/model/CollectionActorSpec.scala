@@ -9,7 +9,8 @@ import io.really.CommandError.ParentNotFound
 import io.really.Request.{ Update, Delete, Create }
 import io.really.Result.{ UpdateResult, CreateResult }
 import io.really.model.CollectionActor.{ GetExistenceState, GetState, State }
-import io.really.model.ModelRegistryRouter.ModelResult
+import io.really.model.persistent.{ PersistentModelStore, ModelRegistry }
+import ModelRegistry.ModelResult
 import io.really.protocol.{ UpdateCommand, UpdateOp, UpdateBody }
 import io.really.CommandError.InvalidCommand
 import io.really._
@@ -57,7 +58,7 @@ class CollectionActorSpec extends BaseActorSpec {
     res.body \ "age" shouldBe JsNumber(30)
     res.body \ "_rev" shouldBe JsNumber(1)
 
-    globals.modelRegistryRouter.tell(PersistentModelStore.UpdatedModels(List(BaseActorSpec.userModel.copy(
+    globals.modelRegistry.tell(PersistentModelStore.UpdatedModels(List(BaseActorSpec.userModel.copy(
       fields = BaseActorSpec.userModel.fields + ("address" -> ValueField("address", DataType.RString, None, None, true))
     ))), probe.ref)
     val rx = R / 'users / 445
@@ -65,7 +66,7 @@ class CollectionActorSpec extends BaseActorSpec {
     globals.collectionActor.tell(Create(ctx, rx, userObjx), probe.ref)
     probe.expectMsgType[CommandError.ModelValidationFailed]
     //revert the model changes to leave the test case env clean
-    globals.modelRegistryRouter ! PersistentModelStore.UpdatedModels(List(BaseActorSpec.userModel))
+    globals.modelRegistry ! PersistentModelStore.UpdatedModels(List(BaseActorSpec.userModel))
   }
 
   it should "invalidate the internal state when it receives the ModelDeleted message" in {
@@ -76,7 +77,7 @@ class CollectionActorSpec extends BaseActorSpec {
     val res = probe.expectMsgType[Result.CreateResult]
     res.body \ "name" shouldBe JsString("Foo Bar")
 
-    globals.modelRegistryRouter ! PersistentModelStore.DeletedModels(List(BaseActorSpec.companyModel))
+    globals.modelRegistry ! PersistentModelStore.DeletedModels(List(BaseActorSpec.companyModel))
     val userObjx = Json.obj("name" -> "Cloud9ers", "employees" -> 23)
     val rx = R / 'companies / 456
     globals.collectionActor.tell(Create(ctx, rx, userObj), probe.ref)
@@ -314,7 +315,7 @@ class CollectionActorSpec extends BaseActorSpec {
     probe.expectMsgType[UpdateResult]
   }
 
-  it should "fail the data revision is lower than the object revision" in {
+  it should "fail the data revision is lower than the field last touched revision and operation is Set operation" in {
     val r = R / 'users / 110
     val probe = TestProbe()
     globals.collectionActor.tell(Create(ctx, r, Json.obj("name" -> "amal elshihaby", "age" -> 27)), probe.ref)
@@ -330,8 +331,22 @@ class CollectionActorSpec extends BaseActorSpec {
     error.errors(0)._2(0) shouldEqual ValidationError("error.revision.outdated")
   }
 
-  it should "fail when sending an invalid value for AddNumber Operation" in {
+  it should "ignore revision if the operation was AddNumber" in {
     val r = R / 'users / 1111
+    val probe = TestProbe()
+    globals.collectionActor.tell(Create(ctx, r, Json.obj("name" -> "amal elshihaby", "age" -> 27)), probe.ref)
+    probe.expectMsgType[CreateResult]
+    globals.collectionActor.tell(GetState(r), probe.ref)
+    probe.expectMsgType[State]
+    val body = UpdateBody(List(UpdateOp(UpdateCommand.AddNumber, "age", JsNumber(2))))
+    globals.collectionActor.tell(Update(ctx, r, 1l, body), probe.ref)
+    probe.expectMsgType[UpdateResult]
+    globals.collectionActor.tell(Update(ctx, r, 1l, body), probe.ref)
+    probe.expectMsgType[UpdateResult]
+  }
+
+  it should "fail when sending an invalid value for AddNumber Operation" in {
+    val r = R / 'users / 1112
     val probe = TestProbe()
     globals.collectionActor.tell(Create(ctx, r, Json.obj("name" -> "amal elshihaby", "age" -> 27)), probe.ref)
     probe.expectMsgType[CreateResult]
@@ -384,6 +399,18 @@ class CollectionActorSpec extends BaseActorSpec {
     val state = probe.expectMsgType[State]
     state.obj shouldEqual Json.obj("model" -> "Mitsubishi Lancer", "production" -> 2012, "renewal" -> 2020,
       "_r" -> "/cars/199/", "_rev" -> 2)
+  }
+
+  it should "fail if the request revision is greater than the object revision" in {
+    val r = R / 'users / 200
+    val probe = TestProbe()
+    globals.collectionActor.tell(Create(ctx, r, Json.obj("name" -> "amal elshihaby", "age" -> 27)), probe.ref)
+    probe.expectMsgType[CreateResult]
+    globals.collectionActor.tell(GetState(r), probe.ref)
+    probe.expectMsgType[State]
+    val body = UpdateBody(List(UpdateOp(UpdateCommand.Set, "name", JsString("Amal"))))
+    globals.collectionActor.tell(Update(ctx, r, 10l, body), probe.ref)
+    probe.expectMsg(CommandError.OutdatedRevision)
   }
 
 }

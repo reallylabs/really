@@ -1,10 +1,11 @@
 /**
  * Copyright (C) 2014-2015 Really Inc. <http://really.io>
  */
-package io.really.model
+package io.really.model.persistent
 
 import _root_.io.really._
-import akka.persistence.{ SnapshotOffer, PersistentActor }
+import _root_.io.really.model.Model
+import akka.persistence.{ PersistentActor, SnapshotOffer }
 
 class PersistentModelStore(globals: ReallyGlobals) extends PersistentActor {
   import PersistentModelStore._

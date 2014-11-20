@@ -9,8 +9,9 @@ import akka.actor.{ ActorSystem, Props, ActorRef }
 import akka.contrib.pattern.{ DistributedPubSubExtension, ClusterSharding }
 import _root_.io.really.defaults.{ DefaultRequestActor, DefaultReceptionist }
 import _root_.io.really.gorilla.{ SubscriptionManager, GorillaEventCenterSharding, GorillaEventCenter }
-import _root_.io.really.model.{ ModelRegistryRouter, CollectionActor, CollectionSharding }
+import _root_.io.really.model.{ CollectionActor, CollectionSharding }
 import _root_.io.really.quickSand.QuickSand
+import _root_.io.really.model.persistent.{ ModelRegistry, RequestRouter }
 import play.api.libs.json.JsObject
 import reactivemongo.api.{ DefaultDB, MongoDriver }
 import scala.collection.JavaConversions._
@@ -20,6 +21,7 @@ class TestReallyGlobals(override val config: ReallyConfig, override val actorSys
   protected val receptionist_ = new AtomicReference[ActorRef]
   protected val quickSand_ = new AtomicReference[QuickSand]
   protected val modelRegistry_ = new AtomicReference[ActorRef]
+  protected val requestRouter_ = new AtomicReference[ActorRef]
   protected val collectionActor_ = new AtomicReference[ActorRef]
   protected val gorillaEventCenter_ = new AtomicReference[ActorRef]
   private val mongodbConntection_ = new AtomicReference[DefaultDB]
@@ -28,12 +30,16 @@ class TestReallyGlobals(override val config: ReallyConfig, override val actorSys
 
   override lazy val receptionist = receptionist_.get
   override lazy val quickSand = quickSand_.get
-  override lazy val modelRegistryRouter = modelRegistry_.get
+  override lazy val modelRegistry = modelRegistry_.get
+  override lazy val requestRouter = requestRouter_.get
   override lazy val collectionActor = collectionActor_.get
   override lazy val gorillaEventCenter = gorillaEventCenter_.get
   override lazy val mongodbConntection = mongodbConntection_.get
   override lazy val subscriptionManager = subscriptionManager_.get
   override lazy val mediator = mediator_.get
+
+  override val readHandlerProps = Props.empty //FIXME
+  override val readHandler = actorSystem.deadLetters //FIXME
 
   private val db = Database.forURL(config.EventLogStorage.databaseUrl, driver = config.EventLogStorage.driver)
 
@@ -42,7 +48,8 @@ class TestReallyGlobals(override val config: ReallyConfig, override val actorSys
 
   //todo this should be dynamically loaded from configuration
   override val receptionistProps = Props(new DefaultReceptionist(this))
-  override val modelRegistryRouterProps = Props(new ModelRegistryRouter(this))
+  override val modelRegistryProps = Props(new ModelRegistry(this))
+  override val requestRouterProps = Props(new RequestRouter(this))
   override val collectionActorProps = Props(classOf[CollectionActor], this)
 
   implicit val session = db.createSession()
@@ -59,7 +66,8 @@ class TestReallyGlobals(override val config: ReallyConfig, override val actorSys
 
     receptionist_.set(actorSystem.actorOf(receptionistProps, "requests"))
     quickSand_.set(new QuickSand(config, actorSystem))
-    modelRegistry_.set(actorSystem.actorOf(modelRegistryRouterProps, "model-registry"))
+    modelRegistry_.set(actorSystem.actorOf(modelRegistryProps, "model-registry"))
+    requestRouter_.set(actorSystem.actorOf(requestRouterProps, "request-router"))
     val collectionSharding = new CollectionSharding(config)
     collectionActor_.set(ClusterSharding(actorSystem).start(
       typeName = "CollectionActor",

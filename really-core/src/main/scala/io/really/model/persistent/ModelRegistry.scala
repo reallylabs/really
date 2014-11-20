@@ -1,25 +1,26 @@
 /**
  * Copyright (C) 2014-2015 Really Inc. <http://really.io>
  */
-package io.really.model
+package io.really.model.persistent
 
-import _root_.io.really._
-import akka.actor.{ ActorRef, ActorLogging }
+import akka.actor.{ ActorRef, Terminated, ActorLogging }
 import akka.persistence.PersistentView
+import io.really.model.Model
+import io.really.{ RoutableByR, R, ReallyGlobals }
 
-class ModelRegistryRouter(globals: ReallyGlobals) extends PersistentView with ActorLogging {
-  import ModelRegistryRouter._
+class ModelRegistry(globals: ReallyGlobals) extends PersistentView with ActorLogging {
+  import ModelRegistry._
 
   override def persistenceId: String = "model-registry-persistent"
-  override def viewId: String = "model-registry-view"
+  override def viewId: String = "request-router-view"
 
   private var routingTable: Map[R, Model] = Map.empty
   private var collectionActors: Map[R, Set[ActorRef]] = Map.empty
 
-  private def validR(r: R): Boolean =
+  def validR(r: R): Boolean =
     routingTable.contains(r.skeleton)
 
-  def receive: Receive = handleEvent orElse handleCollectionRequest orElse handleRequest
+  def receive: Receive = handleEvent orElse handleCollectionRequest orElse handleGeneralOps
 
   def handleEvent: Receive = {
     case PersistentModelStore.UpdatedModels(updatedModels) =>
@@ -54,28 +55,20 @@ class ModelRegistryRouter(globals: ReallyGlobals) extends PersistentView with Ac
       sender ! ModelResult.ModelNotFound
   }
 
-  def handleRequest: Receive = {
-    case req: Request with RoutableToCollectionActor if validR(req.r) =>
-      globals.collectionActor forward req
-    case req: Request with RoutableToCollectionActor =>
-      sender ! ModelRouterResponse.RNotFound(req.r)
-    case req: Request =>
-      sender ! ModelRouterResponse.UnsupportedCmd(req.getClass.getName)
+  def handleGeneralOps: Receive = {
+    case Terminated(collectionActor) =>
+      context.unwatch(collectionActor)
+      collectionActors = collectionActors.collect {
+        case (r, actors) if actors.contains(collectionActor) =>
+          (r, actors.filterNot(_ != collectionActor))
+        case (r, actors) =>
+          (r, actors)
+      }
   }
 
 }
 
-object ModelRegistryRouter {
-  trait ModelRouterResponse
-
-  object ModelRouterResponse {
-
-    case class RNotFound(r: R) extends ModelRouterResponse
-
-    case class UnsupportedCmd(cmd: String) extends ModelRouterResponse
-
-  }
-
+object ModelRegistry {
   sealed trait CollectionActorMessage
   object CollectionActorMessage {
 

@@ -37,7 +37,7 @@ class GorillaEventCenterSpec extends BaseActorSpec {
 
     events.filter(_.r === r.toString) foreach {
       element =>
-        element shouldEqual EventLog("create", r.toString, 1l, 1l, Json.stringify(obj),
+        element shouldEqual EventLog("create", r.toString, 1l, Json.stringify(obj),
           Json.stringify(Json.toJson(ctx.auth)), None)
     }
 
@@ -54,7 +54,7 @@ class GorillaEventCenterSpec extends BaseActorSpec {
 
     events.filter(_.r === r.toString) foreach {
       element =>
-        element shouldEqual EventLog("update", r.toString, 2l, 1l, Json.stringify(obj),
+        element shouldEqual EventLog("update", r.toString, 1l, Json.stringify(obj),
           Json.stringify(Json.toJson(ctx.auth)), Some(Json.stringify(Json.toJson(ops))))
     }
   }
@@ -77,7 +77,7 @@ class GorillaEventCenterSpec extends BaseActorSpec {
 
     events.filter(_.ModelVersion > 1l) foreach {
       element =>
-        element shouldEqual EventLog("create", r2.toString, 1l, 2l, Json.stringify(obj),
+        element shouldEqual EventLog("create", r2.toString, 2l, Json.stringify(obj),
           Json.stringify(Json.toJson(ctx.auth)), None)
     }
 

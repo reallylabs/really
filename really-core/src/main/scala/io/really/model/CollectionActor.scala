@@ -14,9 +14,10 @@ import io.really._
 import _root_.io.really.Request._
 import akka.pattern.{ AskTimeoutException, ask, pipe }
 import _root_.io.really.js.JsResultHelpers
-import _root_.io.really.model.ModelRegistryRouter.CollectionActorMessage.GetModel
-import _root_.io.really.model.ModelRegistryRouter.ModelOperation.{ ModelUpdated, ModelDeleted }
-import _root_.io.really.model.ModelRegistryRouter.ModelResult
+import _root_.io.really.model.persistent.ModelRegistry
+import ModelRegistry.CollectionActorMessage.GetModel
+import ModelRegistry.ModelOperation.{ ModelUpdated, ModelDeleted }
+import ModelRegistry.ModelResult
 import play.api.data.validation.ValidationError
 import play.api.libs.json._
 import _root_.io.really.protocol.{ UpdateOp, UpdateCommand }
@@ -59,9 +60,10 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor with Actor
       log.debug(s"$persistenceId Persistor received a Create replay event: $evt")
       updateState(evt)
 
-    case evt @ Event.Updated(r, ops, revision, modelVersion, ctx) if state.get(r).isDefined =>
+    case evt @ Event.Updated(r, ops, newRev, modelVersion, ctx) if state.get(r).isDefined =>
       log.debug(s"$persistenceId Persistor received an Update replay event: $evt")
-      getUpdatedData(state(r), ops, revision) match {
+      val modelObj = state(r)
+      getUpdatedData(modelObj, ops, rev(modelObj.data)) match {
         case JsSuccess(obj, _) => updateState(evt, Some(obj))
         case e: JsError =>
           log.error(s"An error occurred while constructing the updating object with this error $e")
@@ -79,7 +81,7 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor with Actor
       log.debug(s"$persistenceId Persistor took to recover was {}ms", System.currentTimeMillis - t1)
       implicit val timeout = Timeout(globals.config.CollectionActorConfig.waitForModel)
       log.debug(s"$persistenceId Persistor received a Recovery Complete message")
-      val f = (globals.modelRegistryRouter ? GetModel(r)).mapTo[ModelResult]
+      val f = (globals.modelRegistry ? GetModel(r)).mapTo[ModelResult]
       f.recoverWith {
         case e: AskTimeoutException =>
           log.debug(s"$persistenceId Persistor timed out waiting for the model object")
@@ -100,11 +102,11 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor with Actor
         val lastTouched = obj.keys.map(k => (k, 1l)).toMap
         state += r -> ModelObject(obj, modelVersion, lastTouched)
 
-      case Event.Updated(r, ops, revision, modelVersion, ctx) if data.isDefined =>
+      case Event.Updated(r, ops, newRev, modelVersion, ctx) if data.isDefined =>
         val modelObject = ModelObject(data.get, modelVersion, state(r).lastTouched ++ getLastTouched(ops, rev(data.get)))
         state += r -> modelObject
 
-      case Event.Updated(r, ops, revision, modelVersion, ctx) =>
+      case Event.Updated(r, ops, newRev, modelVersion, ctx) =>
         throw new IllegalStateException("Cannot update state of the data was not exist!")
 
     }
@@ -186,7 +188,10 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor with Actor
 
     case updateRequest: Update =>
       state.get(updateRequest.r) match {
-        case Some(modelObj) => sender() ! applyUpdate(modelObj, m, updateRequest)
+        case Some(modelObj) if updateRequest.rev > rev(modelObj.data) =>
+          sender() ! OutdatedRevision
+        case Some(modelObj) =>
+          sender() ! applyUpdate(modelObj, m, updateRequest)
         case None => sender() ! ObjectNotFound
       }
 
@@ -219,7 +224,7 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor with Actor
       case JsSuccess(obj, _) =>
         validateObject(obj, model)(updateReq.ctx) match {
           case ValidationResponse.ValidData(jsObj) =>
-            persistEvent(Event.Updated(updateReq.r, updateReq.body.ops, updateReq.rev,
+            persistEvent(Event.Updated(updateReq.r, updateReq.body.ops, rev(jsObj),
               model.collectionMeta.version, updateReq.ctx), jsObj)
             UpdateResult(rev(jsObj))
           case ValidationResponse.JSValidationFailed(reason) => JSValidationFailed(reason)
@@ -299,7 +304,8 @@ object CollectionActor {
 
     case class Created(r: R, obj: JsObject, modelVersion: ModelVersion, context: RequestContext) extends Event
 
-    case class Updated(r: R, ops: List[UpdateOp], rev: Revision, modelVersion: ModelVersion, context: RequestContext) extends Event
+    case class Updated(r: R, ops: List[UpdateOp], newRev: Revision, modelVersion: ModelVersion,
+      context: RequestContext) extends Event
 
     case class Deleted(r: R, context: RequestContext) extends Event
 
@@ -319,14 +325,12 @@ object CollectionActor {
 
   def rev(obj: JsObject): Revision = (obj \ "_rev").as[Revision]
 
-  def getUpdatedData(obj: ModelObject, ops: List[UpdateOp], revision: Revision): JsResult[JsObject] = {
+  def getUpdatedData(obj: ModelObject, ops: List[UpdateOp], reqRev: Revision): JsResult[JsObject] = {
     val newObj = obj.data ++ Json.obj("_rev" -> (rev(obj.data) + 1))
     val result = ops map {
       opBody =>
         val operationPath = s"${opBody.op}.${opBody.key}"
-        if (revision < obj.lastTouched(opBody.key)) JsError(__ \ operationPath, ValidationError(s"error.revision.outdated"))
-        else
-          parseUpdateOperation(opBody, obj.data, operationPath)
+        parseUpdateOperation(opBody, obj, reqRev, operationPath)
     }
     JsResultHelpers.merge(JsSuccess(newObj) :: result) match {
       case JsSuccess(obj, _) => JsSuccess(obj)
@@ -334,11 +338,14 @@ object CollectionActor {
     }
   }
 
-  def parseUpdateOperation(opBody: UpdateOp, oldObject: JsObject, errorKey: String): JsResult[JsObject] =
+  def parseUpdateOperation(opBody: UpdateOp, oldObject: ModelObject, reqRev: Revision, errorKey: String): JsResult[JsObject] =
     opBody match {
-      case UpdateOp(UpdateCommand.Set, _, _, _) => JsSuccess(Json.obj(opBody.key -> opBody.value))
+      case UpdateOp(UpdateCommand.Set, _, _, _) if reqRev < oldObject.lastTouched(opBody.key) =>
+        JsError(__ \ errorKey, ValidationError(s"error.revision.outdated"))
+      case UpdateOp(UpdateCommand.Set, _, _, _) =>
+        JsSuccess(Json.obj(opBody.key -> opBody.value))
       case UpdateOp(UpdateCommand.AddNumber, _, JsNumber(v), _) =>
-        oldObject \ opBody.key match {
+        oldObject.data \ opBody.key match {
           case JsNumber(originalValue) => JsSuccess(Json.obj(opBody.key -> (originalValue + v)))
           case _ => JsError(__ \ errorKey, ValidationError(s"error.non.numeric.field"))
         }

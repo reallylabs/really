@@ -69,7 +69,7 @@ package object protocol {
     import UpdateCommand._
 
     def reads(json: JsValue) = json match {
-      case JsString("add-number") => JsSuccess(AddNumber)
+      case JsString("addNumber") => JsSuccess(AddNumber)
       //      case JsString("push") => JsSuccess(Push)
       //      case JsString("pull") => JsSuccess(Pull)
       case JsString("set") => JsSuccess(Set)
@@ -80,7 +80,7 @@ package object protocol {
     }
 
     def writes(o: UpdateCommand): JsString = o match {
-      case AddNumber => JsString("add-number")
+      case AddNumber => JsString("addNumber")
       //      case Push => JsString("push")
       //      case Pull => JsString("pull")
       case Set => JsString("set")

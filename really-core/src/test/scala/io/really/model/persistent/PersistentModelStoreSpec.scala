@@ -1,13 +1,14 @@
 /**
  * Copyright (C) 2014-2015 Really Inc. <http://really.io>
  */
-package io.really.model
+package io.really.model.persistent
 
 import akka.actor.Props
 import akka.persistence.Update
 import akka.testkit.TestActorRef
 import com.typesafe.config.ConfigFactory
-import io.really.{ TestConf, ReallyConfig, R, BaseActorSpec }
+import io.really.model._
+import io.really.{ BaseActorSpec, R, ReallyConfig, TestConf }
 
 class PersistentModelStoreSpec(conf: ReallyConfig) extends BaseActorSpec(conf) {
 
@@ -15,7 +16,7 @@ class PersistentModelStoreSpec(conf: ReallyConfig) extends BaseActorSpec(conf) {
 
   val persistentModel = system.actorOf(Props(new PersistentModelStore(globals)))
 
-  val modelRouter = system.actorOf(Props(new ModelRegistryRouter(globals)))
+  val modelRegistry = system.actorOf(Props(new ModelRegistry(globals)))
 
   val collMeta: CollectionMetadata = CollectionMetadata(1)
 
@@ -45,39 +46,39 @@ class PersistentModelStoreSpec(conf: ReallyConfig) extends BaseActorSpec(conf) {
     persistentModel ! PersistentModelStore.UpdateModels(List(profileModel))
 
     //force view to update state
-    modelRouter ! Update(await = true)
+    modelRegistry ! Update(await = true)
 
     Thread.sleep(6000)
 
     //send GetModel to ModelRegistryRouter
-    modelRouter ! ModelRegistryRouter.CollectionActorMessage.GetModel(profilesR)
+    modelRegistry ! ModelRegistry.CollectionActorMessage.GetModel(profilesR)
 
-    expectMsg(ModelRegistryRouter.ModelResult.ModelObject(profileModel))
+    expectMsg(ModelRegistry.ModelResult.ModelObject(profileModel))
 
     //send update models to persistent model with new models
     persistentModel ! PersistentModelStore.UpdateModels(List(profileModel, boardModel))
 
     //force view to update state
-    modelRouter ! Update(await = true)
+    modelRegistry ! Update(await = true)
 
     Thread.sleep(6000)
 
     //send GetModel for board to ModelRegistryRouter
-    modelRouter ! ModelRegistryRouter.CollectionActorMessage.GetModel(boardsR)
+    modelRegistry ! ModelRegistry.CollectionActorMessage.GetModel(boardsR)
 
-    expectMsg(ModelRegistryRouter.ModelResult.ModelObject(boardModel))
+    expectMsg(ModelRegistry.ModelResult.ModelObject(boardModel))
 
     //send update models to persistent model with changed models and remove some models
     persistentModel ! PersistentModelStore.UpdateModels(List(newProfileModel))
 
     //force view to update state
-    modelRouter ! Update(await = true)
+    modelRegistry ! Update(await = true)
 
     Thread.sleep(6000)
 
-    expectMsg(ModelRegistryRouter.ModelOperation.ModelUpdated(profilesR, newProfileModel))
+    expectMsg(ModelRegistry.ModelOperation.ModelUpdated(profilesR, newProfileModel))
 
-    expectMsg(ModelRegistryRouter.ModelOperation.ModelDeleted(boardsR))
+    expectMsg(ModelRegistry.ModelOperation.ModelDeleted(boardsR))
   }
 
   it should "calculate changed models" in {

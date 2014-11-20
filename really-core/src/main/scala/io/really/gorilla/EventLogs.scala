@@ -8,7 +8,7 @@ import io.really.{ Revision }
 
 import scala.slick.driver.H2Driver.simple._
 
-case class EventLog(event: String, r: String, rev: Revision, modelVersion: ModelVersion,
+case class EventLog(event: String, r: String, modelVersion: ModelVersion,
   obj: String, userInfo: String, ops: Option[String])
 
 class EventLogs(tag: Tag)
@@ -16,12 +16,11 @@ class EventLogs(tag: Tag)
 
   def eventType: Column[String] = column[String]("TYPE")
   def r: Column[String] = column[String]("R")
-  def rev: Column[Long] = column[Long]("REV")
   def ModelVersion: Column[Long] = column[Long]("MODEL_REVISION")
   def obj: Column[String] = column[String]("OBJ")
   def user: Column[String] = column[String]("USER")
   def ops: Column[Option[String]] = column[Option[String]]("OPS")
-  def * = (eventType, r, rev, ModelVersion, obj, user, ops) <> (EventLog.tupled, EventLog.unapply)
+  def * = (eventType, r, ModelVersion, obj, user, ops) <> (EventLog.tupled, EventLog.unapply)
 }
 
 object EventLogs {
