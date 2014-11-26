@@ -4,7 +4,9 @@
 package io.really.rql
 
 import io.really.model.{ FieldKey, Field }
-import play.api.libs.json.{ JsObject, JsValue }
+import play.api.data.validation.ValidationError
+import play.api.libs.json._
+import play.api.libs.functional.syntax._
 
 import scala.util.parsing.input.{ Position, Positional }
 
@@ -66,6 +68,27 @@ object RQL {
     }
   }
 
+  object Query {
+    /*
+   * JSON Reads for Query
+   */
+
+    implicit object QueryReads extends Reads[Query] {
+      val filterReads = (__ \ 'filter).read[String]
+      val valuesReads = (__ \ 'values).read[JsObject]
+
+      def reads(jsObj: JsValue): JsResult[Query] = jsObj match {
+        case queryObject: JsObject =>
+          jsObj.validate((filterReads and valuesReads).tupled) match {
+            case JsSuccess((filter, jsvalues), _) =>
+              JsSuccess(RQLParser.parse(filter, jsvalues))
+            case e: JsError => e
+          }
+        case _ =>
+          JsError(Seq(JsPath() -> Seq(ValidationError("error.unsupported.query"))))
+      }
+    }
+  }
   case class AndCombinator(q1: Query, q2: Query) extends Query with Positional {
     override def toString() =
       q1.toString + " AND " + q2.toString
