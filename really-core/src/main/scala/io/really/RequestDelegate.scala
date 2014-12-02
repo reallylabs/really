@@ -5,7 +5,7 @@ package io.really
 
 import org.joda.time.DateTime
 import scala.concurrent.duration._
-import scala.util.{Success, Failure}
+import scala.util.{ Success, Failure }
 import akka.actor._
 import play.api.libs.json._
 import _root_.io.really.protocol.ProtocolFormats._
@@ -41,7 +41,7 @@ class RequestDelegate(globals: ReallyGlobals, ctx: RequestContext, replyTo: Acto
 
   def receive = {
     case msg =>
-      log.warning( """
+      log.warning("""
                      |RequestDelegate received unexpected message in a wrong state.
                      |This should never happen!
                      |Either `preStart` didn't call `become`,

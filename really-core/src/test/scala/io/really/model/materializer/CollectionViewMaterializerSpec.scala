@@ -8,7 +8,8 @@ import akka.persistence.Update
 import io.really.fixture.{ PersistentModelStoreFixture, MaterializerTest }
 import _root_.io.really.json.collection.JSONCollection
 import io.really.model._
-import io.really.model.persistent.ModelRegistry.{ ModelOperation, ModelResult, CollectionActorMessage }
+import io.really.model.persistent.ModelRegistry.RequestModel.GetModel
+import io.really.model.persistent.ModelRegistry.{ ModelOperation, ModelResult }
 import io.really.model.persistent.PersistentModelStore
 import io.really.protocol._
 import io.really._
@@ -42,7 +43,7 @@ class CollectionViewMaterializerSpec extends BaseActorSpecWithMongoDB {
     expectMsg(models)
 
     modelRouterRef ! Update(await = true)
-    modelRouterRef ! CollectionActorMessage.GetModel(BaseActorSpec.authorModel.r, self)
+    modelRouterRef ! GetModel(BaseActorSpec.authorModel.r, self)
     expectMsg(ModelResult.ModelObject(BaseActorSpec.authorModel, List.empty))
   }
 

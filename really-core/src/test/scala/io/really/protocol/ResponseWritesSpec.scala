@@ -5,9 +5,11 @@ package io.really.protocol
 
 import io.really.Result._
 import io.really._
+import _root_.io.really.rql.RQLTokens.PaginationToken
+import _root_.io.really.rql.RQL.Query.QueryReads
 import org.joda.time.DateTime
 import org.scalatest.{ Matchers, FlatSpec }
-import play.api.libs.json.{ JsNull, JsNumber, JsString, Json }
+import play.api.libs.json.{ JsNull, JsString, Json }
 
 class ResponseWritesSpec extends FlatSpec with Matchers {
   import ProtocolFormats.ResponseWrites.resultWrites
@@ -109,6 +111,20 @@ class ResponseWritesSpec extends FlatSpec with Matchers {
   }
 
   "Read writes" should "write read response schema" in {
+    val request = Request.Read(ctx, R("/users/"), ReadOpts(
+      Set("name", "age"),
+      QueryReads.reads(Json.obj(
+        "filter" -> "name = $name and age > $age",
+        "values" -> Json.obj("name" -> "Ahmed", "age" -> 20)
+      )).get,
+      10,
+      false,
+      Some(PaginationToken(23423423, 1)),
+      0,
+      false,
+      false
+    ))
+
     val response = ReadResult(
       R("/users/"),
       ReadResponseBody(

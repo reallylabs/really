@@ -8,7 +8,7 @@ import java.util.concurrent.atomic.AtomicReference
 import akka.actor.{ ActorSystem, Props, ActorRef }
 import akka.contrib.pattern.{ DistributedPubSubExtension, ClusterSharding }
 import _root_.io.really.gorilla.{ SubscriptionManager, GorillaEventCenterSharding, GorillaEventCenter }
-import _root_.io.really.model.CollectionSharding
+import _root_.io.really.model.{ ReadHandler, CollectionSharding }
 import _root_.io.really.quickSand.QuickSand
 import _root_.io.really.model.persistent.{ ModelRegistry, RequestRouter }
 import _root_.io.really.fixture.{ PersistentModelStoreFixture, TestCollectionActor, MaterializerTest }
@@ -31,6 +31,7 @@ class TestReallyGlobals(override val config: ReallyConfig, override val actorSys
   private val mediator_ = new AtomicReference[ActorRef]
   private val materializer_ = new AtomicReference[ActorRef]
   private val persistentModelStore_ = new AtomicReference[ActorRef]
+  private val readHandler_ = new AtomicReference[ActorRef]
 
   override lazy val receptionist = receptionist_.get
   override lazy val quickSand = quickSand_.get
@@ -46,8 +47,7 @@ class TestReallyGlobals(override val config: ReallyConfig, override val actorSys
 
   override def logger = Logging.getLogger(actorSystem, this)
 
-  override val readHandlerProps = Props.empty //FIXME
-  override val readHandler = actorSystem.deadLetters //FIXME
+  override lazy val readHandler = readHandler_.get
 
   private val db = Database.forURL(config.EventLogStorage.databaseUrl, driver = config.EventLogStorage.driver)
   private val modelRegistryPersistentId = "model-registry-persistent-test"
@@ -59,6 +59,7 @@ class TestReallyGlobals(override val config: ReallyConfig, override val actorSys
   override val receptionistProps = Props(new Receptionist(this))
   override val modelRegistryProps = Props(new ModelRegistry(this, modelRegistryPersistentId))
   override val requestRouterProps = Props(new RequestRouter(this, modelRegistryPersistentId))
+  override val readHandlerProps = Props(classOf[ReadHandler], this)
 
   implicit val session = db.createSession()
   GorillaEventCenter.initializeDB()
@@ -110,6 +111,9 @@ class TestReallyGlobals(override val config: ReallyConfig, override val actorSys
     mediator_.set(DistributedPubSubExtension(actorSystem).mediator)
 
     subscriptionManager_.set(actorSystem.actorOf(subscriptionManagerProps, "subscription-manager"))
+
+    readHandler_.set(actorSystem.actorOf(readHandlerProps, "read-handler"))
+
   }
 
   override def shutdown() = {

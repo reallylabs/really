@@ -10,7 +10,7 @@ import akka.actor.Props
 import akka.testkit.TestProbe
 import play.api.libs.json._
 import play.api.test._
-import _root_.io.really.io.{IOGlobals, IOConfig}
+import _root_.io.really.io.{ IOGlobals, IOConfig }
 
 class WebSocketHandlerSpec extends BaseIOActorSpec {
   val client = TestProbe()

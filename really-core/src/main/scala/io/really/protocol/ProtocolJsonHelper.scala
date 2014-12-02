@@ -81,8 +81,8 @@ object ProtocolFormats {
         (rObjectReads and revReads and bodyReads)((r, rev, body) => Request.Update(ctx, r, rev, body))
     }
 
-    /*
-     * JSON Reads for [[io.really.Request.Read]] Request
+    /**
+     * JSON Reads for [[_root_.io.really.Request.Read]] Request
      */
     object Read {
       val cmdOptsReads = (__ \ 'cmdOpts).read[ReadOpts]
@@ -145,42 +145,42 @@ object ProtocolFormats {
      */
     implicit val getSubscriptionResultWrites = (
       (__ \ R).write[R] and
-        (__ \ Body \ Fields).write[Set[String]]
-      )(unlift(GetSubscriptionResult.unapply))
+      (__ \ Body \ Fields).write[Set[String]]
+    )(unlift(GetSubscriptionResult.unapply))
 
     /*
      * Represent JSON Writes for [[io.really.Response.Get]] Response
      */
     implicit val getResultWrites = (
       (__ \ R).write[R] and
-        (__ \ Body).write[JsObject] and
-        (__ \ Meta \ Fields).write[Set[String]]
-      )(unlift(GetResult.unapply))
+      (__ \ Body).write[JsObject] and
+      (__ \ Meta \ Fields).write[Set[String]]
+    )(unlift(GetResult.unapply))
 
     /*
      * Represent JSON Writes for [[io.really.Response.Update]] Response
      */
     implicit val updateResultWrites = (
       (__ \ R).write[R] and
-        (__ \ Revision).write[Revision]
-      )(unlift(UpdateResult.unapply))
+      (__ \ Revision).write[Revision]
+    )(unlift(UpdateResult.unapply))
 
     /*
      * Represent JSON Writes for [[io.really.Response.Read]] Response
      */
     implicit val readResultWrites = (
       (__ \ R).write[R] and
-        (__ \ Body).write[ReadResponseBody] and
-        (__ \ Meta \ "subscription").write[Option[String]]
-      )(unlift(ReadResult.unapply))
+      (__ \ Body).write[ReadResponseBody] and
+      (__ \ Meta \ "subscription").write[Option[String]]
+    )(unlift(ReadResult.unapply))
 
     /*
      * Represent JSON Writes for [[io.really.Response.Create]] Response
      */
     implicit val createResultWrites = (
       (__ \ R).write[R] and
-        (__ \ Body).write[JsObject]
-      )(unlift(CreateResult.unapply))
+      (__ \ Body).write[JsObject]
+    )(unlift(CreateResult.unapply))
 
     /*
      * Represent JSON Writes for [[io.really.Response.Delete]] Response
@@ -222,8 +222,8 @@ object ProtocolFormats {
   object CommandErrorWrites {
     implicit val commandErrorWrites = (
       (__ \ "r").write[Option[R]] and
-        (__ \ "error").write[ProtocolError.Error]
-      )(unlift(CommandError.unapply))
+      (__ \ "error").write[ProtocolError.Error]
+    )(unlift(CommandError.unapply))
   }
 
   /*

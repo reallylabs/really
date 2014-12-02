@@ -50,13 +50,15 @@ class ModelRegistry(globals: ReallyGlobals, persistId: String) extends Persisten
   }
 
   def handleCollectionRequest: Receive = {
-    case CollectionActorMessage.GetModel(r, collectionActor) if validR(r) =>
+    case RequestModel.GetModel(r, collectionActor) if validR(r) =>
       val modelR = r.skeleton
       subscriberActors += (modelR -> (subscriberActors.getOrElse(modelR, Set.empty) + collectionActor))
       context.watch(collectionActor)
       sender ! ModelResult.ModelObject(routingTable(modelR), reverseModelReferences(modelR))
-    case CollectionActorMessage.GetModel(r, _) =>
+    case RequestModel.GetModel(r, _) =>
       sender ! ModelResult.ModelNotFound
+    case msg: RequestModel.GetModels =>
+      sender ! ModelResult.Models(routingTable)
   }
 
   def handleGeneralOps: Receive = {
@@ -83,10 +85,13 @@ class ModelRegistry(globals: ReallyGlobals, persistId: String) extends Persisten
 }
 
 object ModelRegistry {
-  sealed trait CollectionActorMessage
-  object CollectionActorMessage {
+  sealed trait RequestModel
 
-    case class GetModel(r: R, sender: ActorRef) extends CollectionActorMessage with RoutableByR
+  object RequestModel {
+
+    case class GetModel(r: R, sender: ActorRef) extends RequestModel with RoutableByR
+
+    case class GetModels(sender: ActorRef) extends RequestModel
 
   }
 
@@ -96,6 +101,8 @@ object ModelRegistry {
     case object ModelNotFound extends ModelResult
 
     case class ModelObject(model: Model, referencedCollections: List[R]) extends ModelResult
+
+    case class Models(value: Map[R, Model]) extends ModelResult
 
     case class ModelFetchError(r: R, reason: String) extends ModelResult
 

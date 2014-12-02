@@ -15,7 +15,7 @@ import _root_.io.really.Request._
 import akka.pattern.{ AskTimeoutException, ask, pipe }
 import _root_.io.really.js.JsResultHelpers
 import _root_.io.really.model.persistent.ModelRegistry
-import ModelRegistry.CollectionActorMessage.GetModel
+import ModelRegistry.RequestModel.GetModel
 import _root_.io.really.model.persistent.ModelRegistry.ModelOperation.{ ModelCreated, ModelUpdated, ModelDeleted }
 import ModelRegistry.ModelResult
 import _root_.io.really.model.materializer.CollectionViewMaterializer

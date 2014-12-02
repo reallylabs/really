@@ -8,7 +8,7 @@ import akka.event.LoggingAdapter
 import play.api.data.validation.ValidationError
 import reactivemongo.api.DefaultDB
 import akka.actor.{ Props, ActorSystem, ActorRef }
-import io.really.model.DataObject
+import io.really.model.{ FieldKey, DataObject }
 import io.really.quickSand.QuickSand
 import io.really.protocol._
 import org.joda.time.DateTime
@@ -150,10 +150,8 @@ package object really {
 
     case class GetSubscriptionResult(r: R, fields: Set[String]) extends Result
 
-    //TODO change fields type
-    case class GetResult(r: R, body: JsObject, fields: Set[String]) extends Result
+    case class GetResult(r: R, body: JsObject, fields: Set[FieldKey]) extends Result
 
-    //TODO change fields type
     case class UpdateResult(r: R, rev: Revision) extends Result
 
     case class ReadResult(r: R, body: ReadResponseBody, subscription: Option[String]) extends Result
@@ -217,6 +215,11 @@ package object really {
     case class ObjectNotFound(_r: R) extends CommandError {
       val r = Some(_r)
       val error = Error(404, "object.missing", None)
+    }
+
+    case object ModelNotFound extends CommandError {
+      val r = None
+      val error = Error(420, "model.missing", None)
     }
 
     case class ParentNotFound(_r: R) extends CommandError {
