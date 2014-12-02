@@ -15,7 +15,7 @@ class ModelRegistry(globals: ReallyGlobals) extends PersistentView with ActorLog
   override def viewId: String = "request-router-view"
 
   private var routingTable: Map[R, Model] = Map.empty
-  private var collectionActors: Map[R, Set[ActorRef]] = Map.empty
+  private var subscriberActors: Map[R, Set[ActorRef]] = Map.empty
   private var reverseModelReferences: Map[R, List[R]] = Map.empty
 
   def validR(r: R): Boolean =
@@ -28,7 +28,7 @@ class ModelRegistry(globals: ReallyGlobals) extends PersistentView with ActorLog
       val rs = updatedModels.map(_.r)
       routingTable ++= updatedModels.map(m => (m.r, m)).toMap
       rs.foreach { r =>
-        collectionActors.getOrElse(r, List.empty).foreach { actor =>
+        subscriberActors.getOrElse(r, List.empty).foreach { actor =>
           actor ! ModelOperation.ModelUpdated(r, routingTable(r), reverseModelReferences(r))
         }
       }
@@ -36,13 +36,13 @@ class ModelRegistry(globals: ReallyGlobals) extends PersistentView with ActorLog
     case PersistentModelStore.DeletedModels(removedModels) =>
       val rs = removedModels.map(m => m.r)
       rs.foreach { r =>
-        collectionActors.getOrElse(r, List.empty).foreach { actor =>
+        subscriberActors.getOrElse(r, List.empty).foreach { actor =>
           context.unwatch(actor)
           actor ! ModelOperation.ModelDeleted(r)
         }
       }
       routingTable --= removedModels.map(_.r)
-      collectionActors = collectionActors.filterNot(c => rs.contains(c._1))
+      subscriberActors = subscriberActors.filterNot(c => rs.contains(c._1))
       constructReverseReferencesMap()
     case PersistentModelStore.AddedModels(newModels) =>
       routingTable ++= newModels.map(m => (m.r, m)).toMap
@@ -51,9 +51,10 @@ class ModelRegistry(globals: ReallyGlobals) extends PersistentView with ActorLog
 
   def handleCollectionRequest: Receive = {
     case CollectionActorMessage.GetModel(r, collectionActor) if validR(r) =>
-      collectionActors += (r -> (collectionActors.getOrElse(r, Set.empty) + collectionActor))
+      val modelR = r.skeleton
+      subscriberActors += (modelR -> (subscriberActors.getOrElse(modelR, Set.empty) + collectionActor))
       context.watch(collectionActor)
-      sender ! ModelResult.ModelObject(routingTable(r), reverseModelReferences(r))
+      sender ! ModelResult.ModelObject(routingTable(modelR), reverseModelReferences(modelR))
     case CollectionActorMessage.GetModel(r, _) =>
       sender ! ModelResult.ModelNotFound
   }
@@ -61,18 +62,12 @@ class ModelRegistry(globals: ReallyGlobals) extends PersistentView with ActorLog
   def handleGeneralOps: Receive = {
     case Terminated(collectionActor) =>
       context.unwatch(collectionActor)
-      collectionActors = collectionActors.collect {
+      subscriberActors = subscriberActors.collect {
         case (r, actors) if actors.contains(collectionActor) =>
           (r, actors.filterNot(_ != collectionActor))
         case (r, actors) =>
           (r, actors)
       }
-  }
-
-  def handleGeneralOp: Receive = {
-    case Terminated(actorRef) =>
-      context.unwatch(actorRef)
-    //TODO remove from collectionActors
   }
 
   def constructReverseReferencesMap(): Unit =

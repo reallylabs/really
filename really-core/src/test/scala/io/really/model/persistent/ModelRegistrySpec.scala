@@ -126,6 +126,10 @@ class ModelRegistrySpec extends BaseActorSpec {
     //get profile model
     modelRouterRef ! CollectionActorMessage.GetModel(profilesR, self)
     expectMsg(ModelResult.ModelObject(profileModel, List.empty))
+
+    // try get profile model by specific profile R
+    modelRouterRef ! CollectionActorMessage.GetModel(R("/users/1213213"), self)
+    expectMsg(ModelResult.ModelObject(profileModel, List.empty))
   }
 
 }
