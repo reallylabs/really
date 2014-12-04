@@ -1,0 +1,19 @@
+version: 1
+fields:
+  firstName:
+    type: string
+    required : true
+  lastName:
+    type: String
+  fullName:
+    type: Calculated
+    valueType: String
+    dependsOn: firstName, lastName
+    value: this.firstName + " " + this.lastName
+  age:
+    type: Long
+  locale:
+    type: String
+    default: en
+    validation: |
+      value.length >= 0

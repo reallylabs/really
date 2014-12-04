@@ -1,0 +1,17 @@
+<!--
+Copyright (C) 2014-2015 Really Inc. <http://really.io>
+-->
+<configuration>
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%X{akkaTimestamp} %highlight(%-5level) %highlight(%logger{36}) %X{akkaSource} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <logger name="io.really" level="WARN" />
+    <logger name="akka" level="WARN" />
+
+    <root level="WARN">
+        <appender-ref ref="STDOUT"/>
+    </root>
+</configuration>

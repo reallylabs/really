@@ -5,6 +5,8 @@
 .cache/
 .history/
 .lib/
+.idea_modules
+.idea/
 dist/*
 target/
 lib_managed/
@@ -13,5 +15,14 @@ project/boot/
 project/plugins/project/
 
 # Scala-IDE specific
+really-core/.cache
+really-core/.classpath
+really-core/.project
+really-core/.settings
+really-io/.classpath
+really-io/.project
+really-io/.settings
+# Scala-IDE specific
 .scala_dependencies
 .worksheet
+*.sc
