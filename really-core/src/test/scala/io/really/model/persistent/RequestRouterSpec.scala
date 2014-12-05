@@ -47,7 +47,7 @@ class RequestRouterSpec extends BaseActorSpec {
     ), null, List.empty)
 
   val models = List(accountsModel, boardsModel)
-  val requestRouterRef = system.actorOf(Props(new RequestRouter(globals)))
+  val requestRouterRef = system.actorOf(Props(new RequestRouter(globals, "model-registry-persistent-test")))
   requestRouterRef ! PersistentModelStore.AddedModels(models)
 
   "Request Router" should "return error if required R not listed in models" in {

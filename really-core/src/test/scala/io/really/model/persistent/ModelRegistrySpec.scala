@@ -3,14 +3,19 @@
  */
 package io.really.model.persistent
 
-import akka.actor.Props
+import akka.actor.{ ActorRef, Props }
+import akka.persistence.Update
+import io.really.fixture.PersistentModelStoreFixture
 import io.really.model.persistent.ModelRegistry.{ ModelOperation, ModelResult, CollectionActorMessage }
 import io.really.{ R, BaseActorSpec }
 import io.really.model._
+import org.scalatest.BeforeAndAfterEach
 
-class ModelRegistrySpec extends BaseActorSpec {
+class ModelRegistrySpec extends BaseActorSpec with BeforeAndAfterEach {
 
   val collMeta: CollectionMetadata = CollectionMetadata(1)
+  var persistentActor: ActorRef = _
+  var modelRouterRef: ActorRef = _
 
   def fields: Map[FieldKey, Field[_]] = {
     val f1 = ValueField("name", DataType.RString, None, None, true)
@@ -18,62 +23,50 @@ class ModelRegistrySpec extends BaseActorSpec {
     Map("name" -> f1, "age" -> f2)
   }
 
-  val accountsR = R / "profiles"
-  val accountsModel = Model(accountsR, collMeta, fields,
-    JsHooks(
-      Some(""),
-      None,
-      None,
-      None,
-      None,
-      None,
-      None
-    ), null, List.empty)
+  val profilesR = R / "users"
+  val profileModel = Model(profilesR, collMeta, fields,
+    JsHooks(Some(""), None, None, None, None, None, None), null, List.empty)
 
-  val boardsR = R / "boards"
-  val boardsModel = Model(boardsR, collMeta, fields,
-    JsHooks(
-      Some(""),
-      None,
-      None,
-      None,
-      None,
-      None,
-      None
-    ), null, List.empty)
+  override protected def beforeEach(): Unit = {
+    val persistenceId = "model-registry" + Math.random()
 
-  val models = List(accountsModel, boardsModel)
-  val modelRouterRef = system.actorOf(Props(new ModelRegistry(globals)))
-  modelRouterRef ! PersistentModelStore.AddedModels(models)
-
-  "Model Registry Router" should "handle model added event" in {
-    val profilesR = R / "users"
-    val profileModel = Model(profilesR, collMeta, fields,
-      JsHooks(Some(""), None, None, None, None, None, None), null, List.empty)
-
+    super.beforeEach()
     val models = List(profileModel)
+    val persistentActorProps = Props(classOf[PersistentModelStoreFixture], globals, persistenceId)
+    persistentActor = system.actorOf(persistentActorProps)
 
-    val modelRouterRef = system.actorOf(Props(new ModelRegistry(globals)))
+    persistentActor ! PersistentModelStore.UpdateModels(models)
+    persistentActor ! PersistentModelStoreFixture.GetState
+    expectMsg(models)
 
-    modelRouterRef ! CollectionActorMessage.GetModel(profilesR, self)
-    expectMsg(ModelResult.ModelNotFound)
+    modelRouterRef = system.actorOf(Props(classOf[ModelRegistry], globals, persistenceId))
 
-    modelRouterRef ! PersistentModelStore.AddedModels(models)
-
+    modelRouterRef ! Update(await = true)
     modelRouterRef ! CollectionActorMessage.GetModel(profilesR, self)
     expectMsg(ModelResult.ModelObject(profileModel, List.empty))
   }
 
+  override protected def afterEach(): Unit = {
+    system.stop(persistentActor)
+    system.stop(modelRouterRef)
+    super.afterEach()
+  }
+
+  "Model Registry Router" should "handle model added event" in {
+
+    modelRouterRef ! CollectionActorMessage.GetModel(BaseActorSpec.postModel.r, self)
+    expectMsg(ModelResult.ModelNotFound)
+    val models = List(profileModel, BaseActorSpec.postModel)
+    persistentActor ! PersistentModelStore.UpdateModels(models)
+    persistentActor ! PersistentModelStoreFixture.GetState
+    expectMsg(models)
+
+    modelRouterRef ! Update(await = true)
+    modelRouterRef ! CollectionActorMessage.GetModel(BaseActorSpec.postModel.r, self)
+    expectMsg(ModelResult.ModelObject(BaseActorSpec.postModel, List.empty))
+  }
+
   it should "handle model updated event" in {
-    val profilesR = R / "users"
-    val profileModel = Model(profilesR, collMeta, fields,
-      JsHooks(Some(""), None, None, None, None, None, None), null, List.empty)
-
-    val models = List(profileModel)
-
-    val modelRouterRef = system.actorOf(Props(new ModelRegistry(globals)))
-    modelRouterRef ! PersistentModelStore.AddedModels(models)
-
     //get profile model
     modelRouterRef ! CollectionActorMessage.GetModel(profilesR, self)
     expectMsg(ModelResult.ModelObject(profileModel, List.empty))
@@ -85,27 +78,26 @@ class ModelRegistrySpec extends BaseActorSpec {
 
     val newProfileModel = Model(profilesR, collMeta, Map("firstName" -> f1, "lastName" -> f2, "age" -> f3),
       JsHooks(Some(""), None, None, None, None, None, None), null, List.empty)
-    modelRouterRef ! PersistentModelStore.UpdatedModels(List(newProfileModel))
 
+    persistentActor ! PersistentModelStore.UpdateModels(List(newProfileModel))
+    persistentActor ! PersistentModelStoreFixture.GetState
+    expectMsg(List(newProfileModel))
+
+    modelRouterRef ! Update(await = true)
     expectMsg(ModelOperation.ModelUpdated(profilesR, newProfileModel, List.empty))
   }
 
   it should "handle model deleted event" in {
-    val profilesR = R / "users"
-    val profileModel = Model(profilesR, collMeta, fields,
-      JsHooks(Some(""), None, None, None, None, None, None), null, List.empty)
-
-    val models = List(profileModel)
-
-    val modelRouterRef = system.actorOf(Props(new ModelRegistry(globals)))
-    modelRouterRef ! PersistentModelStore.AddedModels(models)
-
     //get profile model
     modelRouterRef ! CollectionActorMessage.GetModel(profilesR, self)
     expectMsg(ModelResult.ModelObject(profileModel, List.empty))
 
     //delete users model
-    modelRouterRef ! PersistentModelStore.DeletedModels(models)
+    persistentActor ! PersistentModelStore.UpdateModels(List(BaseActorSpec.postModel))
+    persistentActor ! PersistentModelStoreFixture.GetState
+    expectMsg(List(BaseActorSpec.postModel))
+
+    modelRouterRef ! Update(await = true)
 
     expectMsg(ModelOperation.ModelDeleted(profilesR))
 
@@ -113,16 +105,7 @@ class ModelRegistrySpec extends BaseActorSpec {
     expectMsg(ModelResult.ModelNotFound)
   }
 
-  it should "handle get model" in {
-    val profilesR = R / "users"
-    val profileModel = Model(profilesR, collMeta, fields,
-      JsHooks(Some(""), None, None, None, None, None, None), null, List.empty)
-
-    val models = List(profileModel)
-
-    val modelRouterRef = system.actorOf(Props(new ModelRegistry(globals)))
-    modelRouterRef ! PersistentModelStore.AddedModels(models)
-
+  it should "handle get model using `r` that has Id" in {
     //get profile model
     modelRouterRef ! CollectionActorMessage.GetModel(profilesR, self)
     expectMsg(ModelResult.ModelObject(profileModel, List.empty))

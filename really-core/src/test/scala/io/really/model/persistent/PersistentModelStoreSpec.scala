@@ -3,29 +3,26 @@
  */
 package io.really.model.persistent
 
-import akka.actor.Props
-import akka.persistence.Update
-import akka.testkit.TestActorRef
-import com.typesafe.config.ConfigFactory
-import io.really.model._
-import io.really.{ BaseActorSpec, R, ReallyConfig, TestConf }
+import akka.actor.{ ActorRef, Props }
+import akka.persistence.{ PersistentView, Update }
+import io.really.fixture.PersistentModelStoreFixture
+import io.really.fixture.PersistentModelStoreFixture.GetState
+import io.really.model.persistent.PersistentModelStore.Models
+import org.scalatest.BeforeAndAfterEach
+import akka.testkit.TestProbe
+import _root_.io.really.model._
+import io.really._
 
-class PersistentModelStoreSpec(conf: ReallyConfig) extends BaseActorSpec(conf) {
+class PersistentModelStoreSpec extends BaseActorSpec with BeforeAndAfterEach {
 
-  def this() = this(new ReallyConfig(ConfigFactory.parseString("akka.persistence.view.auto-update-interval = 1s").withFallback(TestConf.getConfig().getRawConfig)))
-
-  val persistentModel = system.actorOf(Props(new PersistentModelStore(globals)))
-
-  val modelRegistry = system.actorOf(Props(new ModelRegistry(globals)))
+  var persistentActor: ActorRef = _
+  var view: ActorRef = _
+  var viewProbe: TestProbe = _
 
   val collMeta: CollectionMetadata = CollectionMetadata(1)
 
   val profilesR = R / "users"
   val profileModel = Model(profilesR, collMeta, fields,
-    JsHooks(Some(""), None, None, None, None, None, None), null, List.empty)
-
-  val boardsR = R / "boards"
-  val boardModel = Model(boardsR, collMeta, fields,
     JsHooks(Some(""), None, None, None, None, None, None), null, List.empty)
 
   val followersR = R / "users" / "followers"
@@ -41,55 +38,78 @@ class PersistentModelStoreSpec(conf: ReallyConfig) extends BaseActorSpec(conf) {
     Map("name" -> f1, "age" -> f2)
   }
 
-  "Persistent Model Store" should "add models to state if receive updateModels" in {
-    //send update models to persistent model
-    persistentModel ! PersistentModelStore.UpdateModels(List(profileModel))
+  override protected def beforeEach(): Unit = {
+    val persistenceId = "model-registry" + Math.random()
 
-    //force view to update state
-    modelRegistry ! Update(await = true)
+    super.beforeEach()
+    val persistentActorProps = Props(classOf[PersistentModelStoreFixture], globals, persistenceId)
+    persistentActor = system.actorOf(persistentActorProps)
 
-    Thread.sleep(6000)
+    persistentActor ! PersistentModelStore.UpdateModels(List(profileModel, BaseActorSpec.companyModel, followerModel))
+    persistentActor ! GetState
+    expectMsg(List(profileModel, BaseActorSpec.companyModel, followerModel))
 
-    //send GetModel to ModelRegistryRouter
-    modelRegistry ! ModelRegistry.CollectionActorMessage.GetModel(profilesR, self)
+    viewProbe = TestProbe()
+    view = system.actorOf(Props(classOf[PassiveTestPersistentView], persistenceId, viewProbe.ref, None))
 
-    expectMsg(ModelRegistry.ModelResult.ModelObject(profileModel, List.empty))
-
-    //send update models to persistent model with new models
-    persistentModel ! PersistentModelStore.UpdateModels(List(profileModel, boardModel))
-
-    //force view to update state
-    modelRegistry ! Update(await = true)
-
-    Thread.sleep(6000)
-
-    //send GetModel for board to ModelRegistryRouter
-    modelRegistry ! ModelRegistry.CollectionActorMessage.GetModel(boardsR, self)
-
-    expectMsg(ModelRegistry.ModelResult.ModelObject(boardModel, List.empty))
-
-    //send update models to persistent model with changed models and remove some models
-    persistentModel ! PersistentModelStore.UpdateModels(List(newProfileModel))
-
-    //force view to update state
-    modelRegistry ! Update(await = true)
-
-    Thread.sleep(6000)
-
-    expectMsg(ModelRegistry.ModelOperation.ModelUpdated(profilesR, newProfileModel, List.empty))
-
-    expectMsg(ModelRegistry.ModelOperation.ModelDeleted(boardsR))
+    view ! Update(await = true)
+    val payload1 = viewProbe.expectMsgType[PersistentModelStore.AddedModels]
+    payload1.models.size shouldBe 3
   }
 
-  it should "calculate changed models" in {
-    val persistent: PersistentModelStore = TestActorRef(Props(new PersistentModelStore(globals))).underlyingActor
+  override protected def afterEach(): Unit = {
+    system.stop(persistentActor)
+    system.stop(view)
+    super.afterEach()
+  }
 
-    val oldModels = List(profileModel, boardModel)
-    val newModels = List(newProfileModel, boardModel)
+  it should "persist 'AddedModels' event if the models wasn't exist in the state " in {
+    persistentActor ! PersistentModelStore.UpdateModels(List(profileModel, BaseActorSpec.companyModel,
+      followerModel, BaseActorSpec.postModel))
+    persistentActor ! GetState
+    val models = expectMsgType[Models]
+    models.size shouldBe 4
 
-    val changedModel = persistent.getChangedModels(newModels, oldModels)
+    view ! Update(await = true)
+    val payload = viewProbe.expectMsgType[PersistentModelStore.AddedModels]
+    payload.models.size shouldBe 1
+  }
 
-    assert(changedModel == List(newProfileModel))
+  it should "persist 'DeletedModels' event if the models was deleted from the state" in {
+    persistentActor ! PersistentModelStore.UpdateModels(List(profileModel, BaseActorSpec.companyModel))
+    persistentActor ! GetState
+    val models = expectMsgType[Models]
+    models.size shouldBe 2
+
+    view ! Update(await = true)
+    val payload = viewProbe.expectMsgType[PersistentModelStore.DeletedModels]
+    payload.models.size shouldBe 1
+  }
+
+  it should "persist 'UpdatedModels' event if the models was exist in the state" in {
+    persistentActor ! PersistentModelStore.UpdateModels(List(BaseActorSpec.companyModel, followerModel, newProfileModel))
+    persistentActor ! GetState
+    val models = expectMsgType[Models]
+    models.size shouldBe 3
+
+    view ! Update(await = true)
+    val payload = viewProbe.expectMsgType[PersistentModelStore.UpdatedModels]
+    payload.models.size shouldBe 1
+  }
+}
+
+private class PassiveTestPersistentView(name: String, probe: ActorRef, var failAt: Option[String]) extends PersistentView {
+  override val persistenceId: String = name
+  override val viewId: String = name + "-view"
+
+  override def autoUpdate: Boolean = false
+
+  override def autoUpdateReplayMax: Long = 0L // no message replay during initial recovery
+
+  def receive = {
+    case payload if isPersistent =>
+      probe ! payload
   }
 
 }
+

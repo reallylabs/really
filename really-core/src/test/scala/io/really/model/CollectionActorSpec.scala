@@ -3,17 +3,20 @@
  */
 package io.really.model
 
-import akka.actor.{ ActorSystem, PoisonPill, Props }
+import akka.actor.{ ActorRef, ActorSystem, PoisonPill, Props }
 import akka.testkit.{ TestActorRef, TestProbe }
+import akka.persistence.{ Update => PersistenceUpdate }
 import io.really.CommandError.ParentNotFound
 import io.really.Request.{ Update, Delete, Create }
 import io.really.Result.{ UpdateResult, CreateResult }
+import io.really.fixture.PersistentModelStoreFixture
 import io.really.model.CollectionActor.{ GetExistenceState, GetState, State }
-import io.really.model.persistent.{ PersistentModelStore, ModelRegistry }
-import ModelRegistry.ModelResult
+import io.really.model.persistent.{ PersistentModelStore }
+import io.really.model.persistent.ModelRegistry.{ ModelOperation, CollectionActorMessage, ModelResult }
 import io.really.protocol.{ UpdateCommand, UpdateOp, UpdateBody }
 import io.really.CommandError.InvalidCommand
 import io.really._
+import org.scalatest.BeforeAndAfterAll
 import play.api.libs.json.{ JsNumber, Json }
 
 import play.api.data.validation.ValidationError
@@ -26,6 +29,25 @@ class CollectionActorSpec extends BaseActorSpec {
   override val globals = new CollectionTestReallyGlobals(config, system)
 
   case class UnsupportedCommand(r: R, cmd: String) extends RoutableToCollectionActor
+
+  var modelRouterRef: ActorRef = _
+  var modelPersistentActor: ActorRef = _
+  val models: List[Model] = List(BaseActorSpec.userModel, BaseActorSpec.carModel,
+    BaseActorSpec.companyModel, BaseActorSpec.authorModel, BaseActorSpec.postModel)
+
+  override def beforeAll() {
+    super.beforeAll()
+    modelRouterRef = globals.modelRegistry
+    modelPersistentActor = globals.persistentModelStore
+
+    modelPersistentActor ! PersistentModelStore.UpdateModels(models)
+    modelPersistentActor ! PersistentModelStoreFixture.GetState
+    expectMsg(models)
+
+    modelRouterRef ! PersistenceUpdate(await = true)
+    modelRouterRef ! CollectionActorMessage.GetModel(BaseActorSpec.userModel.r, self)
+    expectMsg(ModelResult.ModelObject(BaseActorSpec.userModel, List.empty))
+  }
 
   "CollectionActor" should "get ModelNotFound for any supported request for unknown model" in {
     val r = R / 'unknownModel / 123
@@ -53,7 +75,7 @@ class CollectionActorSpec extends BaseActorSpec {
   }
 
   it should "update the internal model state when it receives the ModelUpdated message" in {
-    val r = R / 'users / 456
+    val r = R / 'users / globals.quickSand.nextId()
     val userObj = Json.obj("name" -> "Hatem AlSum", "age" -> 30)
     val probe = TestProbe()
     globals.collectionActor.tell(Create(ctx, r, userObj), probe.ref)
@@ -62,24 +84,49 @@ class CollectionActorSpec extends BaseActorSpec {
     res.body \ "age" shouldBe JsNumber(30)
     res.body \ "_rev" shouldBe JsNumber(1)
 
-    globals.modelRegistry.tell(PersistentModelStore.UpdatedModels(List(BaseActorSpec.userModel.copy(
+    val newUserModel = BaseActorSpec.userModel.copy(
       fields = BaseActorSpec.userModel.fields + ("address" -> ValueField("address", DataType.RString, None, None, true))
-    ))), probe.ref)
+    )
+
+    modelPersistentActor ! PersistentModelStore.UpdateModels(List(newUserModel))
+    modelPersistentActor ! PersistentModelStoreFixture.GetState
+    expectMsg(List(newUserModel))
+
+    modelRouterRef ! PersistenceUpdate(await = true)
+    expectMsg(ModelOperation.ModelUpdated(BaseActorSpec.userModel.r, newUserModel, List.empty))
+
     val rx = R / 'users / 445
     val userObjx = Json.obj("name" -> "Ahmed Refaey", "age" -> 23)
     globals.collectionActor.tell(Create(ctx, rx, userObjx), probe.ref)
     probe.expectMsgType[CommandError.ModelValidationFailed]
     //revert the model changes to leave the test case env clean
-    globals.modelRegistry ! PersistentModelStore.UpdatedModels(List(BaseActorSpec.userModel))
+    modelPersistentActor ! PersistentModelStore.UpdateModels(models)
+    modelPersistentActor ! PersistentModelStoreFixture.GetState
+    expectMsg(models)
+
+    modelRouterRef ! PersistenceUpdate(await = true)
+    expectMsg(ModelOperation.ModelUpdated(BaseActorSpec.userModel.r, BaseActorSpec.userModel, List.empty))
   }
 
   it should "invalidate the internal state when it receives the ModelDeleted message" in {
-    val r = R / 'companies / Random.nextInt(100)
+    val r = R / 'companies / globals.quickSand.nextId()
     val userObj = Json.obj("name" -> "Foo Bar", "employees" -> 43)
     val probe = TestProbe()
     globals.collectionActor.tell(Create(ctx, r, userObj), probe.ref)
     val res = probe.expectMsgType[Result.CreateResult]
     res.body \ "name" shouldBe JsString("Foo Bar")
+    //get company model
+    modelRouterRef ! CollectionActorMessage.GetModel(BaseActorSpec.companyModel.r, self)
+    expectMsg(ModelResult.ModelObject(BaseActorSpec.companyModel, List.empty))
+
+    //delete company model
+    val newModels = models.filterNot(_.r == BaseActorSpec.companyModel.r)
+    modelPersistentActor ! PersistentModelStore.UpdateModels(newModels)
+    modelPersistentActor ! PersistentModelStoreFixture.GetState
+    expectMsg(newModels)
+
+    modelRouterRef ! PersistenceUpdate(await = true)
+    expectMsg(ModelOperation.ModelDeleted(BaseActorSpec.companyModel.r))
 
     globals.modelRegistry ! PersistentModelStore.DeletedModels(List(BaseActorSpec.companyModel))
     val userObjx = Json.obj("name" -> "Cloud9ers", "employees" -> 23)
