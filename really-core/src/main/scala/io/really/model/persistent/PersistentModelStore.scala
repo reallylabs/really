@@ -7,12 +7,12 @@ import _root_.io.really._
 import _root_.io.really.model.Model
 import akka.persistence.{ PersistentActor, SnapshotOffer }
 
-class PersistentModelStore(globals: ReallyGlobals) extends PersistentActor {
+class PersistentModelStore(globals: ReallyGlobals, persistId: String) extends PersistentActor {
   import PersistentModelStore._
 
-  override def persistenceId = "model-registry-persistent"
+  override def persistenceId = persistId
 
-  var state: Models = List.empty
+  protected var state: Models = List.empty
 
   private def updateState(models: Models): Unit =
     state = models

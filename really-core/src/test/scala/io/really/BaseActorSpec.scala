@@ -9,7 +9,6 @@ import akka.testkit.{ TestKit, ImplicitSender }
 import akka.util.Timeout
 import com.typesafe.config.ConfigFactory
 import _root_.io.really.model._
-import _root_.io.really.model.persistent.PersistentModelStore
 import org.joda.time.DateTime
 import org.scalatest._
 
@@ -33,8 +32,6 @@ abstract class BaseActorSpec(conf: ReallyConfig = TestConf.getConfig()) extends 
 
   override def beforeAll() = {
     globals.boot()
-    globals.modelRegistry ! PersistentModelStore.AddedModels(List(userModel, companyModel, carModel, authorModel,
-      postModel))
   }
 
   override def afterAll() = {

@@ -3,10 +3,12 @@
  */
 package io.really.model.materializer
 
+import akka.actor.ActorRef
 import akka.persistence.Update
-import _root_.io.really.fixture.MaterializerTest
+import io.really.fixture.{ PersistentModelStoreFixture, MaterializerTest }
 import _root_.io.really.json.collection.JSONCollection
 import io.really.model._
+import io.really.model.persistent.ModelRegistry.{ ModelOperation, ModelResult, CollectionActorMessage }
 import io.really.model.persistent.PersistentModelStore
 import io.really.protocol._
 import io.really._
@@ -26,15 +28,22 @@ class CollectionViewMaterializerSpec extends BaseActorSpecWithMongoDB {
     Await.result(cursor.headOption, 5.seconds)
   }
 
-  override def beforeAll() = {
+  var modelRouterRef: ActorRef = _
+  var modelPersistentActor: ActorRef = _
+  val models: List[Model] = List(BaseActorSpec.authorModel, BaseActorSpec.postModel)
+
+  override def beforeAll() {
     super.beforeAll()
-    val models = List(BaseActorSpec.authorModel, BaseActorSpec.postModel)
+    modelRouterRef = globals.modelRegistry
+    modelPersistentActor = globals.persistentModelStore
 
-    globals.persistentModelStore ! PersistentModelStore.UpdateModels(models)
+    modelPersistentActor ! PersistentModelStore.UpdateModels(models)
+    modelPersistentActor ! PersistentModelStoreFixture.GetState
+    expectMsg(models)
 
-    globals.modelRegistry ! Update()
-
-    Thread.sleep(3000)
+    modelRouterRef ! Update(await = true)
+    modelRouterRef ! CollectionActorMessage.GetModel(BaseActorSpec.authorModel.r, self)
+    expectMsg(ModelResult.ModelObject(BaseActorSpec.authorModel, List.empty))
   }
 
   "Collection View Materializer" should "read ModelCreated message form journal as first message" in {
@@ -98,10 +107,12 @@ class CollectionViewMaterializerSpec extends BaseActorSpecWithMongoDB {
       )
     )
 
-    globals.persistentModelStore ! PersistentModelStore.UpdateModels(List(newAuthorModel, BaseActorSpec.postModel))
+    globals.persistentModelStore ! PersistentModelStore.UpdateModels(List(newAuthorModel))
+    modelPersistentActor ! PersistentModelStoreFixture.GetState
+    expectMsg(List(newAuthorModel))
 
-    globals.modelRegistry ! Update()
-
+    modelRouterRef ! Update(await = true)
+    expectMsg(ModelOperation.ModelUpdated(BaseActorSpec.authorModel.r, newAuthorModel, List.empty))
     Thread.sleep(3000)
 
     globals.materializerView ! MaterializerTest.GetState(bucketId)

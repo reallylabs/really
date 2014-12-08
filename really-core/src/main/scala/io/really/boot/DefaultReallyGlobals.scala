@@ -48,13 +48,14 @@ class DefaultReallyGlobals(override val config: ReallyConfig) extends ReallyGlob
   override lazy val persistentModelStore = persistentModelStore_.get
 
   private val db = Database.forURL(config.EventLogStorage.databaseUrl, driver = config.EventLogStorage.driver)
+  private val modelRegistryPersistentId = "model-registry-persistent"
 
   def requestProps(context: RequestContext, replyTo: ActorRef, body: JsObject): Props =
     Props(new DefaultRequestActor(context, replyTo, body))
 
   override val receptionistProps = Props(new DefaultReceptionist(this))
-  override val modelRegistryProps = Props(new ModelRegistry(this))
-  override val requestRouterProps = Props(new RequestRouter(this))
+  override val modelRegistryProps = Props(new ModelRegistry(this, modelRegistryPersistentId))
+  override val requestRouterProps = Props(new RequestRouter(this, modelRegistryPersistentId))
   override val collectionActorProps = Props(classOf[CollectionActor], this)
 
   implicit val session = db.createSession()
@@ -63,7 +64,7 @@ class DefaultReallyGlobals(override val config: ReallyConfig) extends ReallyGlob
   override val gorillaEventCenterProps = Props(classOf[GorillaEventCenter], this, session)
   override val subscriptionManagerProps = Props(classOf[SubscriptionManager], this)
   override val materializerProps = Props(classOf[CollectionViewMaterializer], this)
-  override val persistentModelStoreProps = Props(classOf[PersistentModelStore], this)
+  override val persistentModelStoreProps = Props(classOf[PersistentModelStore], this, modelRegistryPersistentId)
 
   override val readHandlerProps = ???
   override val readHandler = ???

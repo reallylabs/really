@@ -8,10 +8,10 @@ import akka.persistence.PersistentView
 import io.really.model.{ ReferenceField, Model }
 import io.really.{ RoutableByR, R, ReallyGlobals }
 
-class ModelRegistry(globals: ReallyGlobals) extends PersistentView with ActorLogging {
+class ModelRegistry(globals: ReallyGlobals, persistId: String) extends PersistentView with ActorLogging {
   import ModelRegistry._
 
-  override def persistenceId: String = "model-registry-persistent"
+  override def persistenceId: String = persistId
   override def viewId: String = "request-router-view"
 
   private var routingTable: Map[R, Model] = Map.empty
@@ -24,7 +24,7 @@ class ModelRegistry(globals: ReallyGlobals) extends PersistentView with ActorLog
   def receive: Receive = handleEvent orElse handleCollectionRequest orElse handleGeneralOps
 
   def handleEvent: Receive = {
-    case PersistentModelStore.UpdatedModels(updatedModels) =>
+    case PersistentModelStore.UpdatedModels(updatedModels) if isPersistent =>
       val rs = updatedModels.map(_.r)
       routingTable ++= updatedModels.map(m => (m.r, m)).toMap
       rs.foreach { r =>
@@ -33,7 +33,7 @@ class ModelRegistry(globals: ReallyGlobals) extends PersistentView with ActorLog
         }
       }
       constructReverseReferencesMap()
-    case PersistentModelStore.DeletedModels(removedModels) =>
+    case PersistentModelStore.DeletedModels(removedModels) if isPersistent =>
       val rs = removedModels.map(m => m.r)
       rs.foreach { r =>
         subscriberActors.getOrElse(r, List.empty).foreach { actor =>
@@ -44,7 +44,7 @@ class ModelRegistry(globals: ReallyGlobals) extends PersistentView with ActorLog
       routingTable --= removedModels.map(_.r)
       subscriberActors = subscriberActors.filterNot(c => rs.contains(c._1))
       constructReverseReferencesMap()
-    case PersistentModelStore.AddedModels(newModels) =>
+    case PersistentModelStore.AddedModels(newModels) if isPersistent =>
       routingTable ++= newModels.map(m => (m.r, m)).toMap
       constructReverseReferencesMap()
   }

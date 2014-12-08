@@ -9,10 +9,10 @@ import akka.actor.{ ActorSystem, Props, ActorRef }
 import akka.contrib.pattern.{ DistributedPubSubExtension, ClusterSharding }
 import _root_.io.really.defaults.{ DefaultRequestActor, DefaultReceptionist }
 import _root_.io.really.gorilla.{ SubscriptionManager, GorillaEventCenterSharding, GorillaEventCenter }
-import _root_.io.really.model.{ CollectionActor, CollectionSharding }
+import _root_.io.really.model.CollectionSharding
 import _root_.io.really.quickSand.QuickSand
-import _root_.io.really.model.persistent.{ PersistentModelStore, ModelRegistry, RequestRouter }
-import _root_.io.really.fixture.{ TestCollectionActor, MaterializerTest }
+import _root_.io.really.model.persistent.{ ModelRegistry, RequestRouter }
+import _root_.io.really.fixture.{ PersistentModelStoreFixture, TestCollectionActor, MaterializerTest }
 import _root_.io.really.model.materializer.MaterializerSharding
 import play.api.libs.json.JsObject
 import reactivemongo.api.{ DefaultDB, MongoDriver }
@@ -48,14 +48,15 @@ class TestReallyGlobals(override val config: ReallyConfig, override val actorSys
   override val readHandler = actorSystem.deadLetters //FIXME
 
   private val db = Database.forURL(config.EventLogStorage.databaseUrl, driver = config.EventLogStorage.driver)
+  private val modelRegistryPersistentId = "model-registry-persistent-test"
 
   def requestProps(context: RequestContext, replyTo: ActorRef, body: JsObject): Props =
     Props(new DefaultRequestActor(context, replyTo, body))
 
   //todo this should be dynamically loaded from configuration
   override val receptionistProps = Props(new DefaultReceptionist(this))
-  override val modelRegistryProps = Props(new ModelRegistry(this))
-  override val requestRouterProps = Props(new RequestRouter(this))
+  override val modelRegistryProps = Props(new ModelRegistry(this, modelRegistryPersistentId))
+  override val requestRouterProps = Props(new RequestRouter(this, modelRegistryPersistentId))
 
   implicit val session = db.createSession()
   GorillaEventCenter.initializeDB()
@@ -65,7 +66,7 @@ class TestReallyGlobals(override val config: ReallyConfig, override val actorSys
   override val collectionActorProps = Props(classOf[TestCollectionActor], this)
   override val subscriptionManagerProps = Props(classOf[SubscriptionManager], this)
   override val materializerProps = Props(classOf[MaterializerTest], this)
-  override val persistentModelStoreProps = Props(classOf[PersistentModelStore], this)
+  override val persistentModelStoreProps = Props(classOf[PersistentModelStoreFixture], this, modelRegistryPersistentId)
 
   override def boot() = {
     implicit val ec = actorSystem.dispatcher
