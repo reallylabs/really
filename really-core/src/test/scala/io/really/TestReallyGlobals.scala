@@ -7,7 +7,6 @@ import java.util.concurrent.atomic.AtomicReference
 
 import akka.actor.{ ActorSystem, Props, ActorRef }
 import akka.contrib.pattern.{ DistributedPubSubExtension, ClusterSharding }
-import _root_.io.really.defaults.{ DefaultRequestActor, DefaultReceptionist }
 import _root_.io.really.gorilla.{ SubscriptionManager, GorillaEventCenterSharding, GorillaEventCenter }
 import _root_.io.really.model.CollectionSharding
 import _root_.io.really.quickSand.QuickSand
@@ -50,11 +49,11 @@ class TestReallyGlobals(override val config: ReallyConfig, override val actorSys
   private val db = Database.forURL(config.EventLogStorage.databaseUrl, driver = config.EventLogStorage.driver)
   private val modelRegistryPersistentId = "model-registry-persistent-test"
 
-  def requestProps(context: RequestContext, replyTo: ActorRef, body: JsObject): Props =
-    Props(new DefaultRequestActor(context, replyTo, body))
+  def requestProps(ctx: RequestContext, replyTo: ActorRef, cmd: String, body: JsObject): Props =
+    Props(new RequestDelegate(this, ctx, replyTo, cmd, body))
 
   //todo this should be dynamically loaded from configuration
-  override val receptionistProps = Props(new DefaultReceptionist(this))
+  override val receptionistProps = Props(new Receptionist(this))
   override val modelRegistryProps = Props(new ModelRegistry(this, modelRegistryPersistentId))
   override val requestRouterProps = Props(new RequestRouter(this, modelRegistryPersistentId))
 

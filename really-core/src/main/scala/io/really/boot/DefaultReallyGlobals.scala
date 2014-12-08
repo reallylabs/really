@@ -15,7 +15,6 @@ import scala.collection.JavaConversions._
 import scala.slick.driver.H2Driver.simple._
 import akka.contrib.pattern.ClusterSharding
 import _root_.io.really._
-import _root_.io.really.defaults.{ DefaultReceptionist, DefaultRequestActor }
 import _root_.io.really.model.{ CollectionSharding, CollectionActor }
 import play.api.libs.json.JsObject
 import _root_.io.really.quickSand.QuickSand
@@ -50,10 +49,10 @@ class DefaultReallyGlobals(override val config: ReallyConfig) extends ReallyGlob
   private val db = Database.forURL(config.EventLogStorage.databaseUrl, driver = config.EventLogStorage.driver)
   private val modelRegistryPersistentId = "model-registry-persistent"
 
-  def requestProps(context: RequestContext, replyTo: ActorRef, body: JsObject): Props =
-    Props(new DefaultRequestActor(context, replyTo, body))
+  def requestProps(ctx: RequestContext, replyTo: ActorRef, cmd: String, body: JsObject): Props =
+    Props(new RequestDelegate(this, ctx, replyTo, cmd, body))
 
-  override val receptionistProps = Props(new DefaultReceptionist(this))
+  override val receptionistProps = Props(new Receptionist(this))
   override val modelRegistryProps = Props(new ModelRegistry(this, modelRegistryPersistentId))
   override val requestRouterProps = Props(new RequestRouter(this, modelRegistryPersistentId))
   override val collectionActorProps = Props(classOf[CollectionActor], this)
