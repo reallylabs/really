@@ -41,7 +41,7 @@ package io {
 
       def shutdown(): Unit
 
-      def requestProps(context: RequestContext, replyTo: ActorRef, body: JsObject): Props
+      def requestProps(ctx: RequestContext, replyTo: ActorRef, cmd: String, body: JsObject): Props
 
       def receptionistProps: Props
 
