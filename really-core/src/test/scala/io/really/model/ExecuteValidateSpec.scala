@@ -9,7 +9,7 @@ import org.scalatest._
 import play.api.libs.json.{ JsNumber, JsString, Json, JsObject }
 import _root_.io.really.model.ModelHookStatus.{ Succeeded, Terminated }
 
-class ExecuteValidateSpec extends FlatSpec with Matchers {
+class ExecuteValidateSpec extends BaseActorSpec {
   val r = R / "users"
   val collMeta: CollectionMetadata = CollectionMetadata(1L)
   val nameField = ValueField("name", DataType.RString, None, None, true)
@@ -50,7 +50,7 @@ class ExecuteValidateSpec extends FlatSpec with Matchers {
 
   "Validate JsHooks" should "pass if the JS validation script ended without calling cancel()" in {
 
-    userModel.executeValidate(context, input) should be(Succeeded)
+    userModel.executeValidate(context, globals, input) should be(Succeeded)
 
   }
   it should "return Terminated object if cancel() was called with error code and message" in {
@@ -63,7 +63,7 @@ class ExecuteValidateSpec extends FlatSpec with Matchers {
       """.stripMargin
     val jsHooks: JsHooks = JsHooks(onValidate = Some(validationScript), None, None, None, None, None, None)
     val userModel = new Model(r, collMeta, fields, jsHooks, migrationPlan, List.empty)
-    userModel.executeValidate(context, input) should be(Terminated(401, "Over Age!"))
+    userModel.executeValidate(context, globals, input) should be(Terminated(401, "Over Age!"))
   }
   it should "deals with the input seamlessly as JSON" in {
     val validationScript: JsScript =
@@ -75,7 +75,7 @@ class ExecuteValidateSpec extends FlatSpec with Matchers {
       """.stripMargin
     val jsHooks: JsHooks = JsHooks(onValidate = Some(validationScript), None, None, None, None, None, None)
     val userModel = new Model(r, collMeta, fields, jsHooks, migrationPlan, List.empty)
-    userModel.executeValidate(context, input) should be(Succeeded)
+    userModel.executeValidate(context, globals, input) should be(Succeeded)
 
   }
 

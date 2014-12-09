@@ -8,6 +8,7 @@ import _root_.io.really.js.JsTools
 import _root_.io.really.model.ModelExceptions.{ InvalidSubCollectionR, InvalidCollectionR }
 import play.api.libs.json._
 import jdk.nashorn.api.scripting.NashornScriptEngineFactory
+import scala.util.control.NonFatal
 
 package object model {
   type ModelVersion = Long
@@ -85,7 +86,28 @@ package object model {
       validateEngine.asInstanceOf[Invocable].getInterface(classOf[Validator])
     }
 
-    def executeValidate(context: RequestContext, input: JsObject): ModelHookStatus = {
+    val executeOnGetValidator: Option[OnGet] = jsHooks.preGet.map { onGetCode =>
+      val jsEngine = JsTools.newEngineWithSDK()
+      val code: String = s"""
+        | function onGet (_authValue, _objValue, _underlyingHide) {
+        |  var hide = function() {
+        |    var fields = Array.prototype.slice.call(arguments);
+        |    _underlyingHide(fields);
+        |  }
+        |
+        |   var auth = JSON.parse(_authValue);
+        |   _authValue = undefined;
+        |   var obj = JSON.parse(_objValue);
+        |   _objValue = undefined;
+        |   ${onGetCode}
+        | }
+      """.stripMargin
+      jsEngine.eval(code)
+
+      jsEngine.asInstanceOf[Invocable].getInterface(classOf[OnGet])
+    }
+
+    def executeValidate(context: RequestContext, globals: ReallyGlobals, input: JsObject): ModelHookStatus = {
       executeValidator match {
         case Some(validator: Validator) =>
           try {
@@ -102,11 +124,33 @@ package object model {
       }
     }
 
-    def executeOnGet(context: RequestContext, input: JsObject): Either[FieldProtectionPlan, ModelHookStatus.Terminated] = ???
+    def executeOnGet(context: RequestContext, globals: ReallyGlobals, input: JsObject): Either[ModelHookStatus.Terminated, FieldProtectionPlan] = {
+      executeOnGetValidator match {
+        case Some(onGetValidator: OnGet) =>
+          try {
+            val hiddenFields = new HiddenFields
+            onGetValidator.onGet(Json.toJson(context.auth).toString(), input.toString(), hiddenFields.hide)
+            val protectedFields = hiddenFields.getHiddenFields.filter(fields.keySet.contains)
+            Right(FieldProtectionPlan(protectedFields.toSet))
+          } catch {
+            case e: ArrayStoreException =>
+              Left(ModelHookStatus.Terminated(9000, "preGet contain hide function with invalid args."))
+            case se: ScriptException =>
+              globals.logger.error(s"Script Exception happen during execute `preGet` for Model with r: ${r}, error: ${se.getMessage}")
+              Left(ModelHookStatus.Terminated(500, "preGet script throws a runtime error"))
+            case NonFatal(e) =>
+              globals.logger.error(s"Script Exception happen during execute `preGet` for Model with r: ${r}, error: ${e.getMessage}")
+              Left(ModelHookStatus.Terminated(500, "preGet script throws a runtime error"))
+          }
+        case None =>
+          Right(FieldProtectionPlan(Set.empty))
+      }
 
-    def executePreUpdate(context: RequestContext, prev: JsObject, after: JsObject, fieldsChanged: Set[FieldKey]): ModelHookStatus = ???
+    }
 
-    def executePreDelete(context: RequestContext, obj: JsObject): ModelHookStatus = ???
+    def executePreUpdate(context: RequestContext, globals: ReallyGlobals, prev: JsObject, after: JsObject, fieldsChanged: Set[FieldKey]): ModelHookStatus = ???
+
+    def executePreDelete(context: RequestContext, globals: ReallyGlobals, obj: JsObject): ModelHookStatus = ???
 
     //Async hooks, does not block the rest of the execution plan
     //config and globals are passed to allow us to send a native "JavaScript SDK" to the script that may require to access other external systems

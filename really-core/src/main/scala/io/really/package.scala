@@ -6,6 +6,7 @@ import scala.language.implicitConversions
 
 package io {
 
+  import akka.event.LoggingAdapter
   import play.api.data.validation.ValidationError
   import reactivemongo.api.DefaultDB
   import akka.actor.{ Props, ActorSystem, ActorRef }
@@ -86,6 +87,8 @@ package io {
       def readHandler: ActorRef
 
       def mediator: ActorRef
+
+      def logger: LoggingAdapter
 
     }
 

@@ -261,7 +261,7 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor with Actor
   private def validateObject(obj: JsObject, model: Model)(implicit context: RequestContext): ValidationResponse =
     validateFields(obj, model) match {
       case JsSuccess(jsObj: JsObject, _) => // Continue to JS Validation
-        model.executeValidate(context, jsObj) match {
+        model.executeValidate(context, globals, jsObj) match {
           case ModelHookStatus.Succeeded => ValidationResponse.ValidData(obj)
           case ModelHookStatus.Terminated(code, reason) => ValidationResponse.JSValidationFailed(reason)
         }
@@ -276,7 +276,7 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor with Actor
   private def applyCreate(create: Create, model: Model): Response =
     validateFields(create.body, model) match {
       case JsSuccess(jsObj, _) => // Continue to JS Validation
-        model.executeValidate(create.ctx, jsObj) match {
+        model.executeValidate(create.ctx, globals, jsObj) match {
           case ModelHookStatus.Succeeded =>
             val newObj = jsObj ++ Json.obj("_rev" -> 1l, "_r" -> create.r.toString)
             persistEvent(Event.Created(create.r, newObj, model.collectionMeta.version, create.ctx), newObj)
