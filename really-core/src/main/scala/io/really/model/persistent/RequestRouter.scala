@@ -8,9 +8,11 @@ import akka.actor.ActorLogging
 import akka.persistence.PersistentView
 
 class RequestRouter(globals: ReallyGlobals, persistId: String) extends PersistentView with ActorLogging {
+
   import RequestRouter._
 
   override def persistenceId: String = persistId
+
   override def viewId: String = "request-router-view"
 
   private var models: List[R] = List.empty
@@ -29,6 +31,8 @@ class RequestRouter(globals: ReallyGlobals, persistId: String) extends Persisten
   }
 
   def handleRequest: Receive = {
+    case req: Request.Create if validR(req.r) =>
+      globals.collectionActor forward req.copy(r = req.r / globals.quickSand.nextId())
     case req: Request with RoutableToCollectionActor if validR(req.r) =>
       globals.collectionActor forward req
     case req: Request with RoutableToCollectionActor =>
@@ -59,4 +63,5 @@ object RequestRouter {
     case class UnsupportedCmd(cmd: String) extends RequestRouterResponse
 
   }
+
 }

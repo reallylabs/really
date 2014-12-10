@@ -78,10 +78,11 @@ class RequestRouterSpec extends BaseActorSpec {
   }
 
   it should "forward message to collection actor if command is Create" in {
-    val r = R / "boards" / 3
+    val r = R / "boards"
     val req = Request.Create(ctx, r, Json.obj("name" -> "Hatem", "age" -> "30"))
     requestRouterRef ! req
-    globals.collectionActorTestProps.expectMsg(req)
+    val forwardReq = globals.collectionActorTestProps.expectMsgType[Request.Create]
+    forwardReq.r.isObject shouldEqual true
   }
 
   it should "forward message to collection actor if command is Update" in {

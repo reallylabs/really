@@ -4,7 +4,8 @@
 package io.really.protocol
 
 import _root_.io.really.Result._
-import _root_.io.really._
+import io.really._
+import play.api.data.validation.ValidationError
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
 
@@ -29,6 +30,8 @@ object ProtocolFormats {
     val cmdReads = (__ \ 'cmd).read[String].map(_.toLowerCase)
     val accessTokenReads = (__ \ 'accessToken).read[String]
     val rReads = (__ \ 'r).read[R]
+    val rObjectReads = rReads.filter(ValidationError("validate.error.require.object"))(_.isObject)
+    val rCollectionReads = rReads.filter(ValidationError("validate.error.require.collection"))(_.isCollection)
     val revReads = (__ \ 'rev).read[Long]
 
     /*
@@ -62,7 +65,7 @@ object ProtocolFormats {
     object Get {
       val cmdOptsReads = (__ \ 'cmdOpts).read[GetOpts]
 
-      def read(ctx: RequestContext) = (rReads and cmdOptsReads)((r, cmdOpts) => Request.Get(ctx, r, cmdOpts))
+      def read(ctx: RequestContext) = (rObjectReads and cmdOptsReads)((r, cmdOpts) => Request.Get(ctx, r, cmdOpts))
     }
 
     /*
@@ -71,7 +74,7 @@ object ProtocolFormats {
     object Update {
       val bodyReads = (__ \ 'body).read[UpdateBody]
       def read(ctx: RequestContext) =
-        (rReads and revReads and bodyReads)((r, rev, body) => Request.Update(ctx, r, rev, body))
+        (rObjectReads and revReads and bodyReads)((r, rev, body) => Request.Update(ctx, r, rev, body))
     }
 
     /*
@@ -80,7 +83,7 @@ object ProtocolFormats {
     object Read {
       val cmdOptsReads = (__ \ 'cmdOpts).read[ReadOpts]
 
-      def read(ctx: RequestContext) = (rReads and cmdOptsReads)((r, cmdOpts) => Request.Read(ctx, r, cmdOpts))
+      def read(ctx: RequestContext) = (rCollectionReads and cmdOptsReads)((r, cmdOpts) => Request.Read(ctx, r, cmdOpts))
     }
 
     /*
@@ -90,14 +93,14 @@ object ProtocolFormats {
       val bodyReads = (__ \ 'body).read[JsObject]
 
       def read(ctx: RequestContext) =
-        (rReads and bodyReads)((r, body) => Request.Create(ctx, r, body))
+        (rCollectionReads and bodyReads)((r, body) => Request.Create(ctx, r, body))
     }
 
     /*
      * JSON Reads for [[io.really.Request.Delete]] Request
      */
     object Delete {
-      def read(ctx: RequestContext) = (rReads) map (r => Request.Delete(ctx, r))
+      def read(ctx: RequestContext) = (rObjectReads) map (r => Request.Delete(ctx, r))
     }
 
   }
