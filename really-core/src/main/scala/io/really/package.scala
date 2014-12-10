@@ -113,15 +113,23 @@ package io {
 
       case class GetSubscription(ctx: RequestContext, r: R) extends Request with RoutableByR with RoutableToSubscriptionManager
 
-      case class Get(ctx: RequestContext, r: R, cmdOpts: GetOpts) extends Request with RoutableToReadHandler
+      case class Get(ctx: RequestContext, r: R, cmdOpts: GetOpts) extends Request with RoutableToReadHandler {
+        require(r.isObject, "r should be represent object")
+      }
 
-      case class Update(ctx: RequestContext, r: R, rev: Long, body: UpdateBody) extends Request with RoutableToCollectionActor
+      case class Update(ctx: RequestContext, r: R, rev: Long, body: UpdateBody) extends Request with RoutableToCollectionActor {
+        require(r.isObject, "r should be represent object")
+      }
 
-      case class Read(ctx: RequestContext, r: R, cmdOpts: ReadOpts) extends Request with RoutableToReadHandler
+      case class Read(ctx: RequestContext, r: R, cmdOpts: ReadOpts) extends Request with RoutableToReadHandler {
+        require(r.isCollection, "r should be represent collection")
+      }
 
       case class Create(ctx: RequestContext, r: R, body: JsObject) extends Request with RoutableToCollectionActor
 
-      case class Delete(ctx: RequestContext, r: R) extends Request with RoutableToCollectionActor
+      case class Delete(ctx: RequestContext, r: R) extends Request with RoutableToCollectionActor {
+        require(r.isObject, "r should be represent object")
+      }
 
     }
 

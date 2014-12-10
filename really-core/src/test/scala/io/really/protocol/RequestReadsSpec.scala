@@ -15,7 +15,7 @@ class RequestReadsSpec extends FlatSpec with Matchers {
     None, RequestMetadata(None, DateTime.now, "localhost", RequestProtocol.WebSockets)
   )
 
-  "Subscribe request reads" should "create subscribe request if you sent correct request" in {
+  "Subscribe Request reads" should "create subscribe request if you sent correct request" in {
     val req = Json.obj(
       "tag" -> 1,
       "cmd" -> "subscribe",
@@ -84,7 +84,7 @@ class RequestReadsSpec extends FlatSpec with Matchers {
     assert(result.isError == true)
   }
 
-  "Unsubscribe request reads" should "create unsubscribe request if you sent correct request" in {
+  "Unsubscribe Request reads" should "create unsubscribe request if you sent correct request" in {
     val req = Json.obj(
       "tag" -> 1,
       "cmd" -> "unsubscribe",
@@ -137,7 +137,7 @@ class RequestReadsSpec extends FlatSpec with Matchers {
     assert(result.isError == true)
   }
 
-  "Get Subscription request read" should "create Get Subscription request if you sent correct request" in {
+  "Get Subscription Request reads" should "create Get Subscription request if you sent correct request" in {
     val req = Json.obj(
       "tag" -> 1,
       "cmd" -> "get-subscription",
@@ -160,7 +160,7 @@ class RequestReadsSpec extends FlatSpec with Matchers {
     assert(result.isError == true)
   }
 
-  "Get request read" should "create Get request if you sent correct request" in {
+  "Get Request reads" should "create Get request if you sent correct request" in {
     val req = Json.obj(
       "tag" -> 1,
       "cmd" -> "get",
@@ -173,6 +173,20 @@ class RequestReadsSpec extends FlatSpec with Matchers {
     val result = req.validate(ProtocolFormats.RequestReads.Get.read(ctx))
 
     assertResult(Request.Get(ctx, R("/users/1123123/"), GetOpts(Set("firstname", "lastname"))))(result.get)
+  }
+
+  it should "return JsError if you sent request with r collection" in {
+    val req = Json.obj(
+      "tag" -> 1,
+      "cmd" -> "get",
+      "r" -> "/users",
+      "cmdOpts" -> Json.obj(
+        "fields" -> Set("firstname", "lastname")
+      )
+    )
+
+    val result = req.validate(ProtocolFormats.RequestReads.Get.read(ctx))
+    assert(result.isError == true)
   }
 
   it should "create Get request if you sent fields as empty set" in {
@@ -217,7 +231,7 @@ class RequestReadsSpec extends FlatSpec with Matchers {
     assert(result.isError == true)
   }
 
-  "Update Request read" should "create update request if you sent correct request" in {
+  "Update Request reads" should "create update request if you sent correct request" in {
     val req = Json.obj(
       "tag" -> 1,
       "cmd" -> "update",
@@ -243,6 +257,25 @@ class RequestReadsSpec extends FlatSpec with Matchers {
         UpdateOp(UpdateCommand.Set, "lastname", JsString("Mahmoud"))
       ))
     ))(result.get)
+  }
+
+  it should "return JsError if you sent request with r collection" in {
+    val req = Json.obj(
+      "tag" -> 1,
+      "cmd" -> "update",
+      "cmdOpts" -> Json.obj("transaction" -> true),
+      "r" -> "/users",
+      "rev" -> 23,
+      "body" -> Json.obj(
+        "ops" -> List(
+          Json.obj("op" -> "set", "key" -> "firstname", "value" -> "Ahmed"),
+          Json.obj("op" -> "set", "key" -> "lastname", "value" -> "Mahmoud")
+        )
+      )
+    )
+
+    val result = req.validate(ProtocolFormats.RequestReads.Update.read(ctx))
+    assert(result.isError == true)
   }
 
   it should "return JsError if you sent request without r" in {
@@ -313,7 +346,7 @@ class RequestReadsSpec extends FlatSpec with Matchers {
     assert(result.isError == true)
   }
 
-  "Delete request read" should "create delete request if you sent correct request" in {
+  "Delete Request reads" should "create delete request if you sent correct request" in {
     val req = Json.obj(
       "tag" -> 1,
       "cmd" -> "delete",
@@ -332,11 +365,21 @@ class RequestReadsSpec extends FlatSpec with Matchers {
     )
 
     val result = req.validate(ProtocolFormats.RequestReads.Delete.read(ctx))
-
     assert(result.isError == true)
   }
 
-  "Create Request read" should "return create request if you sent correct request" in {
+  it should "return JsError if you sent request with r collection" in {
+    val req = Json.obj(
+      "tag" -> 1,
+      "cmd" -> "delete",
+      "r" -> "/users"
+    )
+
+    val result = req.validate(ProtocolFormats.RequestReads.Delete.read(ctx))
+    assert(result.isError == true)
+  }
+
+  "Create Request reads" should "return create request if you sent correct request" in {
     val req = Json.obj(
       "tag" -> 1,
       "cmd" -> "create",
@@ -359,6 +402,22 @@ class RequestReadsSpec extends FlatSpec with Matchers {
     val req = Json.obj(
       "tag" -> 1,
       "cmd" -> "create",
+      "body" -> Json.obj(
+        "firstname" -> "Salma",
+        "lastname" -> "Khater"
+      )
+    )
+
+    val result = req.validate(ProtocolFormats.RequestReads.Create.read(ctx))
+
+    assert(result.isError == true)
+  }
+
+  it should "return JsError if you sent request with r isObject" in {
+    val req = Json.obj(
+      "tag" -> 1,
+      "cmd" -> "create",
+      "r" -> "/users/123",
       "body" -> Json.obj(
         "firstname" -> "Salma",
         "lastname" -> "Khater"
@@ -437,6 +496,30 @@ class RequestReadsSpec extends FlatSpec with Matchers {
 
     val result = req.validate(ProtocolFormats.RequestReads.Read.read(ctx))
 
+    assert(result.isError == true)
+  }
+
+  it should "return JsError if you sent request with r object" in {
+    val req = Json.obj(
+      "tag" -> 1,
+      "cmd" -> "read",
+      "r" -> "/users/123",
+      "cmdOpts" -> Json.obj(
+        "fields" -> Set("name", "age"),
+        "query" -> Json.obj(
+          "filter" -> "name = {1} and age > {2}",
+          "values" -> List(JsString("Ahmed"), JsNumber(20))
+        ),
+        "limit" -> 10,
+        "sort" -> "-r",
+        "paginationToken" -> "23423423:1",
+        "skip" -> 0,
+        "includeTotalCount" -> false,
+        "subscribe" -> false
+      )
+    )
+
+    val result = req.validate(ProtocolFormats.RequestReads.Read.read(ctx))
     assert(result.isError == true)
   }
 
