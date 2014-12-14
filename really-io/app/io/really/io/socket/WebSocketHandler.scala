@@ -11,6 +11,7 @@ import play.api.mvc.{ Session, RequestHeader }
 import scala.concurrent.duration.Duration
 import scala.util.control.NonFatal
 import _root_.io.really.jwt._
+import _root_.io.really.protocol.ProtocolFormats.RequestReads._
 
 class WebSocketHandler(
     ioGlobals: IOGlobals,
@@ -79,7 +80,20 @@ class WebSocketHandler(
 
   def initializedReceive(expiresIn: Duration, userInfo: UserInfo, appId: AppId, token: JsObject): Receive = {
     case msg: String =>
-      log.info("Got Message: {}", asJsObject(msg))
+      asJsObject(msg).map { request =>
+        request.validate((tagReads and traceIdReads and cmdReads).tupled) match {
+          case JsSuccess((tag, traceId, cmd), _) =>
+            val pushChannel = Some(actorOut)
+            val when = DateTime.now
+            val host: String = header.remoteAddress
+            val protocol = RequestProtocol.WebSockets
+            val meta = RequestMetadata(traceId, when, host, protocol)
+            val ctx = RequestContext(tag, userInfo, pushChannel, meta)
+            coreGlobals.receptionist ! Receptionist.DispatchDelegateFor(ctx, cmd, request)
+          case _ =>
+            push(Errors.badJson)
+        }
+      }
   }
 
   def idleReceive: Receive = {

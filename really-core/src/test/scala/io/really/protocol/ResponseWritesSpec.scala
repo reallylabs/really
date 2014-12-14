@@ -10,6 +10,8 @@ import org.scalatest.{ Matchers, FlatSpec }
 import play.api.libs.json.{ JsNull, JsNumber, JsString, Json }
 
 class ResponseWritesSpec extends FlatSpec with Matchers {
+  import ProtocolFormats.ResponseWrites.resultWrites
+
   val ctx = RequestContext(
     1,
     UserInfo(AuthProvider.Anonymous, R("/_anonymous/1234567"), Application("reallyApp")),
@@ -29,10 +31,9 @@ class ResponseWritesSpec extends FlatSpec with Matchers {
       SubscriptionOpResult(R("/users/121312787632/"), Set.empty[String])
     ))
 
-    val obj = ProtocolFormats.ResponseWrites.Subscribe.toJson(request, response)
+    val obj = Json.toJson(response)
 
     assertResult(Json.obj(
-      "tag" -> ctx.tag,
       "body" -> Json.obj(
         "subscriptions" -> Set(
           Json.obj("r" -> "/users/12131231232/", "fields" -> Set("name", "age")),
@@ -55,10 +56,9 @@ class ResponseWritesSpec extends FlatSpec with Matchers {
       SubscriptionOpResult(R("/users/12113435123212/"), Set.empty)
     ))
 
-    val obj = ProtocolFormats.ResponseWrites.Unsubscribe.toJson(request, response)
+    val obj = Json.toJson(response)
 
     assertResult(Json.obj(
-      "tag" -> ctx.tag,
       "body" -> Json.obj(
         "unsubscriptions" -> Set(
           Json.obj("r" -> "/users/123213213123/", "fields" -> Set("name", "age")),
@@ -69,24 +69,19 @@ class ResponseWritesSpec extends FlatSpec with Matchers {
   }
 
   "Get Subscription writes" should "write get-subscription response schema" in {
-    val request = Request.GetSubscription(ctx, R("/users/1123123/"))
+    val response = GetSubscriptionResult(R("/users/1123123/"), Set("name"))
 
-    val response = GetSubscriptionResult(Set("name"))
+    val obj = Json.toJson(response)
 
-    val obj = ProtocolFormats.ResponseWrites.GetSubscription.toJson(request, response)
-
-    assertResult(Json.obj("tag" -> ctx.tag, "r" -> "/users/1123123/", "body" -> Json.obj("fields" -> Set("name"))))(obj)
+    assertResult(Json.obj("r" -> "/users/1123123/", "body" -> Json.obj("fields" -> Set("name"))))(obj)
   }
 
   "Get writes" should "write get response schema" in {
-    val request = Request.Get(ctx, R("/users/1123123/"), GetOpts(Set("firstName", "lastName")))
+    val response = GetResult(R("/users/1123123/"), Json.obj("firstName" -> "Salma", "lastName" -> "Khater"), Set("firstName", "lastName"))
 
-    val response = GetResult(Json.obj("firstName" -> "Salma", "lastName" -> "Khater"), Set("firstName", "lastName"))
-
-    val obj = ProtocolFormats.ResponseWrites.Get.toJson(request, response)
+    val obj = Json.toJson(response)
 
     assertResult(Json.obj(
-      "tag" -> ctx.tag,
       "meta" ->
         Json.obj("fields" -> Set("firstName", "lastName")),
       "r" -> "/users/1123123/",
@@ -104,29 +99,18 @@ class ResponseWritesSpec extends FlatSpec with Matchers {
         UpdateOp(UpdateCommand.Set, "lastName", JsString("Mahmoud"))
       ))
     )
-    val response = Result.UpdateResult(24)
-    val obj = ProtocolFormats.ResponseWrites.Update.toJson(request, response)
+    val response = Result.UpdateResult(R("/users/12345654321/"), 24)
+    val obj = Json.toJson(response)
 
     assertResult(Json.obj(
-      "tag" -> ctx.tag,
       "r" -> "/users/12345654321/",
       "rev" -> 24
     ))(obj)
   }
 
   "Read writes" should "write read response schema" in {
-    val request = Request.Read(ctx, R("/users/"), ReadOpts(
-      Set("name", "age"),
-      Json.obj("filter" -> "name = {1} and age > {2}", "values" -> List(JsString("Ahmed"), JsNumber(20))),
-      10,
-      "-r",
-      "23423423:1",
-      0,
-      false,
-      false
-    ))
-
     val response = ReadResult(
+      R("/users/"),
       ReadResponseBody(
         None,
         None,
@@ -135,10 +119,9 @@ class ResponseWritesSpec extends FlatSpec with Matchers {
       None
     )
 
-    val obj = ProtocolFormats.ResponseWrites.Read.toJson(request, response)
+    val obj = Json.toJson(response)
 
     assertResult(Json.obj(
-      "tag" -> ctx.tag,
       "meta" -> Json.obj("subscription" -> JsNull),
       "r" -> "/users/*/",
       "body" -> Json.obj(
@@ -148,22 +131,16 @@ class ResponseWritesSpec extends FlatSpec with Matchers {
   }
 
   "Create writes" should "write create response schema" in {
-    val request = Request.Create(ctx, R("/users/"), Json.obj(
-      "firstname" -> "Salma",
-      "lastname" -> "Khater"
-    ))
-
-    val response = CreateResult(Json.obj(
+    val response = CreateResult(R("/users/"), Json.obj(
       "firstname" -> "Salma",
       "lastname" -> "Khater",
       "_r" -> "/users/129890763222/",
       "_rev" -> 1
     ))
 
-    val obj = ProtocolFormats.ResponseWrites.Create.toJson(request, response)
+    val obj = Json.toJson(response)
 
     assertResult(Json.obj(
-      "tag" -> ctx.tag,
       "r" -> "/users/*/",
       "body" -> Json.obj(
         "firstname" -> "Salma",
@@ -175,13 +152,11 @@ class ResponseWritesSpec extends FlatSpec with Matchers {
   }
 
   "Delete writes" should "write delete response schema" in {
-    val request = Request.Delete(ctx, R("/users/13432423434/"))
+    val response = DeleteResult(R("/users/13432423434/"))
 
-    val response = DeleteResult
+    val obj = Json.toJson(response)
 
-    val obj = ProtocolFormats.ResponseWrites.Delete.toJson(request)
-
-    assertResult(Json.obj("tag" -> ctx.tag, "r" -> "/users/13432423434/"))(obj)
+    assertResult(Json.obj("r" -> "/users/13432423434/"))(obj)
   }
 
 }

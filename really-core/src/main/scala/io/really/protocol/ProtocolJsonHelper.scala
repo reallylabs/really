@@ -8,6 +8,8 @@ import io.really._
 import play.api.data.validation.ValidationError
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
+import play.api.libs.json.util._
+import play.api.libs.json.Writes._
 
 /*
  * JSON Formats for Really Protocol
@@ -19,6 +21,7 @@ object ProtocolFormats {
   private val R = "r"
   private val Revision = "rev"
   private val Meta = "meta"
+  private val Fields = "fields"
   private val Event = "evt"
 
   /*
@@ -103,6 +106,17 @@ object ProtocolFormats {
       def read(ctx: RequestContext) = (rObjectReads) map (r => Request.Delete(ctx, r))
     }
 
+    def apply(cmd: String) = scala.util.Try(cmd match {
+      case "create" => Create.read _
+      case "get" => Get.read _
+      case "read" => Read.read _
+      case "update" => Update.read _
+      case "get-susbcription" => GetSubscription.read _
+      case "subscribe" => Subscribe.read _
+      case "unsubscribe" => Unsubscribe.read _
+      case "delete" => Delete.read _
+    })
+
   }
 
   /*
@@ -112,98 +126,103 @@ object ProtocolFormats {
     /*
      * Represent JSON Writes for Subscribe Response
      */
-    object Subscribe {
-      def toJson(request: Request.Subscribe, response: SubscribeResult) =
-        Json.obj(
-          Tag -> request.ctx.tag,
-          Body -> Json.obj("subscriptions" -> response.subscriptions)
-        )
+    implicit val subscribeResultWrites = new Writes[SubscribeResult] {
+      def writes(r: SubscribeResult): JsValue =
+        Json.obj(Body -> Json.obj("subscriptions" -> r.subscriptions))
     }
 
     /*
-     * Represent JSON Writes for Unsubscribe Response
-     */
-    object Unsubscribe {
-      def toJson(request: Request.Unsubscribe, response: UnsubscribeResult) =
-        Json.obj(
-          Tag -> request.ctx.tag,
-          Body -> Json.obj("unsubscriptions" -> response.unsubscriptions)
-        )
+    * Represent JSON Writes for Unsubscribe Response
+    */
+    implicit val unsubscribeResultWrites = new Writes[UnsubscribeResult] {
+      def writes(r: UnsubscribeResult): JsValue =
+        Json.obj(Body -> Json.obj("unsubscriptions" -> r.unsubscriptions))
     }
 
     /*
      * Represent JSON Writes for [[io.really.Response.GetSubscription]] Response
      */
-    object GetSubscription {
-      def toJson(request: Request.GetSubscription, response: GetSubscriptionResult) =
-        Json.obj(
-          Tag -> request.ctx.tag,
-          R -> request.r,
-          Body -> Json.obj("fields" -> response.fields)
-        )
-    }
+    implicit val getSubscriptionResultWrites = (
+      (__ \ R).write[R] and
+      (__ \ Body \ Fields).write[Set[String]]
+    )(unlift(GetSubscriptionResult.unapply))
 
     /*
      * Represent JSON Writes for [[io.really.Response.Get]] Response
      */
-    object Get {
-      def toJson(request: Request.Get, response: GetResult) =
-        Json.obj(
-          Tag -> request.ctx.tag,
-          Meta -> Json.obj("fields" -> response.fields),
-          R -> request.r,
-          Body -> response.body
-        )
-    }
+    implicit val getResultWrites = (
+      (__ \ R).write[R] and
+      (__ \ Body).write[JsObject] and
+      (__ \ Meta \ Fields).write[Set[String]]
+    )(unlift(GetResult.unapply))
 
     /*
      * Represent JSON Writes for [[io.really.Response.Update]] Response
      */
-    object Update {
-      def toJson(request: Request.Update, response: UpdateResult) =
-        Json.obj(
-          Tag -> request.ctx.tag,
-          R -> request.r,
-          Revision -> response.rev
-        )
-    }
+    implicit val updateResultWrites = (
+      (__ \ R).write[R] and
+      (__ \ Revision).write[Revision]
+    )(unlift(UpdateResult.unapply))
 
     /*
      * Represent JSON Writes for [[io.really.Response.Read]] Response
      */
-    object Read {
-      def toJson(request: Request.Read, response: ReadResult) =
-        Json.obj(
-          Tag -> request.ctx.tag,
-          Meta -> Json.obj("subscription" -> response.subscription),
-          R -> request.r,
-          Body -> response.body
-        )
-    }
+    implicit val readResultWrites = (
+      (__ \ R).write[R] and
+      (__ \ Body).write[ReadResponseBody] and
+      (__ \ Meta \ "subscription").write[Option[String]]
+    )(unlift(ReadResult.unapply))
 
     /*
      * Represent JSON Writes for [[io.really.Response.Create]] Response
      */
-    object Create {
-      def toJson(request: Request.Create, response: CreateResult) =
-        Json.obj(
-          Tag -> request.ctx.tag,
-          R -> request.r,
-          Body -> response.body
-        )
-    }
+    implicit val createResultWrites = (
+      (__ \ R).write[R] and
+      (__ \ Body).write[JsObject]
+    )(unlift(CreateResult.unapply))
 
     /*
      * Represent JSON Writes for [[io.really.Response.Delete]] Response
      */
-    object Delete {
-      def toJson(request: Request.Delete) =
-        Json.obj(
-          Tag -> request.ctx.tag,
-          R -> request.r
-        )
+    implicit val deleteWrites = new Writes[DeleteResult] {
+      def writes(result: DeleteResult): JsValue =
+        Json.obj(R -> result.r)
     }
 
+    /*
+     * Represent JSON Writes for [[io.really.Response]]
+     * may generate different schema, depending on the concrete type
+     */
+    implicit val resultWrites = new Writes[Result] {
+      def writes(r: Result): JsValue = r match {
+        case response: SubscribeResult =>
+          Json.toJson(response)
+        case response: UnsubscribeResult =>
+          Json.toJson(response)
+        case response: GetSubscriptionResult =>
+          Json.toJson(response)
+        case response: GetResult =>
+          Json.toJson(response)
+        case response: UpdateResult =>
+          Json.toJson(response)
+        case response: ReadResult =>
+          Json.toJson(response)
+        case response: CreateResult =>
+          Json.toJson(response)
+        case response: DeleteResult =>
+          Json.toJson(response)
+      }
+    }
+  }
+
+  /*
+   * Represent JSON Writes for CommandErrors
+   */
+  object CommandErrorWrites {
+    implicit val commandErrorWrites = (
+      (__ \ "r").write[Option[R]] and
+      (__ \ "error").write[ProtocolError.Error]
+    )(unlift(CommandError.unapply))
   }
 
   /*
