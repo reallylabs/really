@@ -9,6 +9,7 @@ import akka.contrib.pattern.{ DistributedPubSubExtension }
 import _root_.io.really.gorilla._
 import _root_.io.really.model.persistent.{ ModelRegistry, RequestRouter, PersistentModelStore }
 import _root_.io.really.model.materializer.{ MaterializerSharding, CollectionViewMaterializer }
+import akka.event.{ Logging }
 import reactivemongo.api.{ DefaultDB, MongoDriver }
 import scala.collection.JavaConversions._
 
@@ -44,6 +45,9 @@ class DefaultReallyGlobals(override val config: ReallyConfig) extends ReallyGlob
   override lazy val subscriptionManager = subscriptionManager_.get
   override lazy val mediator = mediator_.get
   override lazy val materializerView = materializer_.get
+
+  override def logger = Logging.getLogger(actorSystem, this)
+
   override lazy val persistentModelStore = persistentModelStore_.get
 
   private val db = Database.forURL(config.EventLogStorage.databaseUrl, driver = config.EventLogStorage.driver)
@@ -108,6 +112,7 @@ class DefaultReallyGlobals(override val config: ReallyConfig) extends ReallyGlob
     mediator_.set(DistributedPubSubExtension(actorSystem).mediator)
 
     subscriptionManager_.set(actorSystem.actorOf(subscriptionManagerProps, "subscription-manager"))
+
   }
 
   override def shutdown(): Unit = {

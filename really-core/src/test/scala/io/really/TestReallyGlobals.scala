@@ -13,6 +13,7 @@ import _root_.io.really.quickSand.QuickSand
 import _root_.io.really.model.persistent.{ ModelRegistry, RequestRouter }
 import _root_.io.really.fixture.{ PersistentModelStoreFixture, TestCollectionActor, MaterializerTest }
 import _root_.io.really.model.materializer.MaterializerSharding
+import akka.event.Logging
 import play.api.libs.json.JsObject
 import reactivemongo.api.{ DefaultDB, MongoDriver }
 import scala.collection.JavaConversions._
@@ -42,6 +43,8 @@ class TestReallyGlobals(override val config: ReallyConfig, override val actorSys
   override lazy val mediator = mediator_.get
   override lazy val materializerView = materializer_.get
   override lazy val persistentModelStore = persistentModelStore_.get
+
+  override def logger = Logging.getLogger(actorSystem, this)
 
   override val readHandlerProps = Props.empty //FIXME
   override val readHandler = actorSystem.deadLetters //FIXME

@@ -144,7 +144,7 @@ class WebSocketHandlerSpec extends BaseIOActorSpec {
         )
       )
     )
-    val invalid_initialize_msg =
+    val valid_initialize_msg =
       """{
         "email": "reallyApp@really.io",
         "r": "/users/123",
@@ -152,9 +152,9 @@ class WebSocketHandlerSpec extends BaseIOActorSpec {
         "tag": 123,
         "traceId" : "@trace123",
         "cmd":"initialize",
-        "accessToken":"eyJhbGciOiJIbWFjU0hBMjU2IiwidHlwIjoiSldUIn0.eyJuYW1lIjoiQWhtZWQiLCJlbWFpbCI6ImFobWVkQGdtYWlsLmNvbSJ9.77-977-977-9ZX1xee-_vQxJKu-_ve-_vQvvv70c77-9OO-_ve-_ve-_ve-_vQfvv71277-9fjhj77-9bw"
+        "accessToken":"eyJhbGciOiJIbWFjU0hBMjU2IiwidHlwIjoiSldUIn0.eyJuYW1lIjoiQWhtZWQiLCJlbWFpbCI6ImFobWVkQGdtYWlsLmNvbSJ9.77-977-977-9ZX1xee-_vQxJKu-_ve-_vQvvv70c77-9OO-_ve-_ve-_ve-_ve-_vQfvv71277-9fjhj77-9bw"
         }"""
-    handler ! invalid_initialize_msg
+    handler ! valid_initialize_msg
     val em = client.expectMsgType[JsValue]
     em \ "evt" shouldBe JsString("initialized")
 
