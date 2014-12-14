@@ -106,7 +106,7 @@ package io {
 
     trait RoutableToSubscriptionManager
 
-    trait Request extends withRequestContext
+    sealed trait Request extends withRequestContext
 
     object Request {
 
@@ -142,7 +142,7 @@ package io {
 
     trait Response
 
-    trait Result extends Response
+    sealed trait Result extends Response
 
     object Result {
 
@@ -150,43 +150,78 @@ package io {
 
       case class UnsubscribeResult(unsubscriptions: Set[SubscriptionOpResult]) extends Result
 
-      case class GetSubscriptionResult(fields: Set[String]) extends Result
+      case class GetSubscriptionResult(r: R, fields: Set[String]) extends Result
 
       //TODO change fields type
-      case class GetResult(body: JsObject, fields: Set[String]) extends Result
+      case class GetResult(r: R, body: JsObject, fields: Set[String]) extends Result
 
       //TODO change fields type
-      case class UpdateResult(rev: Revision) extends Result
+      case class UpdateResult(r: R, rev: Revision) extends Result
 
-      case class ReadResult(body: ReadResponseBody, subscription: Option[String]) extends Result
+      case class ReadResult(r: R, body: ReadResponseBody, subscription: Option[String]) extends Result
 
-      case class CreateResult(body: JsObject) extends Result
+      case class CreateResult(r: R, body: JsObject) extends Result
 
-      case object DeleteResult extends Result
+      case class DeleteResult(r: R) extends Result
 
     }
 
-    trait CommandError extends Response
+    sealed trait CommandError extends Response {
+      def r: Option[R]
+      def error: ProtocolError.Error
+    }
 
     object CommandError {
+      import ProtocolError.Error
 
-      case class AlreadyExists(r: R) extends CommandError
+      def unapply(error: CommandError): Option[(Option[R], ProtocolError.Error)] =
+        Some(error.r -> error.error)
 
-      case class ModelValidationFailed(reason: JsError) extends CommandError
+      case class AlreadyExists(_r: R) extends CommandError {
+        val r = Some(_r)
+        val error = Error(450, "", None)
+      }
 
-      case class ValidationFailed(reason: JsError) extends CommandError
+      case class ModelValidationFailed(_r: R, reason: JsError) extends CommandError {
+        val r = Some(_r)
+        val error = Error(451, "", Some(reason))
+      }
 
-      case class JSValidationFailed(reason: String) extends CommandError
+      case class ValidationFailed(reason: JsError, r: Option[R] = None) extends CommandError {
+        val error = Error(400, "", Some(reason))
+      }
 
-      case class OutdatedRevision(request: Request) extends CommandError
+      case class JSValidationFailed(_r: R, reason: String) extends CommandError {
+        val r = Some(_r)
+        val error = Error(452, reason, None)
+      }
 
-      case class InvalidCommand(reason: String) extends CommandError
+      case class OutdatedRevision(_r: R, request: Request) extends CommandError {
+        val r = Some(_r)
+        val error = Error(453, "", None)
+      }
 
-      case class InternalServerError(code: Int, reason: String) extends CommandError
+      case class InvalidCommand(cmd: String, r: Option[R] = None) extends CommandError {
+        val reason = s"Invalid command: $cmd"
+        val error = Error(454, reason, None)
+      }
 
-      case object ObjectNotFound extends CommandError
+      case class InternalServerError(reason: String, r: Option[R] = None) extends CommandError {
+        val error = Error(500, reason, None)
+      }
+      object InternalServerError {
+        lazy val default = InternalServerError("Internal Server Error")
+      }
 
-      case class ParentNotFound(code: Int, reason: String) extends CommandError
+      case class ObjectNotFound(_r: R) extends CommandError {
+        val r = Some(_r)
+        val error = Error(404, "Object Not Found", None)
+      }
+
+      case class ParentNotFound(_r: R) extends CommandError {
+        val r = Some(_r)
+        val error = Error(403, "Object parent doesn't exist", None)
+      }
 
     }
 

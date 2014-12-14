@@ -121,7 +121,7 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor with Actor
     context.stop(self)
   }
 
-  def replyToInvalidCommand(cmd: Any) = sender() ! InvalidCommand(s"Unsupported command: $cmd")
+  def replyToInvalidCommand(cmd: Any) = sender() ! InvalidCommand(cmd.toString)
 
   override def receiveCommand: Receive = waitingModel
 
@@ -160,14 +160,14 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor with Actor
       log.debug(s"$persistenceId Persistor received a GetState message for: $r")
       state.get(r).map(obj =>
         sender() ! State(obj.data)).getOrElse {
-        sender() ! ObjectNotFound
+        sender() ! ObjectNotFound(r)
       }
 
     case GetExistenceState(r) =>
       log.debug(s"$persistenceId Persistor received a GetExistenceState message for: $r")
       state.get(r).map(_ =>
         sender() ! ObjectExists).getOrElse {
-        sender() ! ObjectNotFound
+        sender() ! ObjectNotFound(r)
       }
 
     case req @ Create(ctx, r, body) =>
@@ -182,13 +182,11 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor with Actor
           (globals.collectionActor ? GetExistenceState(r.tailR)) map {
             case ObjectExists =>
               catchTheSender ! applyCreate(Create(ctx, r, body), m)
-            case ObjectNotFound =>
-              catchTheSender ! ParentNotFound(403, "Object parent doesn't exist")
+            case e: ObjectNotFound =>
+              catchTheSender ! ParentNotFound(r)
           } recover {
-            case _ => catchTheSender ! InternalServerError(
-              500,
-              s"Server encountered a problem while checking for parent object existence, for request: $req"
-            )
+            case _ =>
+              catchTheSender ! InternalServerError(s"Server encountered a problem while checking for parent object existence, for request: $req")
           }
       }
 
@@ -198,7 +196,7 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor with Actor
           sender() ! OutdatedRevision
         case Some(modelObj) =>
           sender() ! applyUpdate(modelObj, m, updateRequest)
-        case None => sender() ! ObjectNotFound
+        case None => sender() ! ObjectNotFound(updateRequest.r)
       }
 
     case ReceiveTimeout =>
@@ -236,9 +234,11 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor with Actor
           case ValidationResponse.ValidData(jsObj) =>
             persistEvent(Event.Updated(updateReq.r, updateReq.body.ops, rev(jsObj),
               model.collectionMeta.version, updateReq.ctx), jsObj)
-            UpdateResult(rev(jsObj))
-          case ValidationResponse.JSValidationFailed(reason) => JSValidationFailed(reason)
-          case ValidationResponse.ModelValidationFailed(error) => ModelValidationFailed(error)
+            UpdateResult(updateReq.r, rev(jsObj))
+          case ValidationResponse.JSValidationFailed(reason) =>
+            JSValidationFailed(updateReq.r, reason)
+          case ValidationResponse.ModelValidationFailed(error) =>
+            ModelValidationFailed(updateReq.r, error)
         }
       case e: JsError =>
         log.debug("Failure while validating update data: " + e)
@@ -280,12 +280,12 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor with Actor
           case ModelHookStatus.Succeeded =>
             val newObj = jsObj ++ Json.obj("_rev" -> 1l, "_r" -> create.r.toString)
             persistEvent(Event.Created(create.r, newObj, model.collectionMeta.version, create.ctx), newObj)
-            CreateResult(newObj)
+            CreateResult(create.r, newObj)
           case ModelHookStatus.Terminated(code, reason) =>
-            JSValidationFailed(reason) //todo fix me, needs comprehensive reason to be communicated
+            JSValidationFailed(create.r, reason) //todo fix me, needs comprehensive reason to be communicated
         }
       case error: JsError =>
-        ModelValidationFailed(error)
+        ModelValidationFailed(create.r, error)
     }
 }
 

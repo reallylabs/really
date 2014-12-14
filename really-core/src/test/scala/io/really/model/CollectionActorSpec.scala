@@ -61,8 +61,7 @@ class CollectionActorSpec extends BaseActorSpec {
     val obj = R / 'users / 123
     val probe = TestProbe()
     globals.collectionActor.tell(GetState(obj), probe.ref)
-    val em = probe.expectMsgType[CommandError]
-    em should be(CommandError.ObjectNotFound)
+    probe.expectMsg(CommandError.ObjectNotFound(obj))
   }
 
   it should "should have the correct BucketID, PersistenceID and R" in {
@@ -335,8 +334,7 @@ class CollectionActorSpec extends BaseActorSpec {
     val body = UpdateBody(List.empty)
     val probe = TestProbe()
     globals.collectionActor.tell(Update(ctx, r, 1l, body), probe.ref)
-    val em = probe.expectMsgType[CommandError]
-    em shouldEqual CommandError.ObjectNotFound
+    probe.expectMsg(CommandError.ObjectNotFound(r))
   }
 
   it should "get InvalidCommand if the type of update operation isn't supported yet " in {

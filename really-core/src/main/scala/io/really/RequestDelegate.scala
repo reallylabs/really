@@ -3,9 +3,60 @@
  */
 package io.really
 
+import org.joda.time.DateTime
+import scala.concurrent.duration._
+import scala.util.{ Success, Failure }
 import akka.actor._
 import play.api.libs.json._
+import _root_.io.really.protocol.ProtocolFormats._
 
 class RequestDelegate(globals: ReallyGlobals, ctx: RequestContext, replyTo: ActorRef, cmd: String, body: JsObject) extends Actor with ActorLogging {
-  def receive = Actor.emptyBehavior
+  import CommandErrorWrites._
+
+  def replyWith[T](o: T)(implicit tjs: Writes[T]): Unit =
+    replyWith(Json.toJson(o).as[JsObject])
+
+  def replyWith(response: JsObject): Unit = {
+    val taggedResponse = response ++ Json.obj("tag" -> ctx.tag)
+    replyTo ! taggedResponse
+    context.stop(self)
+  }
+
+  override def preStart() =
+    RequestReads(cmd).map(reads => body.validate(reads(ctx))) match {
+      case Success(JsSuccess(request, _)) =>
+        globals.requestRouter ! request
+        context.become(waitingResponseFor(request))
+      case Success(reason: JsError) =>
+        replyWith(CommandError.ValidationFailed(reason))
+      case Failure(e: MatchError) =>
+        replyWith(CommandError.InvalidCommand(cmd))
+      case Failure(e) =>
+        log.error("RequestDelegate encountered unexpected exception: {}", e)
+        replyWith(CommandError.InternalServerError.default)
+    }
+
+  context.setReceiveTimeout(globals.config.Request.timeoutAfter)
+
+  def receive = {
+    case msg =>
+      log.warning("""
+        |RequestDelegate received unexpected message in a wrong state.
+        |This should never happen!
+        |Either `preStart` didn't call `become`,
+        |or someone is sending by mistake. Sender was: {},
+        |and message was: {}.""".stripMargin, sender(), msg)
+  }
+
+  def waitingResponseFor(request: Request): Receive = {
+    case response: Result =>
+      import ResponseWrites.resultWrites
+      replyWith(response)
+    case error: CommandError =>
+      replyWith(error)
+    case other =>
+      log.warning("RequestDelegate received unknown response due to a coding bug. response was: {}.", other)
+      replyWith(CommandError.InternalServerError.default)
+  }
+
 }

@@ -51,7 +51,7 @@ class CollectionViewMaterializerSpec extends BaseActorSpecWithMongoDB {
     val bucketId = Helpers.getBucketIDFromR(r)
 
     globals.collectionActor ! CollectionActor.GetState(r)
-    expectMsg(CommandError.ObjectNotFound)
+    expectMsg(CommandError.ObjectNotFound(r))
 
     globals.materializerView ! MaterializerTest.GetState(bucketId)
     expectMsg(CollectionViewMaterializer.MaterializerState(Some(BaseActorSpec.authorModel), Some("ModelCreated"), 1, "with-model"))

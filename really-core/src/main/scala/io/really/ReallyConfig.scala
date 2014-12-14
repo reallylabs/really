@@ -9,7 +9,8 @@ import _root_.io.really.model.{ MongodbConfig, CollectionActorConfig, ShardingCo
 import _root_.io.really.quickSand.QuickSandConfig
 
 class ReallyConfig(config: Config) extends QuickSandConfig with ShardingConfig
-    with CollectionActorConfig with MongodbConfig with EventLogStorageConfig {
+    with CollectionActorConfig with MongodbConfig with EventLogStorageConfig
+    with RequestDelegateConfig {
   protected val reference = ConfigFactory.defaultReference()
 
   protected val reallyConfig = config.getConfig("really") withFallback (reference.getConfig("really"))
