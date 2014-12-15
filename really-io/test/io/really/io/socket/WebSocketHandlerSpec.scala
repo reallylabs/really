@@ -4,6 +4,7 @@
 
 package io.really.io.socket
 
+import _root_.io.really.jwt._
 import io.really._
 import akka.actor.Props
 import akka.testkit.TestProbe
@@ -11,24 +12,19 @@ import play.api.libs.json._
 import play.api.test._
 import _root_.io.really.io.{ IOGlobals, IOConfig }
 
-import scala.util.parsing.json.JSONObject
-
 class WebSocketHandlerSpec extends BaseIOActorSpec {
-  //    println("************************START********************************")
-  //    println("************************STOP*********************************")
   val client = TestProbe()
   val clientRef = client.ref
+
+  val token = JWT.encode(config.io.accessTokenSecret, Json.obj(), Json.obj(), Some(Algorithm.HS256))
   val fakeRequest = new FakeRequest("POST", "http://www.really.io", new FakeHeaders(), """""".stripMargin)
 
   val valid_msg =
-    """{
-        "email": "reallyApp@really.io",
-        "r": "/users/123",
-        "Application":"reallyApp",
+    s"""{
         "tag": 123,
         "traceId" : "@trace123",
         "cmd":"initialize",
-        "accessToken":"Ac66bf"
+        "accessToken": "$token"
         }"""
 
   "Web Socket Handler" should "fail to initialize with incorrect msg format" in {
@@ -64,14 +60,12 @@ class WebSocketHandlerSpec extends BaseIOActorSpec {
       )
     )
     val invalid_initialize_msg =
-      """{
-        "email": "reallyApp@really.io",
+      s"""{
         "r": "/users/123",
-        "Application":"reallyApp",
         "tag": "testtag",
         "traceId" : "@trace123",
         "cmd":"initialize",
-        "accessToken":"Ac66bf"
+        "accessToken":"$token"
         }"""
     handler ! invalid_initialize_msg
     val em = client.expectMsgType[JsObject]
@@ -92,9 +86,6 @@ class WebSocketHandlerSpec extends BaseIOActorSpec {
     )
     val invalid_initialize_msg =
       """{
-        "email": "reallyApp@really.io",
-        "r": "/users/123",
-        "Application":"reallyApp",
         "tag": 123,
         "traceId" : "@trace123",
         "cmd":"GET",
@@ -119,9 +110,7 @@ class WebSocketHandlerSpec extends BaseIOActorSpec {
     )
     val invalid_initialize_msg =
       """{
-        "email": "reallyApp@really.io",
         "r": "/users/123",
-        "Application":"reallyApp",
         "tag": 123,
         "traceId" : "@trace123",
         "cmd":"initialize",
@@ -145,14 +134,11 @@ class WebSocketHandlerSpec extends BaseIOActorSpec {
       )
     )
     val valid_initialize_msg =
-      """{
-        "email": "reallyApp@really.io",
-        "r": "/users/123",
-        "Application":"reallyApp",
+      s"""{
         "tag": 123,
         "traceId" : "@trace123",
         "cmd":"initialize",
-        "accessToken":"eyJhbGciOiJIbWFjU0hBMjU2IiwidHlwIjoiSldUIn0.eyJuYW1lIjoiQWhtZWQiLCJlbWFpbCI6ImFobWVkQGdtYWlsLmNvbSJ9.77-977-977-9ZX1xee-_vQxJKu-_ve-_vQvvv70c77-9OO-_ve-_ve-_ve-_ve-_vQfvv71277-9fjhj77-9bw"
+        "accessToken":"$token"
         }"""
     handler ! valid_initialize_msg
     val em = client.expectMsgType[JsValue]
