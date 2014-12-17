@@ -78,8 +78,7 @@ class GorillaEventCenterSpec extends BaseActorSpec {
 
     events.filter(_.ModelVersion > 1l) foreach {
       element =>
-        element shouldEqual EventLog("create", r2.toString, 2l, Json.stringify(obj),
-          Json.stringify(Json.toJson(ctx.auth)), None)
+        element.modelVersion shouldEqual 2l
     }
 
   }
