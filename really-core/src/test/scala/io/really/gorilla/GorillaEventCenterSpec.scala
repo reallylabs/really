@@ -62,24 +62,31 @@ class GorillaEventCenterSpec extends BaseActorSpec {
 
   it should "remove old model events when it receive ModelUpdated event" in {
     val probe = TestProbe()
-    val r = R / 'users / 125
+    val r = R / 'users / globals.quickSand.nextId()
     val bucketID = Helpers.getBucketIDFromR(r)
     val obj = Json.obj("name" -> "Sara", "age" -> 20)
     val event = Created(r, obj, 1l, ctx)
     globals.gorillaEventCenter.tell(PersistentCreatedEvent(event), probe.ref)
     probe.expectMsg(EventStored)
-    val newModel = BaseActorSpec.userModel.copy(collectionMeta = CollectionMetadata(2))
-    globals.gorillaEventCenter.tell(ModelUpdatedEvent(bucketID, newModel), probe.ref)
 
-    val r2 = R / 'users / 126
-    val event2 = Created(r2, obj, 2l, ctx)
+    val r2 = R / 'users / globals.quickSand.nextId()
+    val event2 = Created(r2, obj, 1l, ctx)
     globals.gorillaEventCenter.tell(PersistentCreatedEvent(event2), probe.ref)
     probe.expectMsg(EventStored)
 
-    events.filter(_.ModelVersion > 1l) foreach {
-      element =>
-        element.modelVersion shouldEqual 2l
-    }
+    (events.filter(_.ModelVersion === 1l).length.run > 0) shouldBe true
+
+    val probe2 = TestProbe()
+    val newModel = BaseActorSpec.userModel.copy(collectionMeta = CollectionMetadata(2))
+    globals.gorillaEventCenter.tell(ModelUpdatedEvent(bucketID, newModel), probe2.ref)
+    probe2.expectNoMsg()
+
+    val r3 = R / 'users / globals.quickSand.nextId()
+    val event3 = Created(r3, obj, 2l, ctx)
+    globals.gorillaEventCenter.tell(PersistentCreatedEvent(event3), probe.ref)
+    probe.expectMsg(EventStored)
+
+    events.filter(_.ModelVersion === 1l).length.run shouldBe 0
 
   }
 }
