@@ -10,7 +10,7 @@ import akka.actor.Props
 import akka.testkit.TestProbe
 import play.api.libs.json._
 import play.api.test._
-import _root_.io.really.io.{ IOGlobals, IOConfig }
+import _root_.io.really.io.{IOGlobals, IOConfig}
 
 class WebSocketHandlerSpec extends BaseIOActorSpec {
   val client = TestProbe()
@@ -70,7 +70,7 @@ class WebSocketHandlerSpec extends BaseIOActorSpec {
     handler ! invalid_initialize_msg
     val em = client.expectMsgType[JsObject]
     em \ "error" \ "code" shouldBe JsNumber(400)
-    em \ "error" \ "message" shouldBe JsString("invalid initialize request")
+    em \ "error" \ "message" shouldBe JsString("initialize.invalid")
   }
 
   it should "fail to initialize with invalid command request" in {
@@ -94,7 +94,7 @@ class WebSocketHandlerSpec extends BaseIOActorSpec {
     handler ! invalid_initialize_msg
     val em = client.expectMsgType[JsValue]
     em \ "error" \ "code" shouldBe JsNumber(400)
-    em \ "error" \ "message" shouldBe JsString("cannot handle this command while uninitialized")
+    em \ "error" \ "message" shouldBe JsString("initialize.required")
   }
 
   it should "fail to initialize with invalid token" in {
@@ -119,7 +119,7 @@ class WebSocketHandlerSpec extends BaseIOActorSpec {
     handler ! invalid_initialize_msg
     val em = client.expectMsgType[JsValue]
     em \ "error" \ "code" shouldBe JsNumber(401)
-    em \ "error" \ "message" shouldBe JsString("invalid/incorrect/expired access token")
+    em \ "error" \ "message" shouldBe JsString("token.invalid")
   }
 
   it should "success to initialize with valid token" in {

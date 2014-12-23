@@ -2,23 +2,25 @@ package io.really.io.socket
 
 import akka.actor._
 import _root_.io.really._
-import _root_.io.really.io.{ AccessTokenInfo, Errors, IOGlobals }
-import _root_.io.really.protocol.{ Protocol, ProtocolFormats }
+import _root_.io.really.io.{AccessTokenInfo, IOGlobals}
+import _root_.io.really.protocol.Protocol
 import org.joda.time.DateTime
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
-import play.api.mvc.{ Session, RequestHeader }
+import play.api.mvc.{Session, RequestHeader}
 import scala.concurrent.duration.Duration
 import scala.util.control.NonFatal
 import _root_.io.really.jwt._
 import _root_.io.really.protocol.ProtocolFormats.RequestReads._
 
 class WebSocketHandler(
-    ioGlobals: IOGlobals,
-    coreGlobals: ReallyGlobals,
-    header: RequestHeader,
-    actorOut: ActorRef
-) extends Actor with ActorLogging {
+                        ioGlobals: IOGlobals,
+                        coreGlobals: ReallyGlobals,
+                        header: RequestHeader,
+                        actorOut: ActorRef
+                        ) extends Actor with ActorLogging {
+
+  import _root_.io.really.protocol.ProtocolFormats.CommandErrorWrites._
 
   override def preStart(): Unit = {
     log.info("WebSocket connection established with {}", header.remoteAddress)
@@ -31,7 +33,7 @@ class WebSocketHandler(
       Some(Json.parse(msg).as[JsObject])
     } catch {
       case NonFatal(e) =>
-        push(Errors.badJson)
+        reply(CommandError.BadJson, None)
         //let's die!
         context.stop(self)
         None
@@ -64,12 +66,12 @@ class WebSocketHandler(
               initializedReceive(expiresIn, authInfo, appId, tokenBody) orElse idleReceive
             )
           case None =>
-            push(Errors.invalidAccessToken(tag))
+            reply(CommandError.InvalidAccessToken, Some(tag))
         }
       case JsSuccess((tag, traceId, cmd, _), _) =>
-        push(Errors.invalidCommandWhileUninitialized(tag, cmd))
+        reply(CommandError.InvalidCommandWhileUninitialized, Some(tag))
       case e: JsError =>
-        push(Errors.invalidInitialize(e))
+        reply(CommandError.InvalidInitialize, None)
     }
   }
 
@@ -91,14 +93,14 @@ class WebSocketHandler(
             val ctx = RequestContext(tag, userInfo, pushChannel, meta)
             coreGlobals.receptionist ! Receptionist.DispatchDelegateFor(ctx, cmd, request)
           case _ =>
-            push(Errors.badJson)
+            reply(CommandError.BadJson, None)
         }
       }
   }
 
   def idleReceive: Receive = {
     case ReceiveTimeout =>
-      push(Errors.socketIsIdle)
+      reply(CommandError.SocketIsIdle, None)
       // let's die
       context.stop(self)
     case e =>
@@ -107,6 +109,14 @@ class WebSocketHandler(
   }
 
   def push(msg: JsValue): Unit = actorOut ! msg
+
+  def reply(error: CommandError, tag: Option[Long]): Unit =
+    tag match {
+      case Some(tag) =>
+        push(Json.toJson(error).as[JsObject] ++ Json.obj("tag" -> tag))
+      case None =>
+        push(Json.toJson(error))
+    }
 
   /**
    * default receive is nonInitialized
@@ -117,10 +127,10 @@ class WebSocketHandler(
 
 object WebSocketHandler {
   def props(
-    ioGlobals: IOGlobals,
-    coreGlobals: ReallyGlobals,
-    accessToken: AccessTokenInfo,
-    header: RequestHeader
-  )(actorOut: ActorRef): Props =
+             ioGlobals: IOGlobals,
+             coreGlobals: ReallyGlobals,
+             accessToken: AccessTokenInfo,
+             header: RequestHeader
+             )(actorOut: ActorRef): Props =
     Props(new WebSocketHandler(ioGlobals, coreGlobals, header, actorOut))
 }
