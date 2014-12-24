@@ -23,3 +23,5 @@ addSbtPlugin("com.typesafe.sbt" % "sbt-scalariform" % "1.3.0")
 javaOptions in Global += "-Dfile.encoding=UTF-8"
 
 scalacOptions in Global ++= Seq("-feature", "-deprecation")
+
+addSbtPlugin("com.typesafe.sbt" % "sbt-site" % "0.8.1")
