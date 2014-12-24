@@ -161,5 +161,12 @@ package object model {
     def executePostDelete(config: ReallyConfig, globals: ReallyGlobals, context: RequestContext, updated: JsObject): Unit = ???
   }
 
+  object Model {
+
+    val RField = "_r"
+    val RevisionField = "_rev"
+
+  }
+
 }
 

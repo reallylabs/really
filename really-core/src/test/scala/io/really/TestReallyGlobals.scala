@@ -11,7 +11,7 @@ import _root_.io.really.gorilla.{ SubscriptionManager, GorillaEventCenterShardin
 import _root_.io.really.model.{ ReadHandler, CollectionSharding }
 import _root_.io.really.quickSand.QuickSand
 import _root_.io.really.model.persistent.{ ModelRegistry, RequestRouter }
-import _root_.io.really.fixture.{ PersistentModelStoreFixture, TestCollectionActor, MaterializerTest }
+import _root_.io.really.fixture.{ PersistentModelStoreFixture, CollectionActorWithCleanJournal, MaterializerTest }
 import _root_.io.really.model.materializer.MaterializerSharding
 import akka.event.Logging
 import play.api.libs.json.JsObject
@@ -66,7 +66,7 @@ class TestReallyGlobals(override val config: ReallyConfig, override val actorSys
 
   override def gorillaEventCenterProps = Props(classOf[GorillaEventCenter], this, session)
 
-  override val collectionActorProps = Props(classOf[TestCollectionActor], this)
+  override val collectionActorProps = Props(classOf[CollectionActorWithCleanJournal], this)
   override val subscriptionManagerProps = Props(classOf[SubscriptionManager], this)
   override val materializerProps = Props(classOf[MaterializerTest], this)
   override val persistentModelStoreProps = Props(classOf[PersistentModelStoreFixture], this, modelRegistryPersistentId)

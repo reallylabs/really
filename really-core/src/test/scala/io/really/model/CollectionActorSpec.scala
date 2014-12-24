@@ -9,49 +9,56 @@ import akka.persistence.{ Update => PersistenceUpdate }
 import io.really.CommandError.ParentNotFound
 import io.really.Request.{ Update, Delete, Create }
 import io.really.Result.{ UpdateResult, CreateResult }
-import io.really.fixture.PersistentModelStoreFixture
-import io.really.model.CollectionActor.{ GetExistenceState, GetState, State }
-import io.really.model.persistent.ModelRegistry.RequestModel.GetModel
+import io.really.fixture.CollectionActorTest.GetState
+import io.really.fixture.{ CollectionActorTest, PersistentModelStoreFixture }
+import io.really.model.CollectionActor.{ GetExistenceState, State }
+import io.really.model.persistent.ModelRegistry.ModelResult.ModelObject
 import io.really.model.persistent.{ PersistentModelStore }
-import io.really.model.persistent.ModelRegistry.{ ModelOperation, ModelResult }
+import io.really.model.persistent.ModelRegistry.{ RequestModel, ModelOperation, ModelResult }
 import io.really.protocol.{ UpdateCommand, UpdateOp, UpdateBody }
 import io.really.CommandError.InvalidCommand
 import io.really._
-import org.scalatest.BeforeAndAfterAll
+import org.scalatest.{ BeforeAndAfterEach }
 import play.api.libs.json.{ JsNumber, Json }
+import scala.concurrent.duration._
 
 import play.api.data.validation.ValidationError
 import play.api.libs.json._
 
-import scala.util.Random
-
-class CollectionActorSpec extends BaseActorSpec {
+class CollectionActorSpec extends BaseActorSpec with BeforeAndAfterEach {
 
   override val globals = new CollectionTestReallyGlobals(config, system)
 
   case class UnsupportedCommand(r: R, cmd: String) extends RoutableToCollectionActor
 
-  var modelRouterRef: ActorRef = _
+  var modelRegistryRef: ActorRef = _
   var modelPersistentActor: ActorRef = _
   val models: List[Model] = List(BaseActorSpec.userModel, BaseActorSpec.carModel,
     BaseActorSpec.companyModel, BaseActorSpec.authorModel, BaseActorSpec.postModel)
 
-  override def beforeAll() {
-    super.beforeAll()
-    modelRouterRef = globals.modelRegistry
+  override def beforeEach(): Unit = {
+    modelRegistryRef = globals.modelRegistry
     modelPersistentActor = globals.persistentModelStore
+
+    val testProp = TestProbe()
 
     modelPersistentActor ! PersistentModelStore.UpdateModels(models)
     modelPersistentActor ! PersistentModelStoreFixture.GetState
-    expectMsg(models)
+    val persistentState = expectMsgType[List[Model]]
+    assert(persistentState canEqual models)
 
-    modelRouterRef ! PersistenceUpdate(await = true)
-    modelRouterRef ! GetModel(BaseActorSpec.userModel.r, self)
-    expectMsg(ModelResult.ModelObject(BaseActorSpec.userModel, List.empty))
+    modelRegistryRef ! PersistenceUpdate(await = true)
+    modelRegistryRef.tell(RequestModel.GetModel(BaseActorSpec.userModel.r, testProp.ref), testProp.ref)
+    testProp.fishForMessage(3.seconds) {
+      case msg: ModelResult.ModelObject =>
+        msg == ModelResult.ModelObject(BaseActorSpec.userModel, List.empty)
+      case _ => false
+    }
+
   }
 
   "CollectionActor" should "get ModelNotFound for any supported request for unknown model" in {
-    val r = R / 'unknownModel / 123
+    val r = R / 'unknownModel / globals.quickSand.nextId()
     val probe = TestProbe()
     globals.collectionActor.tell(GetState(r), probe.ref)
     val em = probe.expectMsgType[ModelResult]
@@ -59,17 +66,18 @@ class CollectionActorSpec extends BaseActorSpec {
   }
 
   it should "get ObjectNotFound for uncreated yet objects" in {
-    val obj = R / 'users / 123
+    val obj = R / 'users / globals.quickSand.nextId()
     val probe = TestProbe()
     globals.collectionActor.tell(GetState(obj), probe.ref)
-    probe.expectMsg(CommandError.ObjectNotFound(obj))
+    val em = probe.expectMsgType[CollectionActor.ObjectNotFound]
+    em should be(CollectionActor.ObjectNotFound(obj))
   }
 
   it should "should have the correct BucketID, PersistenceID and R" in {
-    val obj = R / 'posts / 123
+    val obj = R / 'posts / globals.quickSand.nextId()
     val bucketID = Helpers.getBucketIDFromR(obj)
     val collectionActor = TestActorRef[CollectionActor](Props(new CollectionActor(globals)), bucketID).underlyingActor
-    collectionActor.bucketID should be(bucketID)
+    collectionActor.bucketId should be(bucketID)
     collectionActor.persistenceId should be(bucketID)
     collectionActor.r should be(obj.skeleton)
   }
@@ -88,24 +96,19 @@ class CollectionActorSpec extends BaseActorSpec {
       fields = BaseActorSpec.userModel.fields + ("address" -> ValueField("address", DataType.RString, None, None, true))
     )
 
-    modelPersistentActor ! PersistentModelStore.UpdateModels(List(newUserModel))
-    modelPersistentActor ! PersistentModelStoreFixture.GetState
-    expectMsg(List(newUserModel))
+    modelPersistentActor.tell(PersistentModelStore.UpdateModels(List(newUserModel)), probe.ref)
+    modelPersistentActor.tell(PersistentModelStoreFixture.GetState, probe.ref)
+    val result = probe.expectMsgType[List[Model]]
+    assert(result.canEqual(List(newUserModel)))
 
-    modelRouterRef ! PersistenceUpdate(await = true)
-    expectMsg(ModelOperation.ModelUpdated(BaseActorSpec.userModel.r, newUserModel, List.empty))
+    modelRegistryRef.tell(PersistenceUpdate(await = true), probe.ref)
+    modelRegistryRef.tell(RequestModel.GetModel(BaseActorSpec.userModel.r, probe.ref), probe.ref)
+    probe.expectMsg(ModelObject(newUserModel, List()))
 
-    val rx = R / 'users / 445
+    val rx = R / 'users / globals.quickSand.nextId()
     val userObjx = Json.obj("name" -> "Ahmed Refaey", "age" -> 23)
     globals.collectionActor.tell(Create(ctx, rx, userObjx), probe.ref)
     probe.expectMsgType[CommandError.ModelValidationFailed]
-    //revert the model changes to leave the test case env clean
-    modelPersistentActor ! PersistentModelStore.UpdateModels(models)
-    modelPersistentActor ! PersistentModelStoreFixture.GetState
-    expectMsg(models)
-
-    modelRouterRef ! PersistenceUpdate(await = true)
-    expectMsg(ModelOperation.ModelUpdated(BaseActorSpec.userModel.r, BaseActorSpec.userModel, List.empty))
   }
 
   it should "invalidate the internal state when it receives the ModelDeleted message" in {
@@ -116,8 +119,8 @@ class CollectionActorSpec extends BaseActorSpec {
     val res = probe.expectMsgType[Result.CreateResult]
     res.body \ "name" shouldBe JsString("Foo Bar")
     //get company model
-    modelRouterRef ! GetModel(BaseActorSpec.companyModel.r, self)
-    expectMsg(ModelResult.ModelObject(BaseActorSpec.companyModel, List.empty))
+    modelRegistryRef.tell(RequestModel.GetModel(BaseActorSpec.companyModel.r, probe.ref), probe.ref)
+    probe.expectMsg(ModelResult.ModelObject(BaseActorSpec.companyModel, List.empty))
 
     //delete company model
     val newModels = models.filterNot(_.r == BaseActorSpec.companyModel.r)
@@ -125,12 +128,11 @@ class CollectionActorSpec extends BaseActorSpec {
     modelPersistentActor ! PersistentModelStoreFixture.GetState
     expectMsg(newModels)
 
-    modelRouterRef ! PersistenceUpdate(await = true)
-    expectMsg(ModelOperation.ModelDeleted(BaseActorSpec.companyModel.r))
+    modelRegistryRef ! PersistenceUpdate(await = true)
+    probe.expectMsg(ModelOperation.ModelDeleted(BaseActorSpec.companyModel.r))
 
-    globals.modelRegistry ! PersistentModelStore.DeletedModels(List(BaseActorSpec.companyModel))
     val userObjx = Json.obj("name" -> "Cloud9ers", "employees" -> 23)
-    val rx = R / 'companies / 456
+    val rx = R / 'companies / globals.quickSand.nextId()
     globals.collectionActor.tell(Create(ctx, rx, userObj), probe.ref)
     val resx = probe.expectMsgType[ModelResult]
     resx should be(ModelResult.ModelNotFound)
@@ -157,7 +159,7 @@ class CollectionActorSpec extends BaseActorSpec {
   }
 
   it should "reply with InvalidCommand if an unknown command was sent" in {
-    val r = R / 'users / 501
+    val r = R / 'users / globals.quickSand.nextId()
     val userObj = Json.obj("name" -> "Foo Bar", "age" -> 38)
     val probe = TestProbe()
     globals.collectionActor.tell(Create(ctx, r, userObj), probe.ref)
@@ -168,16 +170,16 @@ class CollectionActorSpec extends BaseActorSpec {
   }
 
   "Recovery" should "correctly retrieve the previously saved objects" in {
-    val r = R / 'users / 23
+    val r = R / 'users / globals.quickSand.nextId()
     val actorName = Helpers.getBucketIDFromR(r)
-    val collectionActor = system.actorOf(Props(new CollectionActor(globals)), actorName)
+    val collectionActor = system.actorOf(Props(new CollectionActorTest(globals)), actorName)
     val userObj = Json.obj("name" -> "Montaro", "age" -> 23)
     val probe = TestProbe()
     collectionActor.tell(Create(ctx, r, userObj), probe.ref)
     val res = probe.expectMsgType[Result.CreateResult]
     res.body \ "name" shouldBe JsString("Montaro")
     collectionActor.tell(GetState(r), probe.ref)
-    val state = probe.expectMsgType[State]
+    val state = probe.expectMsgType[CollectionActor.State]
     state.obj \ "name" shouldBe JsString("Montaro")
     state.obj \ "age" shouldBe JsNumber(23)
 
@@ -185,31 +187,31 @@ class CollectionActorSpec extends BaseActorSpec {
     collectionActor ! PoisonPill
     probe.expectTerminated(collectionActor)
 
-    val collectionActorx = system.actorOf(Props(new CollectionActor(globals)), actorName)
+    val collectionActorx = system.actorOf(Props(new CollectionActorTest(globals)), actorName)
     collectionActorx.tell(GetState(r), probe.ref)
-    val statex = probe.expectMsgType[State]
+    val statex = probe.expectMsgType[CollectionActor.State]
     statex.obj \ "name" shouldBe JsString("Montaro")
     statex.obj \ "age" shouldBe JsNumber(23)
   }
 
   it should "correctly retrieve the previously updated objects" in {
-    val r = R / 'users / 122
+    val r = R / 'users / globals.quickSand.nextId()
     val actorName = Helpers.getBucketIDFromR(r)
-    val collectionActor = system.actorOf(Props(new CollectionActor(globals)), actorName)
+    val collectionActor = system.actorOf(Props(new CollectionActorTest(globals)), actorName)
     val probe = TestProbe()
     collectionActor.tell(Create(ctx, r, Json.obj("name" -> "amal elshihaby", "age" -> 27)), probe.ref)
     probe.expectMsgType[CreateResult]
     collectionActor.tell(GetState(r), probe.ref)
-    probe.expectMsgType[State]
+    probe.expectMsgType[CollectionActor.State]
     val body = UpdateBody(List(UpdateOp(UpdateCommand.Set, "name", JsString("Amal"))))
     collectionActor.tell(Update(ctx, r, 1l, body), probe.ref)
     probe.expectMsgType[UpdateResult]
     collectionActor.tell(GetState(r), probe.ref)
-    val state = probe.expectMsgType[State]
+    val state = probe.expectMsgType[CollectionActor.State]
     probe watch collectionActor
     collectionActor ! PoisonPill
     probe.expectTerminated(collectionActor)
-    val collectionActorx = system.actorOf(Props(new CollectionActor(globals)), actorName)
+    val collectionActorx = system.actorOf(Props(new CollectionActorTest(globals)), actorName)
     collectionActorx.tell(GetState(r), probe.ref)
     val statex = probe.expectMsgType[State]
     state shouldEqual statex
@@ -218,7 +220,7 @@ class CollectionActorSpec extends BaseActorSpec {
   }
 
   "Create Command" should "create object sucessfully" in {
-    val r = R / 'users / 124
+    val r = R / 'users / globals.quickSand.nextId()
     val userObj = Json.obj("name" -> "Hatem AlSum", "age" -> 30)
     val probe = TestProbe()
     globals.collectionActor.tell(Create(ctx, r, userObj), probe.ref)
@@ -234,7 +236,7 @@ class CollectionActorSpec extends BaseActorSpec {
   }
 
   it should "reply with AlreadyExists is the object was already created" in {
-    val r = R / 'users / 125
+    val r = R / 'users / globals.quickSand.nextId()
     val userObj = Json.obj("name" -> "Hatem AlSum", "age" -> 30)
     val probe = TestProbe()
     globals.collectionActor.tell(Create(ctx, r, userObj), probe.ref)
@@ -244,7 +246,7 @@ class CollectionActorSpec extends BaseActorSpec {
   }
 
   it should "validate the object fields in creation against the Model specs" in {
-    val r = R / 'cars / 124
+    val r = R / 'cars / globals.quickSand.nextId()
     val userObj = Json.obj("model" -> "Lancer")
     val probe = TestProbe()
     globals.collectionActor.tell(Create(ctx, r, userObj), probe.ref)
@@ -254,7 +256,7 @@ class CollectionActorSpec extends BaseActorSpec {
   }
 
   it should "reply with created object and contain default values if not submitted" in {
-    val r = R / 'cars / 125
+    val r = R / 'cars / globals.quickSand.nextId()
     val userObj = Json.obj("model" -> "Toyota Corolla")
     val probe = TestProbe()
     globals.collectionActor.tell(Create(ctx, r, userObj), probe.ref)
@@ -263,7 +265,7 @@ class CollectionActorSpec extends BaseActorSpec {
   }
 
   it should "reply with created object and contain calculated values" in {
-    val r = R / 'cars / 126
+    val r = R / 'cars / globals.quickSand.nextId()
     val userObj = Json.obj("model" -> "Mitsubishi Lancer", "production" -> 2010)
     val probe = TestProbe()
     globals.collectionActor.tell(Create(ctx, r, userObj), probe.ref)
@@ -272,7 +274,7 @@ class CollectionActorSpec extends BaseActorSpec {
   }
 
   it should "reply with created object and contain CALCULATED values if dependant values not in model" in {
-    val r = R / 'cars / 127
+    val r = R / 'cars / globals.quickSand.nextId()
     val userObj = Json.obj("model" -> "Ford Focus")
     val probe = TestProbe()
     globals.collectionActor.tell(Create(ctx, r, userObj), probe.ref)
@@ -281,7 +283,7 @@ class CollectionActorSpec extends BaseActorSpec {
   }
 
   it should "have the _r as a key in the persisted object" in {
-    val r = R / 'users / 128
+    val r = R / 'users / globals.quickSand.nextId()
     val userObj = Json.obj("name" -> "Hatem AlSum", "age" -> 30)
     val probe = TestProbe()
     globals.collectionActor.tell(Create(ctx, r, userObj), probe.ref)
@@ -292,7 +294,7 @@ class CollectionActorSpec extends BaseActorSpec {
   }
 
   it should "have the object revision as a part of the state" in {
-    val r = R / 'users / 129
+    val r = R / 'users / globals.quickSand.nextId()
     val userObj = Json.obj("name" -> "Hatem AlSum", "age" -> 30)
     val probe = TestProbe()
     globals.collectionActor.tell(Create(ctx, r, userObj), probe.ref)
@@ -303,7 +305,7 @@ class CollectionActorSpec extends BaseActorSpec {
   }
 
   it should "validate that model is not found" in {
-    val r = R / "images" / 1
+    val r = R / "images" / globals.quickSand.nextId()
     val postObj = Json.obj("title" -> "First Post", "body" -> "First Body")
     val probe = TestProbe()
     globals.collectionActor.tell(Create(ctx, r, postObj), probe.ref)
@@ -311,27 +313,136 @@ class CollectionActorSpec extends BaseActorSpec {
   }
 
   it should "Create with Neseted SubModels" in {
-    val r = R / 'authors / 1
+    val r = R / 'authors / globals.quickSand.nextId()
     val Obj = Json.obj("name" -> "Hatem")
     val probe = TestProbe()
     globals.collectionActor.tell(Create(ctx, r, Obj), probe.ref)
     probe.expectMsgType[Result.CreateResult]
-    val cr = R / 'authors / 1 / 'posts / 1
+    val cr = r / 'posts / globals.quickSand.nextId()
     val postObj = Json.obj("title" -> "First Post", "body" -> "First Body")
     globals.collectionActor.tell(Create(ctx, cr, postObj), probe.ref)
     probe.expectMsgType[Result.CreateResult]
   }
 
   it should "validate the object parent is alive" in {
-    val cr = R / 'authors / 2 / 'posts / 2
+    val cr = R / 'authors / globals.quickSand.nextId() / 'posts / globals.quickSand.nextId()
     val postObj = Json.obj("title" -> "First Post", "body" -> "First Body")
     val probe = TestProbe()
     globals.collectionActor.tell(Create(ctx, cr, postObj), probe.ref)
     probe.expectMsgType[ParentNotFound]
   }
 
+  it should "validate the reference field and create object if reference field is correct" in {
+    val newUserModel = BaseActorSpec.userModel.copy(
+      fields = BaseActorSpec.userModel.fields + ("company" ->
+      ReferenceField("company", true, BaseActorSpec.companyModel.r, List("name")))
+    )
+
+    val actorProp = TestProbe()
+    modelPersistentActor.tell(PersistentModelStore.UpdateModels(List(newUserModel, BaseActorSpec.companyModel)), actorProp.ref)
+    modelPersistentActor.tell(PersistentModelStoreFixture.GetState, actorProp.ref)
+    val result = actorProp.expectMsgType[List[Model]]
+    assert(result.canEqual(List(newUserModel, BaseActorSpec.companyModel)))
+
+    modelRegistryRef.tell(PersistenceUpdate(await = true), actorProp.ref)
+    modelRegistryRef.tell(RequestModel.GetModel(BaseActorSpec.userModel.r, actorProp.ref), actorProp.ref)
+    actorProp.expectMsg(ModelObject(newUserModel, List(BaseActorSpec.companyModel.r)))
+
+    val companyR = BaseActorSpec.companyModel.r / globals.quickSand.nextId()
+    val companyObj = Json.obj("name" -> "Cloud Niners")
+    val probe = TestProbe()
+    globals.collectionActor.tell(Create(ctx, companyR, companyObj), probe.ref)
+    probe.expectMsgType[Result.CreateResult]
+
+    val userR = BaseActorSpec.userModel.r / globals.quickSand.nextId()
+    val userObj = Json.obj("name" -> "Ahmed", "age" -> 30, "company" -> companyR)
+    globals.collectionActor.tell(Create(ctx, userR, userObj), probe.ref)
+    probe.expectMsgType[Result.CreateResult]
+  }
+
+  it should "return invalid response if reference field refereed to Non exist object" in {
+    val newUserModel = BaseActorSpec.userModel.copy(
+      fields = BaseActorSpec.userModel.fields + ("company" ->
+      ReferenceField("company", true, BaseActorSpec.companyModel.r, List("name")))
+    )
+
+    val actorProp = TestProbe()
+    modelPersistentActor.tell(PersistentModelStore.UpdateModels(List(newUserModel, BaseActorSpec.companyModel)), actorProp.ref)
+    modelPersistentActor.tell(PersistentModelStoreFixture.GetState, actorProp.ref)
+    val result = actorProp.expectMsgType[List[Model]]
+    assert(result.canEqual(List(newUserModel, BaseActorSpec.companyModel)))
+
+    modelRegistryRef.tell(PersistenceUpdate(await = true), actorProp.ref)
+    modelRegistryRef.tell(RequestModel.GetModel(BaseActorSpec.userModel.r, actorProp.ref), actorProp.ref)
+    actorProp.expectMsg(ModelObject(newUserModel, List(BaseActorSpec.companyModel.r)))
+
+    val companyR = BaseActorSpec.companyModel.r / globals.quickSand.nextId()
+    val probe = TestProbe()
+
+    val userR = BaseActorSpec.userModel.r / globals.quickSand.nextId()
+    val userObj = Json.obj("name" -> "Ahmed", "age" -> 30, "company" -> companyR)
+    globals.collectionActor.tell(Create(ctx, userR, userObj), probe.ref)
+    probe.expectMsgType[CommandError.ModelValidationFailed]
+  }
+
+  it should "create object if reference field is optional and object contain reference field" in {
+    val newUserModel = BaseActorSpec.userModel.copy(
+      fields = BaseActorSpec.userModel.fields + ("company" ->
+      ReferenceField("company", false, BaseActorSpec.companyModel.r, List("name")))
+    )
+
+    val actorProp = TestProbe()
+    modelPersistentActor.tell(PersistentModelStore.UpdateModels(List(newUserModel, BaseActorSpec.companyModel)), actorProp.ref)
+    modelPersistentActor.tell(PersistentModelStoreFixture.GetState, actorProp.ref)
+    val result = actorProp.expectMsgType[List[Model]]
+    assert(result.canEqual(List(newUserModel, BaseActorSpec.companyModel)))
+
+    modelRegistryRef.tell(PersistenceUpdate(await = true), actorProp.ref)
+    modelRegistryRef.tell(RequestModel.GetModel(BaseActorSpec.userModel.r, actorProp.ref), actorProp.ref)
+    actorProp.expectMsg(ModelObject(newUserModel, List(BaseActorSpec.companyModel.r)))
+
+    val companyR = BaseActorSpec.companyModel.r / globals.quickSand.nextId()
+    val companyObj = Json.obj("name" -> "Cloud Niners")
+    val probe = TestProbe()
+    globals.collectionActor.tell(Create(ctx, companyR, companyObj), probe.ref)
+    probe.expectMsgType[Result.CreateResult]
+
+    val userR = BaseActorSpec.userModel.r / globals.quickSand.nextId()
+    val userObj = Json.obj("name" -> "Ahmed", "age" -> 30, "company" -> companyR)
+    globals.collectionActor.tell(Create(ctx, userR, userObj), probe.ref)
+    probe.expectMsgType[Result.CreateResult]
+  }
+
+  it should "create object if reference field is optional and object doesn't contain reference field" in {
+    val newUserModel = BaseActorSpec.userModel.copy(
+      fields = BaseActorSpec.userModel.fields + ("company" ->
+      ReferenceField("company", false, BaseActorSpec.companyModel.r, List("name")))
+    )
+
+    val actorProp = TestProbe()
+    modelPersistentActor.tell(PersistentModelStore.UpdateModels(List(newUserModel, BaseActorSpec.companyModel)), actorProp.ref)
+    modelPersistentActor.tell(PersistentModelStoreFixture.GetState, actorProp.ref)
+    val result = actorProp.expectMsgType[List[Model]]
+    assert(result.canEqual(List(newUserModel, BaseActorSpec.companyModel)))
+
+    modelRegistryRef.tell(PersistenceUpdate(await = true), actorProp.ref)
+    modelRegistryRef.tell(RequestModel.GetModel(BaseActorSpec.userModel.r, actorProp.ref), actorProp.ref)
+    actorProp.expectMsg(ModelObject(newUserModel, List(BaseActorSpec.companyModel.r)))
+
+    val companyR = BaseActorSpec.companyModel.r / globals.quickSand.nextId()
+    val companyObj = Json.obj("name" -> "Cloud Niners")
+    val probe = TestProbe()
+    globals.collectionActor.tell(Create(ctx, companyR, companyObj), probe.ref)
+    probe.expectMsgType[Result.CreateResult]
+
+    val userR = BaseActorSpec.userModel.r / globals.quickSand.nextId()
+    val userObj = Json.obj("name" -> "Ahmed", "age" -> 30)
+    globals.collectionActor.tell(Create(ctx, userR, userObj), probe.ref)
+    probe.expectMsgType[Result.CreateResult]
+  }
+
   "Update" should "get ObjectNotFound for uncreated yet objects" in {
-    val r = R / 'users / 123
+    val r = R / 'users / globals.quickSand.nextId()
     val body = UpdateBody(List.empty)
     val probe = TestProbe()
     globals.collectionActor.tell(Update(ctx, r, 1l, body), probe.ref)
@@ -339,7 +450,7 @@ class CollectionActorSpec extends BaseActorSpec {
   }
 
   it should "get InvalidCommand if the type of update operation isn't supported yet " in {
-    val r = R / 'users / 123
+    val r = R / 'users / globals.quickSand.nextId()
     val probe = TestProbe()
     globals.collectionActor.tell(Create(ctx, r, Json.obj("name" -> "amal elshihaby", "age" -> 27)), probe.ref)
     probe.expectMsgType[CreateResult]
@@ -354,7 +465,7 @@ class CollectionActorSpec extends BaseActorSpec {
   }
 
   it should "update the state correctly when sending a valid Set Operation" in {
-    val r = R / 'users / 111
+    val r = R / 'users / globals.quickSand.nextId()
     val probe = TestProbe()
     globals.collectionActor.tell(Create(ctx, r, Json.obj("name" -> "amal elshihaby", "age" -> 27)), probe.ref)
     probe.expectMsgType[CreateResult]
@@ -366,7 +477,7 @@ class CollectionActorSpec extends BaseActorSpec {
   }
 
   it should "fail the data revision is lower than the field last touched revision and operation is Set operation" in {
-    val r = R / 'users / 110
+    val r = R / 'users / globals.quickSand.nextId()
     val probe = TestProbe()
     globals.collectionActor.tell(Create(ctx, r, Json.obj("name" -> "amal elshihaby", "age" -> 27)), probe.ref)
     probe.expectMsgType[CreateResult]
@@ -382,7 +493,7 @@ class CollectionActorSpec extends BaseActorSpec {
   }
 
   it should "ignore revision if the operation was AddNumber" in {
-    val r = R / 'users / 1111
+    val r = R / 'users / globals.quickSand.nextId()
     val probe = TestProbe()
     globals.collectionActor.tell(Create(ctx, r, Json.obj("name" -> "amal elshihaby", "age" -> 27)), probe.ref)
     probe.expectMsgType[CreateResult]
@@ -396,7 +507,7 @@ class CollectionActorSpec extends BaseActorSpec {
   }
 
   it should "fail when sending an invalid value for AddNumber Operation" in {
-    val r = R / 'users / 1112
+    val r = R / 'users / globals.quickSand.nextId()
     val probe = TestProbe()
     globals.collectionActor.tell(Create(ctx, r, Json.obj("name" -> "amal elshihaby", "age" -> 27)), probe.ref)
     probe.expectMsgType[CreateResult]
@@ -410,7 +521,7 @@ class CollectionActorSpec extends BaseActorSpec {
   }
 
   it should "fail when sending AddNumber Operation on a field that hasn't Number type" in {
-    val r = R / 'users / 11111
+    val r = R / 'users / globals.quickSand.nextId()
     val probe = TestProbe()
     globals.collectionActor.tell(Create(ctx, r, Json.obj("name" -> "amal elshihaby", "age" -> 27)), probe.ref)
     probe.expectMsgType[CreateResult]
@@ -424,7 +535,7 @@ class CollectionActorSpec extends BaseActorSpec {
   }
 
   it should "update the state correctly when sending a valid AddNumber Operation" in {
-    val r = R / 'users / 111111
+    val r = R / 'users / globals.quickSand.nextId()
     val probe = TestProbe()
     globals.collectionActor.tell(Create(ctx, r, Json.obj("name" -> "amal elshihaby", "age" -> 27)), probe.ref)
     probe.expectMsgType[CreateResult]
@@ -436,7 +547,7 @@ class CollectionActorSpec extends BaseActorSpec {
   }
 
   it should "update the calculated Fields too" in {
-    val r = R / 'cars / 199
+    val r = R / 'cars / globals.quickSand.nextId()
     val userObj = Json.obj("model" -> "Mitsubishi Lancer", "production" -> 2010, "renewal" -> 2030)
     val probe = TestProbe()
     globals.collectionActor.tell(Create(ctx, r, userObj), probe.ref)
@@ -448,11 +559,11 @@ class CollectionActorSpec extends BaseActorSpec {
     globals.collectionActor.tell(GetState(r), probe.ref)
     val state = probe.expectMsgType[State]
     state.obj shouldEqual Json.obj("model" -> "Mitsubishi Lancer", "production" -> 2012, "renewal" -> 2020,
-      "_r" -> "/cars/199/", "_rev" -> 2)
+      "_r" -> r, "_rev" -> 2)
   }
 
   it should "fail if the request revision is greater than the object revision" in {
-    val r = R / 'users / 200
+    val r = R / 'users / globals.quickSand.nextId()
     val probe = TestProbe()
     globals.collectionActor.tell(Create(ctx, r, Json.obj("name" -> "amal elshihaby", "age" -> 27)), probe.ref)
     probe.expectMsgType[CreateResult]

@@ -5,7 +5,7 @@ package io.really.model.materializer
 
 import akka.actor.ActorRef
 import akka.persistence.Update
-import io.really.fixture.{ PersistentModelStoreFixture, MaterializerTest }
+import io.really.fixture.{ CollectionActorTest, PersistentModelStoreFixture, MaterializerTest }
 import _root_.io.really.json.collection.JSONCollection
 import io.really.model._
 import io.really.model.persistent.ModelRegistry.RequestModel.GetModel
@@ -51,8 +51,8 @@ class CollectionViewMaterializerSpec extends BaseActorSpecWithMongoDB {
     val r = R / 'authors / 123
     val bucketId = Helpers.getBucketIDFromR(r)
 
-    globals.collectionActor ! CollectionActor.GetState(r)
-    expectMsg(CommandError.ObjectNotFound(r))
+    globals.collectionActor ! CollectionActorTest.GetState(r)
+    expectMsg(CollectionActor.ObjectNotFound(r))
 
     globals.materializerView ! MaterializerTest.GetState(bucketId)
     expectMsg(CollectionViewMaterializer.MaterializerState(Some(BaseActorSpec.authorModel), Some("ModelCreated"), 1, "with-model"))

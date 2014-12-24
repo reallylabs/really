@@ -5,7 +5,7 @@ package io.really.gorilla
 
 import akka.actor.Props
 import akka.testkit.{ TestProbe, TestActorRef }
-import io.really.model.CollectionActor.Event.{ Updated, Created }
+import io.really.model.CollectionActor.CollectionActorEvent.{ Updated, Created }
 import io.really.model.{ CollectionMetadata, Helpers }
 import io.really._
 import _root_.io.really.protocol.{ UpdateOp, UpdateCommand }

@@ -3,6 +3,7 @@
  */
 package io.really.model
 
+import io.really.R
 import play.api.libs.json._
 import scala.util.{ Failure, Success, Try }
 
@@ -55,8 +56,8 @@ object DataType {
     protected def fmt = implicitly[Format[Boolean]]
   }
 
-  case object Reference extends DataType[String] {
-    protected def fmt = implicitly[Format[String]]
+  case object Reference extends DataType[R] {
+    protected def fmt = implicitly[Format[R]]
   }
 
   //todo: this is how to define a custom type

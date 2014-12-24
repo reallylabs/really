@@ -5,7 +5,7 @@ package io.really
 
 import _root_.io.really.model._
 import _root_.io.really.protocol.UpdateOp
-import _root_.io.really.model.CollectionActor.Event
+import _root_.io.really.model.CollectionActor.CollectionActorEvent
 import play.api.libs.json.{ Json, JsObject }
 
 package object gorilla {
@@ -14,14 +14,14 @@ package object gorilla {
   type PushEventType = String
 
   trait PersistentEvent {
-    def event: Event
+    def event: CollectionActorEvent
   }
 
-  case class PersistentCreatedEvent(event: Event.Created) extends PersistentEvent
+  case class PersistentCreatedEvent(event: CollectionActorEvent.Created) extends PersistentEvent
 
-  case class PersistentUpdatedEvent(event: Event.Updated, obj: JsObject) extends PersistentEvent
+  case class PersistentUpdatedEvent(event: CollectionActorEvent.Updated, obj: JsObject) extends PersistentEvent
 
-  case class PersistentDeletedEvent(event: Event.Deleted) extends PersistentEvent
+  case class PersistentDeletedEvent(event: CollectionActorEvent.Deleted) extends PersistentEvent
 
   trait ModelEvent {
     def bucketID: BucketID

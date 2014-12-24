@@ -65,7 +65,7 @@ object BaseActorSpec {
     CollectionMetadata(23),
     Map(
       "name" -> ValueField("name", DataType.RString, None, None, true),
-      "employees" -> ValueField("employees", DataType.RLong, None, None, true)
+      "employees" -> ValueField("employees", DataType.RLong, None, None, false)
     ),
     JsHooks(
       None,
