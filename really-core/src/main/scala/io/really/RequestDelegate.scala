@@ -5,12 +5,13 @@ package io.really
 
 import org.joda.time.DateTime
 import scala.concurrent.duration._
-import scala.util.{ Success, Failure }
+import scala.util.{Success, Failure}
 import akka.actor._
 import play.api.libs.json._
 import _root_.io.really.protocol.ProtocolFormats._
 
 class RequestDelegate(globals: ReallyGlobals, ctx: RequestContext, replyTo: ActorRef, cmd: String, body: JsObject) extends Actor with ActorLogging {
+
   import CommandErrorWrites._
 
   def replyWith[T](o: T)(implicit tjs: Writes[T]): Unit =
@@ -40,12 +41,12 @@ class RequestDelegate(globals: ReallyGlobals, ctx: RequestContext, replyTo: Acto
 
   def receive = {
     case msg =>
-      log.warning("""
-        |RequestDelegate received unexpected message in a wrong state.
-        |This should never happen!
-        |Either `preStart` didn't call `become`,
-        |or someone is sending by mistake. Sender was: {},
-        |and message was: {}.""".stripMargin, sender(), msg)
+      log.warning( """
+                     |RequestDelegate received unexpected message in a wrong state.
+                     |This should never happen!
+                     |Either `preStart` didn't call `become`,
+                     |or someone is sending by mistake. Sender was: {},
+                     |and message was: {}.""".stripMargin, sender(), msg)
   }
 
   def waitingResponseFor(request: Request): Receive = {

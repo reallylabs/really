@@ -28,8 +28,8 @@ class RequestDelegateSpec extends BaseActorSpec {
       "tag" -> ctx.tag,
       "r" -> JsNull,
       "error" -> Json.obj(
-        "code" -> 400,
-        "message" -> "",
+        "code" -> 409,
+        "message" -> "validation.failed",
         "errors" -> Json.obj(
           "obj.cmdOpts" -> Seq(Json.obj(
             "msg" -> "error.path.missing",
@@ -114,7 +114,7 @@ class RequestDelegateSpec extends BaseActorSpec {
     client.expectMsg(Json.obj(
       "tag" -> 1,
       "r" -> R / 'users / 123,
-      "error" -> Json.obj("code" -> 404, "message" -> "Object Not Found")
+      "error" -> Json.obj("code" -> 404, "message" -> "object.missing")
     ))
   }
 
@@ -136,7 +136,7 @@ class RequestDelegateSpec extends BaseActorSpec {
       "r" -> JsNull,
       "error" -> Json.obj(
         "code" -> 500,
-        "message" -> "Internal Server Error"
+        "message" -> "internal.server.error"
       )
     ))
   }

@@ -21,4 +21,5 @@ object ProtocolError {
     }
     implicit val writes = Json.writes[Error]
   }
+
 }
