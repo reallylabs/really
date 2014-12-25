@@ -5,11 +5,13 @@ package io.really.model.persistent
 
 import _root_.io.really._
 import _root_.io.really.model.Model
+import akka.actor.ActorLogging
 import akka.persistence.{ PersistentActor, SnapshotOffer }
 
-class PersistentModelStore(globals: ReallyGlobals, persistId: String) extends PersistentActor {
+class PersistentModelStore(globals: ReallyGlobals, persistId: String) extends PersistentActor with ActorLogging {
   import PersistentModelStore._
 
+  log.info("Persistent Model Store Started")
   override def persistenceId = persistId
 
   protected var state: Models = List.empty
@@ -34,23 +36,36 @@ class PersistentModelStore(globals: ReallyGlobals, persistId: String) extends Pe
   }
 
   def receiveRecover: Receive = {
-    case UpdatedModels(models) => updateModels(models)
+    case UpdatedModels(models) =>
+      log.info("loading saved data models from journal")
+      updateModels(models)
     case DeletedModels(models) => deleteModels(models)
     case AddedModels(models) => addModels(models)
-    case SnapshotOffer(_, snapshot: List[Model @unchecked]) => updateState(snapshot)
+    case SnapshotOffer(_, snapshot: List[Model @unchecked]) =>
+      log.info("loading saved data model snapshot from sanpshot-store")
+      updateState(snapshot)
   }
 
   def receiveCommand: Receive = {
     case UpdateModels(models) =>
+      log.info("Updating data models...")
       val deletedModels = state.filterNot(m => models.map(_.r).contains(m.r))
       val addedModels = models.filterNot(m => state.map(_.r).contains(m.r))
       val changedModels = getChangedModels(models, state)
-      if (!changedModels.isEmpty)
+      log.info("------Model Update Summary------")
+      if (changedModels.nonEmpty) {
+        log.info("Models updated:" + changedModels)
         persist(UpdatedModels(changedModels))(_ => updateModels(changedModels))
-      if (!deletedModels.isEmpty)
+      } else log.info("No models has been modified!")
+      if (deletedModels.nonEmpty) {
+        log.info("Models that will be deleted:" + deletedModels)
         persist(DeletedModels(deletedModels))(_ => deleteModels(deletedModels))
-      if (!addedModels.isEmpty)
+      } else log.info("No models to be deleted!")
+      if (addedModels.nonEmpty) {
+        log.info("Models that will be added:" + addedModels)
         persist(AddedModels(addedModels))(_ => addModels(addedModels))
+      } else log.info("No new models to be added!")
+      log.info("--------------------------------")
   }
 
 }

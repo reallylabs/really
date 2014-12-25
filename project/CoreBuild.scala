@@ -20,7 +20,7 @@ object CoreBuild {
       Akka.testKit,
       Akka.contrib,
       Akka.slf4j,
-//      Akka.cassandraPersistence,
+      leveldb,
       logback,
       snakeyaml,
       json,
