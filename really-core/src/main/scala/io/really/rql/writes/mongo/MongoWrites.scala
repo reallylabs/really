@@ -20,9 +20,7 @@ object MongoWrites {
       case Gte => JsString("$gte")
       case Lt => JsString("$lt")
       case Lte => JsString("$lte")
-      case Eq => JsString("$eq")
       case IN => JsString("$in")
-      case Between => JsString("$???")
       case _ => JsString("")
     }
   }
@@ -31,12 +29,17 @@ object MongoWrites {
     def writes(sq: SimpleQuery): JsObject = sq.op match {
       case Eq =>
         Json.obj(
-          sq.key.term -> sq.value.value
+          sq.key.term -> sq.termValue.value
+        )
+      case Between =>
+        val value = sq.termValue.value.as[Seq[JsNumber]]
+        Json.obj(
+          sq.key.term -> Json.obj("$gt" -> value(0), "$lt" -> value(1))
         )
       case _ =>
         Json.obj(
           sq.key.term -> Json.obj(
-            Json.toJson(sq.op).as[JsString].value -> sq.value.value
+            Json.toJson(sq.op).as[JsString].value -> sq.termValue.value
           )
         )
     }
@@ -52,8 +55,8 @@ object MongoWrites {
       case (q1: SimpleQuery, q2: SimpleQuery) if q1.key.term == q2.key.term =>
         Json.obj(
           q1.key.term -> Json.obj(
-            Json.toJson(q1.op).as[JsString].value -> q1.value.value,
-            Json.toJson(q2.op).as[JsString].value -> q2.value.value
+            Json.toJson(q1.op).as[JsString].value -> q1.termValue.value,
+            Json.toJson(q2.op).as[JsString].value -> q2.termValue.value
           )
         )
       case (q1: SimpleQuery, q2: SimpleQuery) =>

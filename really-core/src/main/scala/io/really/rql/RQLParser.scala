@@ -3,25 +3,26 @@
  */
 package io.really.rql
 
-import io.really.rql.RQL.Query
+import io.really.rql.RQL.{ MissingValue, Query }
 import play.api.libs.json.{ JsValue, JsObject }
 
 import scala.util.parsing.combinator._
 
 object RQLParser {
-  def parse(q: String, values: JsObject): Query = {
+  def parse(filter: String, values: JsObject): Either[RQL.ParseError, Query] = {
     val parser = new RQLParser(values)
-    parser.parseAll(parser.query, q) match {
-      case parser.Success(q, _) => q
-      case parser.NoSuccess(message, in) =>
-        throw new RQL.ParseError(message, in.pos)
+    try {
+      parser.parseAll(parser.query, filter) match {
+        case parser.Success(q, _) => Right(q)
+        case parser.NoSuccess(message, in) => Left(RQL.ParseError(s"at: ${in.pos.toString} parser error: $message"))
+      }
+    } catch {
+      case e: MissingValue => Left(RQL.ParseError(e.getMessage))
     }
   }
 }
 
 class RQLParser(values: JsObject) extends JavaTokenParsers {
-
-  val nameReg = """\p{javaJavaIdentifierStart}\p{javaJavaIdentifierPart}*""".r
 
   def CustomParserError[A](p: Parser[A], msg: String): Parser[A] = Parser[A] { i =>
     p(i) match {
@@ -30,13 +31,13 @@ class RQLParser(values: JsObject) extends JavaTokenParsers {
     }
   }
 
-  def javaIdent: Parser[String] = CustomParserError(nameReg, "expected fieldName with valid format")
+  def javaIdent: Parser[String] = CustomParserError(ident, "expected fieldName with valid format")
 
   def queryTerm: Parser[RQL.Term] = javaIdent ^^ { case s => RQL.Term(s) }
 
   def andOp: Parser[String] = CustomParserError("(?i)AND".r, "missing AND operator")
 
-  def fieldKey: Parser[String] = CustomParserError(nameReg, "expected value key")
+  def fieldKey: Parser[String] = CustomParserError(ident, "expected value key")
 
   def termValue: Parser[RQL.TermValue] = '$' ~> fieldKey ^^ {
     case fieldKey =>
@@ -47,12 +48,13 @@ class RQLParser(values: JsObject) extends JavaTokenParsers {
   }
 
   def operator: Parser[RQL.Operator] =
-    CustomParserError(">=" | "<=" | ">" | "<" | "=" | "(?i)in".r, "expected supported operator") ^^ {
+    CustomParserError(">=" | "<=" | ">" | "<" | "=" | "(?i)between".r | "(?i)in".r, "expected supported operator") ^^ {
       case ">" => RQL.Operator.Gt
       case ">=" => RQL.Operator.Gte
       case "<" => RQL.Operator.Lt
       case "<=" => RQL.Operator.Lte
       case "=" => RQL.Operator.Eq
+      case op if op.matches("(?i)between") => RQL.Operator.Between
       case _ => RQL.Operator.IN
     }
 
@@ -60,13 +62,13 @@ class RQLParser(values: JsObject) extends JavaTokenParsers {
     case t ~ o ~ i => RQL.SimpleQuery(t, o, i)
   }
 
-  def compositeCombinator: Parser[Query] = (simpleQuery ~ (andOp ~ simpleQuery).*) ^^ {
+  def andCombinator: Parser[Query] = (simpleQuery ~ (andOp ~ simpleQuery).*) ^^ {
     case c1 ~ l =>
       l.foldLeft(c1) {
         (a, b) => RQL.AndCombinator(a, b._2)
       }
   }
 
-  def query: Parser[Query] = compositeCombinator
+  def query: Parser[Query] = andCombinator
 
 }

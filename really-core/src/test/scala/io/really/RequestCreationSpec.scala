@@ -3,7 +3,7 @@
  */
 package io.really
 
-import play.api.libs.json.Json
+import _root_.io.really.rql.RQL.EmptyQuery
 import _root_.io.really.protocol.ReadOpts
 
 class RequestCreationSpec extends BaseActorSpec {
@@ -19,7 +19,7 @@ class RequestCreationSpec extends BaseActorSpec {
   it should "return error if command is Read and r is object" in {
     val r = R / "boards" / 3
     val exception = intercept[IllegalArgumentException] {
-      Request.Read(ctx, r, ReadOpts(Set.empty, Json.obj(), 10, "asc", "", 0, false, false))
+      Request.Read(ctx, r, ReadOpts(Set.empty, EmptyQuery, 10, true, None, 0, false, false))
     }
     exception.getMessage.contains("r should be represent collection") shouldEqual true
   }

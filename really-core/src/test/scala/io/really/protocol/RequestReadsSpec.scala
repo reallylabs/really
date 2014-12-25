@@ -3,6 +3,8 @@
  */
 package io.really.protocol
 
+import io.really.rql.RQL.Query.QueryReads
+import io.really.rql.RQLTokens.PaginationToken
 import org.joda.time.DateTime
 import org.scalatest.{ Matchers, FlatSpec }
 import play.api.libs.json._
@@ -449,11 +451,11 @@ class RequestReadsSpec extends FlatSpec with Matchers {
       "cmdOpts" -> Json.obj(
         "fields" -> Set("name", "age"),
         "query" -> Json.obj(
-          "filter" -> "name = {1} and age > {2}",
-          "values" -> List(JsString("Ahmed"), JsNumber(20))
+          "filter" -> "name = $name and age > $age",
+          "values" -> Json.obj("name" -> "Ahmed", "age" -> 20)
         ),
         "limit" -> 10,
-        "sort" -> "-r",
+        "ascending" -> false,
         "paginationToken" -> "23423423:1",
         "skip" -> 0,
         "includeTotalCount" -> false,
@@ -465,10 +467,13 @@ class RequestReadsSpec extends FlatSpec with Matchers {
 
     assertResult(Request.Read(ctx, R("/users/"), ReadOpts(
       Set("name", "age"),
-      Json.obj("filter" -> "name = {1} and age > {2}", "values" -> List(JsString("Ahmed"), JsNumber(20))),
+      QueryReads.reads(Json.obj(
+        "filter" -> "name = $name and age > $age",
+        "values" -> Json.obj("name" -> "Ahmed", "age" -> 20)
+      )).get,
       10,
-      "-r",
-      "23423423:1",
+      false,
+      Some(PaginationToken(23423423, 1)),
       0,
       false,
       false
@@ -486,7 +491,7 @@ class RequestReadsSpec extends FlatSpec with Matchers {
           "values" -> List(JsString("Ahmed"), JsNumber(20))
         ),
         "limit" -> 10,
-        "sort" -> "-r",
+        "ascending" -> false,
         "paginationToken" -> "23423423:1",
         "skip" -> 0,
         "includeTotalCount" -> false,

@@ -3,6 +3,9 @@
  */
 package io.really
 
+import _root_.io.really.rql.RQL.Query
+import _root_.io.really.rql.RQLTokens.PaginationToken
+import _root_.io.really.model.FieldKey
 import play.api.data.validation.ValidationError
 import play.api.libs.json._
 
@@ -11,7 +14,7 @@ package object protocol {
   /*
    * Represents request options on get request
    */
-  case class GetOpts(fields: Set[String] = Set.empty) //TODO change fields type
+  case class GetOpts(fields: Set[FieldKey] = Set.empty)
   /*
    * Represent implicit JSON Format for GetOpts
    */
@@ -19,24 +22,24 @@ package object protocol {
     implicit val fmt = Json.format[GetOpts]
   }
 
-  /*
+  /**
    * Represents request options on read request
    */
   case class ReadOpts(
-    fields: Set[String], //TODO change fields type
-    query: JsObject, //TODO should change to be Query
+    fields: Set[FieldKey],
+    query: Query,
     limit: Int,
-    sort: String,
-    paginationToken: String,
+    ascending: Boolean = false,
+    paginationToken: Option[PaginationToken] = None,
     skip: Int = 0,
-    includeTotalCount: Boolean,
-    subscribe: Boolean
+    includeTotalCount: Boolean = false,
+    subscribe: Boolean = false
   )
   /*
    * Represent implicit JSON Format for ReadOpts
    */
   object ReadOpts {
-    implicit val fmt = Json.format[ReadOpts]
+    implicit val reads = Json.reads[ReadOpts]
   }
 
   sealed trait UpdateCommand
@@ -193,7 +196,7 @@ package object protocol {
   /*
    * Represent tokens for read response
    */
-  case class ReadTokens(nextToken: String, prevToken: String)
+  case class ReadTokens(nextToken: PaginationToken, prevToken: PaginationToken)
 
   /*
    * Represent implicit JSON Format for ReadTokens

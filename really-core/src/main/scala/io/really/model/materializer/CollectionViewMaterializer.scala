@@ -229,7 +229,7 @@ class CollectionViewMaterializer(globals: ReallyGlobals) extends PersistentView 
   private def saveObject(obj: JsObject, model: Model): Future[Either[MaterializerFailure, Unit]] = {
     // TODO Dereference reference fields
     collection.insert(addMetaData(obj, 1L, model.collectionMeta.version, Some(DateTime.now()))) map {
-      case lastError if lastError.ok => Right()
+      case lastError if lastError.ok => Right(())
       case lastError =>
         log.error(s"Failure while Materializer trying to insert obj: $obj on DB, error: ${lastError.message}")
         Left(OperationNotComplete("update", new Exception(lastError.message)))
@@ -248,7 +248,7 @@ class CollectionViewMaterializer(globals: ReallyGlobals) extends PersistentView 
    */
   private def updateObject(obj: JsObject, objRevision: Revision, modelVersion: ModelVersion): Future[Either[MaterializerFailure, Unit]] = {
     collection.save(addMetaData(obj, objRevision, modelVersion)) map {
-      case lastError if lastError.ok => Right()
+      case lastError if lastError.ok => Right(())
       case lastError =>
         log.error(s"Failure while Materializer trying to update obj: $obj on DB, error: ${lastError.message}")
         Left(OperationNotComplete("update", new Exception(lastError.message)))

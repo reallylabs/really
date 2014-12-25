@@ -2,23 +2,23 @@ package io.really.io.socket
 
 import akka.actor._
 import _root_.io.really._
-import _root_.io.really.io.{AccessTokenInfo, IOGlobals}
+import _root_.io.really.io.{ AccessTokenInfo, IOGlobals }
 import _root_.io.really.protocol.Protocol
 import org.joda.time.DateTime
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
-import play.api.mvc.{Session, RequestHeader}
+import play.api.mvc.{ Session, RequestHeader }
 import scala.concurrent.duration.Duration
 import scala.util.control.NonFatal
 import _root_.io.really.jwt._
 import _root_.io.really.protocol.ProtocolFormats.RequestReads._
 
 class WebSocketHandler(
-                        ioGlobals: IOGlobals,
-                        coreGlobals: ReallyGlobals,
-                        header: RequestHeader,
-                        actorOut: ActorRef
-                        ) extends Actor with ActorLogging {
+    ioGlobals: IOGlobals,
+    coreGlobals: ReallyGlobals,
+    header: RequestHeader,
+    actorOut: ActorRef
+) extends Actor with ActorLogging {
 
   import _root_.io.really.protocol.ProtocolFormats.CommandErrorWrites._
 
@@ -127,10 +127,10 @@ class WebSocketHandler(
 
 object WebSocketHandler {
   def props(
-             ioGlobals: IOGlobals,
-             coreGlobals: ReallyGlobals,
-             accessToken: AccessTokenInfo,
-             header: RequestHeader
-             )(actorOut: ActorRef): Props =
+    ioGlobals: IOGlobals,
+    coreGlobals: ReallyGlobals,
+    accessToken: AccessTokenInfo,
+    header: RequestHeader
+  )(actorOut: ActorRef): Props =
     Props(new WebSocketHandler(ioGlobals, coreGlobals, header, actorOut))
 }

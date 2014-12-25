@@ -8,6 +8,8 @@ import akka.testkit.TestProbe
 import io.really._
 import _root_.io.really.model._
 import _root_.io.really.protocol._
+import _root_.io.really.rql.RQL
+
 import play.api.libs.json.Json
 
 class RequestRouterSpec extends BaseActorSpec {
@@ -72,7 +74,7 @@ class RequestRouterSpec extends BaseActorSpec {
 
   it should "forward message to read handler if command is Read" in {
     val r = R / "boards"
-    val req = Request.Read(ctx, r, ReadOpts(Set.empty, Json.obj(), 10, "asc", "", 0, false, false))
+    val req = Request.Read(ctx, r, ReadOpts(Set.empty, RQL.EmptyQuery, 10, false, None, 0, false, false))
     requestRouterRef ! req
     globals.readHandlerTestProps.expectMsg(req)
   }
@@ -127,7 +129,7 @@ class RequestRouterGlobals(override val config: ReallyConfig, override val actor
 
   override lazy val subscriptionManager = subscriptionManagerTestProps.testActor
 
-  override val readHandler = readHandlerTestProps.testActor
+  override lazy val readHandler = readHandlerTestProps.testActor
 
   override lazy val collectionActor = collectionActorTestProps.testActor
 }

@@ -8,6 +8,7 @@ import io.really.rql.RQL._
 import io.really.rql.{ RQLParser, RQL }
 import io.really.rql.RQL.Query.QueryReads
 import org.scalatest.{ Matchers, FlatSpec }
+import play.api.data.validation.ValidationError
 import play.api.libs.json._
 
 class MongoWritesSpec extends FlatSpec with Matchers {
@@ -18,15 +19,13 @@ class MongoWritesSpec extends FlatSpec with Matchers {
     Json.toJson(RQL.Operator.Gte) shouldBe JsString("$gte")
     Json.toJson(RQL.Operator.Lt) shouldBe JsString("$lt")
     Json.toJson(RQL.Operator.Lte) shouldBe JsString("$lte")
-    Json.toJson(RQL.Operator.Eq) shouldBe JsString("$eq")
     Json.toJson(RQL.Operator.IN) shouldBe JsString("$in")
-    Json.toJson(RQL.Operator.Between) shouldBe JsString("$???")
   }
 
   "Simple Query" should "writes key value in case of Equal operation" in {
     val q = "name = $name"
     val v = Json.obj("name" -> "amal")
-    val result = RQLParser.parse(q, v)
+    val Right(result) = RQLParser.parse(q, v)
     result.isInstanceOf[SimpleQuery] shouldBe true
     val query = SimpleQuery(Term("name"), Operator.Eq, TermValue(JsString("amal")))
     val js = Json.toJson(query)
@@ -66,6 +65,11 @@ class MongoWritesSpec extends FlatSpec with Matchers {
     qJson shouldEqual Json.obj("age" -> Json.obj("$gte" -> 20), "weight" -> Json.obj("$lt" -> 80))
   }
 
+  it should "write query with Operator `Between`" in {
+    val q = SimpleQuery(Term("age"), Operator.Between, TermValue(JsArray(Seq(JsNumber(20), JsNumber(25)))))
+    Json.toJson(q) shouldEqual Json.obj("age" -> Json.obj("$gt" -> 20, "$lt" -> 25))
+  }
+
   it should "write complex query" in {
     val qc1 = SimpleQuery(Term("age"), Operator.Gte, TermValue(JsNumber(20)))
     val qc2 = SimpleQuery(Term("age"), Operator.Lt, TermValue(JsNumber(40)))
@@ -98,6 +102,48 @@ class MongoWritesSpec extends FlatSpec with Matchers {
 
     val query = Json.fromJson[Query](queryRequest).get
     query.isInstanceOf[SimpleQuery] shouldBe true
+  }
+
+  it should "fail if the query contains numeric operator and value is string" in {
+    val queryRequest = Json.obj(
+      "filter" -> "firstName = $name1 and age < $age",
+      "values" -> Json.obj("name1" -> "amal", "age" -> "ten")
+    )
+    val JsError(e) = Json.fromJson[Query](queryRequest)
+    val error = Seq(JsPath() -> Seq(ValidationError("The Query value must be Number in case of query operator is '<'.")))
+    e shouldEqual error
+  }
+
+  it should "fail if the query contains 'IN' operator and value isn't array" in {
+    val queryRequest = Json.obj(
+      "filter" -> "firstName = $name1 and age IN $age",
+      "values" -> Json.obj("name1" -> "amal", "age" -> "ten")
+    )
+    val JsError(e) = Json.fromJson[Query](queryRequest)
+    val error = Seq(JsPath() -> Seq(ValidationError("The Query value must be JsArray in case of query operator is 'IN'.")))
+    e shouldEqual error
+  }
+
+  it should "fail if the query contains 'between' operator and value isn't array" in {
+    val queryRequest = Json.obj(
+      "filter" -> "firstName = $name1 and age between $age",
+      "values" -> Json.obj("name1" -> "amal", "age" -> "ten")
+    )
+    val JsError(e) = Json.fromJson[Query](queryRequest)
+    val error = Seq(JsPath()
+      -> Seq(ValidationError("The Query value must be Array of two numbers in case of query operator is 'BETWEEN'.")))
+    e shouldEqual error
+  }
+
+  it should "fail if the query contains 'between' operator and value isn't a valid array" in {
+    val queryRequest = Json.obj(
+      "filter" -> "firstName = $name1 and age between $age",
+      "values" -> Json.obj("name1" -> "amal", "age" -> JsArray(Seq(JsNumber(10), JsNumber(20), JsNumber(30))))
+    )
+    val JsError(e) = Json.fromJson[Query](queryRequest)
+    val error = Seq(JsPath() ->
+      Seq(ValidationError("The Query value must be Array of two numbers in case of query operator is 'BETWEEN'.")))
+    e shouldEqual error
   }
 
   it should "raise error if values is missing" in {

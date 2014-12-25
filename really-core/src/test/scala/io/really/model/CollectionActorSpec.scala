@@ -11,8 +11,9 @@ import io.really.Request.{ Update, Delete, Create }
 import io.really.Result.{ UpdateResult, CreateResult }
 import io.really.fixture.PersistentModelStoreFixture
 import io.really.model.CollectionActor.{ GetExistenceState, GetState, State }
+import io.really.model.persistent.ModelRegistry.RequestModel.GetModel
 import io.really.model.persistent.{ PersistentModelStore }
-import io.really.model.persistent.ModelRegistry.{ ModelOperation, CollectionActorMessage, ModelResult }
+import io.really.model.persistent.ModelRegistry.{ ModelOperation, ModelResult }
 import io.really.protocol.{ UpdateCommand, UpdateOp, UpdateBody }
 import io.really.CommandError.InvalidCommand
 import io.really._
@@ -45,7 +46,7 @@ class CollectionActorSpec extends BaseActorSpec {
     expectMsg(models)
 
     modelRouterRef ! PersistenceUpdate(await = true)
-    modelRouterRef ! CollectionActorMessage.GetModel(BaseActorSpec.userModel.r, self)
+    modelRouterRef ! GetModel(BaseActorSpec.userModel.r, self)
     expectMsg(ModelResult.ModelObject(BaseActorSpec.userModel, List.empty))
   }
 
@@ -115,7 +116,7 @@ class CollectionActorSpec extends BaseActorSpec {
     val res = probe.expectMsgType[Result.CreateResult]
     res.body \ "name" shouldBe JsString("Foo Bar")
     //get company model
-    modelRouterRef ! CollectionActorMessage.GetModel(BaseActorSpec.companyModel.r, self)
+    modelRouterRef ! GetModel(BaseActorSpec.companyModel.r, self)
     expectMsg(ModelResult.ModelObject(BaseActorSpec.companyModel, List.empty))
 
     //delete company model

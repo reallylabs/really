@@ -7,9 +7,10 @@ import java.util.concurrent.atomic.AtomicReference
 import akka.actor._
 import akka.contrib.pattern.{ DistributedPubSubExtension }
 import _root_.io.really.gorilla._
-import _root_.io.really.model.persistent.{ ModelRegistry, RequestRouter, PersistentModelStore }
 import _root_.io.really.model.materializer.{ MaterializerSharding, CollectionViewMaterializer }
-import akka.event.{ Logging }
+import akka.event.Logging
+import _root_.io.really.model.ReadHandler
+import _root_.io.really.model.persistent.{ ModelRegistry, RequestRouter, PersistentModelStore }
 import reactivemongo.api.{ DefaultDB, MongoDriver }
 import scala.collection.JavaConversions._
 
@@ -33,6 +34,7 @@ class DefaultReallyGlobals(override val config: ReallyConfig) extends ReallyGlob
   private val mediator_ = new AtomicReference[ActorRef]
   private val materializer_ = new AtomicReference[ActorRef]
   private val persistentModelStore_ = new AtomicReference[ActorRef]
+  private val readHandler_ = new AtomicReference[ActorRef]
 
   override lazy val receptionist = receptionist_.get
   override lazy val actorSystem = actorSystem_.get
@@ -49,6 +51,7 @@ class DefaultReallyGlobals(override val config: ReallyConfig) extends ReallyGlob
   override def logger = Logging.getLogger(actorSystem, this)
 
   override lazy val persistentModelStore = persistentModelStore_.get
+  override lazy val readHandler = readHandler_.get
 
   private val db = Database.forURL(config.EventLogStorage.databaseUrl, driver = config.EventLogStorage.driver)
   private val modelRegistryPersistentId = "model-registry-persistent"
@@ -69,8 +72,7 @@ class DefaultReallyGlobals(override val config: ReallyConfig) extends ReallyGlob
   override val materializerProps = Props(classOf[CollectionViewMaterializer], this)
   override val persistentModelStoreProps = Props(classOf[PersistentModelStore], this, modelRegistryPersistentId)
 
-  override val readHandlerProps = ???
-  override val readHandler = ???
+  override val readHandlerProps = Props(classOf[ReadHandler], this)
 
   override def boot(): Unit = {
     actorSystem_.set(ActorSystem("Really", config.coreConfig))
@@ -113,6 +115,7 @@ class DefaultReallyGlobals(override val config: ReallyConfig) extends ReallyGlob
 
     subscriptionManager_.set(actorSystem.actorOf(subscriptionManagerProps, "subscription-manager"))
 
+    readHandler_.set(actorSystem.actorOf(readHandlerProps, "read-handler"))
   }
 
   override def shutdown(): Unit = {

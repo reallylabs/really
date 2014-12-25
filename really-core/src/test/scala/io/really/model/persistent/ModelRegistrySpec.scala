@@ -6,7 +6,8 @@ package io.really.model.persistent
 import akka.actor.{ ActorRef, Props }
 import akka.persistence.Update
 import io.really.fixture.PersistentModelStoreFixture
-import io.really.model.persistent.ModelRegistry.{ ModelOperation, ModelResult, CollectionActorMessage }
+import io.really.model.persistent.ModelRegistry.RequestModel.GetModel
+import io.really.model.persistent.ModelRegistry.{ ModelOperation, ModelResult }
 import io.really.{ R, BaseActorSpec }
 import io.really.model._
 import org.scalatest.BeforeAndAfterEach
@@ -42,7 +43,7 @@ class ModelRegistrySpec extends BaseActorSpec with BeforeAndAfterEach {
     modelRouterRef = system.actorOf(Props(classOf[ModelRegistry], globals, persistenceId))
 
     modelRouterRef ! Update(await = true)
-    modelRouterRef ! CollectionActorMessage.GetModel(profilesR, self)
+    modelRouterRef ! GetModel(profilesR, self)
     expectMsg(ModelResult.ModelObject(profileModel, List.empty))
   }
 
@@ -54,7 +55,7 @@ class ModelRegistrySpec extends BaseActorSpec with BeforeAndAfterEach {
 
   "Model Registry Router" should "handle model added event" in {
 
-    modelRouterRef ! CollectionActorMessage.GetModel(BaseActorSpec.postModel.r, self)
+    modelRouterRef ! GetModel(BaseActorSpec.postModel.r, self)
     expectMsg(ModelResult.ModelNotFound)
     val models = List(profileModel, BaseActorSpec.postModel)
     persistentActor ! PersistentModelStore.UpdateModels(models)
@@ -62,13 +63,13 @@ class ModelRegistrySpec extends BaseActorSpec with BeforeAndAfterEach {
     expectMsg(models)
 
     modelRouterRef ! Update(await = true)
-    modelRouterRef ! CollectionActorMessage.GetModel(BaseActorSpec.postModel.r, self)
+    modelRouterRef ! GetModel(BaseActorSpec.postModel.r, self)
     expectMsg(ModelResult.ModelObject(BaseActorSpec.postModel, List.empty))
   }
 
   it should "handle model updated event" in {
     //get profile model
-    modelRouterRef ! CollectionActorMessage.GetModel(profilesR, self)
+    modelRouterRef ! GetModel(profilesR, self)
     expectMsg(ModelResult.ModelObject(profileModel, List.empty))
 
     //update models
@@ -89,7 +90,7 @@ class ModelRegistrySpec extends BaseActorSpec with BeforeAndAfterEach {
 
   it should "handle model deleted event" in {
     //get profile model
-    modelRouterRef ! CollectionActorMessage.GetModel(profilesR, self)
+    modelRouterRef ! GetModel(profilesR, self)
     expectMsg(ModelResult.ModelObject(profileModel, List.empty))
 
     //delete users model
@@ -101,17 +102,17 @@ class ModelRegistrySpec extends BaseActorSpec with BeforeAndAfterEach {
 
     expectMsg(ModelOperation.ModelDeleted(profilesR))
 
-    modelRouterRef ! CollectionActorMessage.GetModel(profilesR, self)
+    modelRouterRef ! GetModel(profilesR, self)
     expectMsg(ModelResult.ModelNotFound)
   }
 
   it should "handle get model using `r` that has Id" in {
     //get profile model
-    modelRouterRef ! CollectionActorMessage.GetModel(profilesR, self)
+    modelRouterRef ! GetModel(profilesR, self)
     expectMsg(ModelResult.ModelObject(profileModel, List.empty))
 
     // try get profile model by specific profile R
-    modelRouterRef ! CollectionActorMessage.GetModel(R("/users/1213213"), self)
+    modelRouterRef ! GetModel(R("/users/1213213"), self)
     expectMsg(ModelResult.ModelObject(profileModel, List.empty))
   }
 
