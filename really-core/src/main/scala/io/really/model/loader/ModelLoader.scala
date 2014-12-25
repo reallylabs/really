@@ -52,7 +52,6 @@ class ModelLoader(dir: String, actorSystem: ActorSystem) {
         modelInfo.migrationPlan,
         modelInfo.subCollectionsR
       )
-
   }.toList
 
   /**

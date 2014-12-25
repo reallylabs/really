@@ -33,6 +33,8 @@ package object really {
 
   implicit def TupleIntToToken(token: (String, Int)): PathToken = PathToken(token._1, token._2)
 
+  class ReallyConfigException(reason: String) extends Exception(reason)
+
   trait ReallyGlobals {
     def config: ReallyConfig
 
