@@ -6,22 +6,14 @@
 
 package io.really.quickSand
 
-import akka.actor.ActorSystem
-//import akka.event.LogSource
-
 import org.joda.time.DateTime
-import _root_.io.really.ReallyConfig
+import org.slf4j.LoggerFactory
 
-class QuickSand(val config: ReallyConfig, actorSystem: ActorSystem) {
+class QuickSand(workerId: Long, datacenterId: Long, reallyEpoch: Long) {
 
-  // Logger is Akka's event logger
-  //implicit val logSource: LogSource[QuickSand] = LogSource.fromClass[classOf[QuickSand]]
-  val log = akka.event.Logging(actorSystem, "QuickSand")
+  def logger = LoggerFactory.getLogger("Quicksand")
 
-  private[this] val workerId: Long = config.QuickSand.workerId
-  private[this] val datacenterId: Long = config.QuickSand.datacenterId
-  log.debug("QuickSand Started, workerId={} and datacenterId={}", workerId, datacenterId)
-  private[this] val reallyEpoch: Long = config.QuickSand.reallyEpoch
+  logger.debug("QuickSand Started, workerId={} and datacenterId={}", workerId, datacenterId)
 
   private[this] val workerIdBits = 5L
   private[this] val datacenterIdBits = 5L
@@ -54,7 +46,7 @@ class QuickSand(val config: ReallyConfig, actorSystem: ActorSystem) {
       var timestamp = DateTime.now.getMillis
 
       if (timestamp < lastTimestamp) {
-        log.error("clock is moving backwards. Rejecting requests until %d.", lastTimestamp);
+        logger.error("clock is moving backwards. Rejecting requests until %d.", lastTimestamp)
         throw new InvalidSystemClock("Clock moved backwards. Refusing to generate id for %d milliseconds".format(
           lastTimestamp - timestamp
         ))

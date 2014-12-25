@@ -78,7 +78,7 @@ class TestReallyGlobals(override val config: ReallyConfig, override val actorSys
     mongodbConntection_.set(connection(config.Mongodb.dbName))
 
     receptionist_.set(actorSystem.actorOf(receptionistProps, "requests"))
-    quickSand_.set(new QuickSand(config, actorSystem))
+    quickSand_.set(new QuickSand(config.QuickSand.workerId, config.QuickSand.datacenterId, config.QuickSand.reallyEpoch))
     modelRegistry_.set(actorSystem.actorOf(modelRegistryProps, "model-registry"))
     requestRouter_.set(actorSystem.actorOf(requestRouterProps, "request-router"))
     persistentModelStore_.set(actorSystem.actorOf(persistentModelStoreProps, "persistent-model-store"))

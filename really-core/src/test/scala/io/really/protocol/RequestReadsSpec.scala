@@ -13,7 +13,7 @@ import io.really._
 class RequestReadsSpec extends FlatSpec with Matchers {
   val ctx = RequestContext(
     1,
-    UserInfo(AuthProvider.Anonymous, R("/_anonymous/1234567"), Application("reallyApp")),
+    UserInfo(AuthProvider.Anonymous, "2345678", None),
     None, RequestMetadata(None, DateTime.now, "localhost", RequestProtocol.WebSockets)
   )
 

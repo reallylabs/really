@@ -1,9 +1,7 @@
 /**
  * Copyright (C) 2014-2015 Really Inc. <http://really.io>
  */
-package io.really.quickSand
-
-import _root_.io.really.ReallyConfig
+package io.really
 
 trait QuickSandConfig {
   this: ReallyConfig =>

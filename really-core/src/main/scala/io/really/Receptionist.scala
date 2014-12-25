@@ -32,7 +32,7 @@ class Receptionist(global: ReallyGlobals) extends Actor with ActorLogging {
   def randomString = random.alphanumeric take 10 mkString ""
 
   def delegateName(ctx: RequestContext) =
-    s"${ctx.auth.userR.actorFriendlyStr}-${ctx.tag}-$randomString"
+    s"${ctx.auth.authType}-${ctx.auth.uid}-${ctx.tag}-$randomString"
 
   def newDelegate(ctx: RequestContext, replyTo: ActorRef, cmd: String, body: JsObject): ActorRef =
     context.actorOf(global.requestProps(ctx, replyTo, cmd, body), delegateName(ctx))
