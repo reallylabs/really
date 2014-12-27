@@ -8,15 +8,22 @@ import _root_.io.really.jwt._
 import io.really._
 import akka.actor.Props
 import akka.testkit.TestProbe
+import org.joda.time.DateTime
 import play.api.libs.json._
 import play.api.test._
-import _root_.io.really.io.{ IOGlobals, IOConfig }
+import _root_.io.really.io.IOGlobals
 
 class WebSocketHandlerSpec extends BaseIOActorSpec {
   val client = TestProbe()
   val clientRef = client.ref
 
-  val token = JWT.encode(config.io.accessTokenSecret, Json.obj(), Json.obj(), Some(Algorithm.HS256))
+  val payload = Json.obj(
+    "uid" -> "1234567890",
+    "authType" -> "anonymous",
+    "expires" -> DateTime.now().plusDays(2).getMillis,
+    "data" -> Json.obj()
+  )
+  val token = JWT.encode(config.io.accessTokenSecret, payload)
   val fakeRequest = new FakeRequest("POST", "http://www.really.io", new FakeHeaders(), """""".stripMargin)
 
   val valid_msg =
@@ -120,6 +127,7 @@ class WebSocketHandlerSpec extends BaseIOActorSpec {
     val em = client.expectMsgType[JsValue]
     em \ "error" \ "code" shouldBe JsNumber(401)
     em \ "error" \ "message" shouldBe JsString("token.invalid")
+
   }
 
   it should "success to initialize with valid token" in {
@@ -143,6 +151,31 @@ class WebSocketHandlerSpec extends BaseIOActorSpec {
     handler ! valid_initialize_msg
     val em = client.expectMsgType[JsValue]
     em \ "evt" shouldBe JsString("initialized")
+  }
 
+  it should "fail if the token is expired" in {
+    val payload2 = payload + ("expires" -> JsNumber(DateTime.now().minusHours(2).getMillis))
+    val token = JWT.encode(config.io.accessTokenSecret, payload2)
+    val handler = system.actorOf(
+      Props(
+        new WebSocketHandler(
+          new IOGlobals(config),
+          io.Global.coreGlobals,
+          fakeRequest,
+          clientRef
+        )
+      )
+    )
+    val valid_initialize_msg =
+      s"""{
+        "tag": 123,
+        "traceId" : "@trace123",
+        "cmd":"initialize",
+        "accessToken":"$token"
+        }"""
+    handler ! valid_initialize_msg
+    val em = client.expectMsgType[JsValue]
+    em \ "error" \ "code" shouldBe JsNumber(401)
+    em \ "error" \ "message" shouldBe JsString("token.expired")
   }
 }

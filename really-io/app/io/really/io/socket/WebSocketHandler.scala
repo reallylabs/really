@@ -8,7 +8,8 @@ import org.joda.time.DateTime
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
 import play.api.mvc.{ Session, RequestHeader }
-import scala.concurrent.duration.Duration
+import play.api.mvc.RequestHeader
+import scala.concurrent.duration._
 import scala.util.control.NonFatal
 import _root_.io.really.jwt._
 import _root_.io.really.protocol.ProtocolFormats.RequestReads._
@@ -40,18 +41,20 @@ class WebSocketHandler(
     }
   }
 
-  private[socket] def decodeAccessToken(tag: Long, token: String): Option[(Duration, UserInfo, AppId, JsObject)] = {
+  private[socket] def decodeAccessToken(tag: Long, token: String): Either[CommandError, (FiniteDuration, UserInfo)] = {
     JWT.decode(token, Some(ioGlobals.config.io.accessTokenSecret)) match {
       case JWTResult.JWT(header, payload) =>
-        log.info("Token contents:" + payload)
-        //todo: check expiry?
-        val expiresIn = Duration.Inf
-        //todo: extract UserInfo
-        val userInfo = UserInfo(AuthProvider.Anonymous, R("/_anonymous/911"), Application("SampleApp"))
-        val appId = "MyApp" //todo: fix me
-        Some((expiresIn, userInfo, appId, payload))
-      case e =>
-        None
+        (payload \ "expires").asOpt[Long] match {
+          case Some(exp) if exp > DateTime.now().getMillis || exp == 0l =>
+            payload.validate(UserInfo.fmt) match {
+              case JsSuccess(tokenInfo, _) =>
+                val duration = (exp - DateTime.now().getMillis).millis
+                Right((duration, tokenInfo))
+              case _ => Left(CommandError.InvalidAccessToken)
+            }
+          case _ => Left(CommandError.ExpiredAccessToken)
+        }
+      case e => Left(CommandError.InvalidAccessToken)
     }
   }
 
@@ -60,13 +63,13 @@ class WebSocketHandler(
     jsObj.validate((tagReads and traceIdReads and cmdReads and accessTokenReads).tupled) match {
       case JsSuccess((tag, _, cmd, accessToken), _) if cmd.toLowerCase == "initialize" =>
         decodeAccessToken(tag, accessToken) match {
-          case Some((expiresIn, authInfo, appId, tokenBody)) =>
+          case Right((expiresIn, authInfo)) =>
             push(Protocol.initialized(tag, authInfo))
             context.become(
-              initializedReceive(expiresIn, authInfo, appId, tokenBody) orElse idleReceive
+              initializedReceive(expiresIn, authInfo) orElse idleReceive
             )
-          case None =>
-            reply(CommandError.InvalidAccessToken, Some(tag))
+          case Left(e) =>
+            reply(e, Some(tag))
         }
       case JsSuccess((tag, traceId, cmd, _), _) =>
         reply(CommandError.InvalidCommandWhileUninitialized, Some(tag))
@@ -80,8 +83,9 @@ class WebSocketHandler(
       asJsObject(msg).map(handleInitializeRequest)
   }
 
-  def initializedReceive(expiresIn: Duration, userInfo: UserInfo, appId: AppId, token: JsObject): Receive = {
+  def initializedReceive(expiresIn: FiniteDuration, userInfo: UserInfo): Receive = {
     case msg: String =>
+      context.system.scheduler.scheduleOnce(expiresIn, self, PoisonPill)(context.dispatcher)
       asJsObject(msg).map { request =>
         request.validate((tagReads and traceIdReads and cmdReads).tupled) match {
           case JsSuccess((tag, traceId, cmd), _) =>

@@ -6,7 +6,6 @@ package io.really
 import com.typesafe.config.{ Config, ConfigFactory }
 import _root_.io.really.gorilla.EventLogStorageConfig
 import _root_.io.really.model.{ MongodbConfig, CollectionActorConfig, ShardingConfig }
-import _root_.io.really.quickSand.QuickSandConfig
 
 class ReallyConfig(config: Config) extends QuickSandConfig with ShardingConfig
     with CollectionActorConfig with MongodbConfig with EventLogStorageConfig

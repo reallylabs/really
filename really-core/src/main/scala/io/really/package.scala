@@ -272,10 +272,9 @@ package object really {
 
   object AuthProvider {
 
-    case object Email extends AuthProvider
+    case object Password extends AuthProvider
 
     case object Anonymous extends AuthProvider
-
   }
 
   /*
@@ -286,18 +285,18 @@ package object really {
     import AuthProvider._
 
     def reads(json: JsValue) = json match {
-      case JsString("email") => JsSuccess(Email)
+      case JsString("password") => JsSuccess(Password)
       case JsString("anonymous") => JsSuccess(Anonymous)
       case _ => JsError(Seq(JsPath() -> Seq(ValidationError("error.unsupported.provider"))))
     }
 
     def writes(o: AuthProvider): JsString = o match {
-      case Email => JsString("email")
+      case Password => JsString("password")
       case Anonymous => JsString("anonymous")
     }
   }
 
-  case class UserInfo(provider: AuthProvider, userR: R, app: Application)
+  case class UserInfo(authType: AuthProvider, uid: String, _r: Option[R], data: JsObject = Json.obj())
 
   /**
    * Represent Reads and Writes for UserInfo

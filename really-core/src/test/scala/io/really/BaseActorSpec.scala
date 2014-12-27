@@ -25,7 +25,7 @@ abstract class BaseActorSpec(conf: ReallyConfig = TestConf.getConfig()) extends 
   val globals = new TestReallyGlobals(config, system)
   val ctx = RequestContext(
     1,
-    UserInfo(AuthProvider.Anonymous, R("/_anonymous/1234567"), Application("reallyApp")),
+    UserInfo(AuthProvider.Anonymous, "234567890", None),
     None, RequestMetadata(None, DateTime.now, "localhost",
       RequestProtocol.WebSockets)
   )

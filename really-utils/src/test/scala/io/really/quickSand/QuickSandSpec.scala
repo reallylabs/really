@@ -1,13 +1,12 @@
 /**
  * Copyright (C) 2014-2015 Really Inc. <http://really.io>
  */
-package io.really.quicksand
+package io.really.quickSand
 
-import io.really.quickSand.QuickSand
-import io.really.BaseActorSpec
+import org.scalatest.{ Matchers, FlatSpec }
 
-class QuickSandSpec extends BaseActorSpec {
-  lazy val quickSand = new QuickSand(config, system)
+class QuickSandSpec extends FlatSpec with Matchers {
+  lazy val quickSand = new QuickSand(1l, 1l, 1410765153)
 
   "QuickSand" should "generate Ids be unique" in {
     val result = (1 to 10000).map(_ => quickSand.nextId)
