@@ -1,9 +1,10 @@
 package io.really
 
-import java.nio.file.attribute.PosixFilePermissions
+import java.nio.file.attribute.PosixFilePermission
 
-import com.typesafe.config.{ Config, ConfigFactory }
+import com.typesafe.config.ConfigFactory
 import org.scalatest.{ FlatSpec, Matchers }
+import scala.collection.JavaConversions._
 import java.nio.file._
 
 import scala.util.Random
@@ -33,9 +34,13 @@ class ReallyHomeSpec extends FlatSpec with Matchers {
   it should "fail if the directory is not readable" in {
     val dirName = Random.alphanumeric.take(10).mkString
     val p = FileSystems.getDefault.getPath("/tmp/" + dirName)
-    val permissions = PosixFilePermissions.fromString("-w--w--w-")
-    Files.createDirectory(p, PosixFilePermissions.asFileAttribute(permissions))
-
+    Files.createDirectory(p)
+    val perms = Set(
+      PosixFilePermission.OWNER_EXECUTE,
+      PosixFilePermission.GROUP_EXECUTE,
+      PosixFilePermission.OTHERS_EXECUTE
+    )
+    Files.setPosixFilePermissions(p, perms)
     val config = ConfigFactory.parseString("really.home = " + p.toString)
     val conf: ReallyConfig = new ReallyConfig(config.withFallback(parentConfig))
     val e = intercept[ReallyConfigException] {
