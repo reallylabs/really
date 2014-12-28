@@ -1,5 +1,6 @@
 package io.really
 
+import java.io.File
 import java.nio.file.attribute.PosixFilePermission
 
 import com.typesafe.config.ConfigFactory
@@ -35,12 +36,7 @@ class ReallyHomeSpec extends FlatSpec with Matchers {
     val dirName = Random.alphanumeric.take(10).mkString
     val p = FileSystems.getDefault.getPath("/tmp/" + dirName)
     Files.createDirectory(p)
-    val perms = Set(
-      PosixFilePermission.OWNER_EXECUTE,
-      PosixFilePermission.GROUP_EXECUTE,
-      PosixFilePermission.OTHERS_EXECUTE
-    )
-    Files.setPosixFilePermissions(p, perms)
+    p.toFile.setReadable(false)
     val config = ConfigFactory.parseString("really.home = " + p.toString)
     val conf: ReallyConfig = new ReallyConfig(config.withFallback(parentConfig))
     val e = intercept[ReallyConfigException] {
