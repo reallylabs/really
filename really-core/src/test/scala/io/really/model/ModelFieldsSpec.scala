@@ -169,7 +169,7 @@ class ModelFieldsSpec extends FlatSpec with Matchers {
   //  }
 
   "ReferenceField" should "parse correctly" in {
-    val a = ReferenceField("creator", true, DataType.Reference, R("/users"), List("firstName", "lastName"))
+    val a = ReferenceField("creator", true, R("/users"), List("firstName", "lastName"))
     assert(a.read(JsPath(), Json.obj("creator" -> "/users/12348905/")) == JsSuccess(Json.obj("creator" -> "/users/12348905/"), JsPath() \ "creator"))
     assert(a.read(JsPath(), Json.obj("creator" -> "/products/2345678")) == JsError((JsPath() \ "creator", ValidationError("error.invalid.R"))))
     assert(a.read(JsPath(), Json.obj("creator" -> "amal")) == JsError((JsPath() \ "creator", ValidationError("error.invalid.R"))))

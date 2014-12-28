@@ -6,13 +6,14 @@ package io.really.model
 import _root_.io.really.R
 import play.api.libs.json._
 
-case class ReferenceField[Reference](
+case class ReferenceField(
     key: FieldKey,
     required: Boolean,
-    dataType: DataType[Reference],
     collectionR: R,
     fields: List[FieldKey]
-) extends Field[Reference] {
+) extends Field[R] {
+
+  val dataType = DataType.Reference
 
   override def read(root: JsPath, input: JsObject): JsResult[JsObject] = {
     //todo check that R is actually an object, not a collection

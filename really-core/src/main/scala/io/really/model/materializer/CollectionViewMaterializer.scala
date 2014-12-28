@@ -136,7 +136,7 @@ class CollectionViewMaterializer(globals: ReallyGlobals) extends PersistentView 
   }
 
   def withModel(model: Model, referencedCollections: List[R]): Receive = {
-    case evt @ Event.Created(r, obj, modelVersion, reqContext) if isPersistent =>
+    case evt @ CollectionActorEvent.Created(r, obj, modelVersion, reqContext) if isPersistent =>
       log.debug(s"CollectionViewMaterializer with viewId: $viewId for CollectionActor with persistentId: $persistenceId " +
         s"receive create event for obj with R: $r")
       log.debug(s"Current state for CollectionViewMaterializer with viewId: $viewId for CollectionActor with " +
@@ -150,7 +150,7 @@ class CollectionViewMaterializer(globals: ReallyGlobals) extends PersistentView 
           shutdown()
       }
 
-    case evt @ Event.Updated(r, ops, rev, modelVersion, reqContext) if isPersistent =>
+    case evt @ CollectionActorEvent.Updated(r, ops, rev, modelVersion, reqContext) if isPersistent =>
       log.debug(s"CollectionViewMaterializer with viewId: $viewId for CollectionActor with persistentId: $persistenceId " +
         s"receive update event for obj with R: $r")
       log.debug(s"Current state for CollectionViewMaterializer with viewId: $viewId for CollectionActor with " +

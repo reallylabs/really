@@ -228,7 +228,7 @@ class ModelLoader(dir: String, actorSystem: ActorSystem) {
         val r = R(field.get("collectionR"))
 
         if (isValidReference(r, fields))
-          ReferenceField(fieldKey, required, DataType.Reference, r, fields)
+          ReferenceField(fieldKey, required, r, fields)
         else
           throw new InvalidReferenceField(s"Invalid Reference field $fieldKey, please check that you have provided" +
             " a valid schema for this field")

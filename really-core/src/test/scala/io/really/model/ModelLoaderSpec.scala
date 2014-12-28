@@ -117,8 +117,8 @@ class ModelLoaderSpec(_system: ActorSystem) extends TestKit(_system)
     val productsModel = result.filter(_.r == R("/products"))(0)
     productsModel.fields.keySet shouldEqual Set("name", "description", "creator")
     val creator = productsModel.fields.get("creator").get
-    creator.isInstanceOf[ReferenceField[_]] shouldBe true
-    val creatorField = creator.asInstanceOf[ReferenceField[_]]
+    creator.isInstanceOf[ReferenceField] shouldBe true
+    val creatorField = creator.asInstanceOf[ReferenceField]
     creatorField.key shouldBe "creator"
     creatorField.dataType shouldEqual DataType.Reference
     creatorField.collectionR shouldEqual R("/users")

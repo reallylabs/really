@@ -27,12 +27,12 @@ class ModelRegistry(globals: ReallyGlobals, persistId: String) extends Persisten
     case PersistentModelStore.UpdatedModels(updatedModels) if isPersistent =>
       val rs = updatedModels.map(_.r)
       routingTable ++= updatedModels.map(m => (m.r, m)).toMap
+      constructReverseReferencesMap()
       rs.foreach { r =>
         subscriberActors.getOrElse(r, List.empty).foreach { actor =>
           actor ! ModelOperation.ModelUpdated(r, routingTable(r), reverseModelReferences(r))
         }
       }
-      constructReverseReferencesMap()
     case PersistentModelStore.DeletedModels(removedModels) if isPersistent =>
       val rs = removedModels.map(m => m.r)
       rs.foreach { r =>
@@ -50,15 +50,14 @@ class ModelRegistry(globals: ReallyGlobals, persistId: String) extends Persisten
   }
 
   def handleCollectionRequest: Receive = {
-    case RequestModel.GetModel(r, collectionActor) if validR(r) =>
+    case RequestModel.GetModel(r, requester) if validR(r) =>
       val modelR = r.skeleton
-      subscriberActors += (modelR -> (subscriberActors.getOrElse(modelR, Set.empty) + collectionActor))
-      context.watch(collectionActor)
-      sender ! ModelResult.ModelObject(routingTable(modelR), reverseModelReferences(modelR))
-    case RequestModel.GetModel(r, _) =>
-      sender ! ModelResult.ModelNotFound
-    case msg: RequestModel.GetModels =>
-      sender ! ModelResult.Models(routingTable)
+      subscriberActors += (modelR -> (subscriberActors.getOrElse(modelR, Set.empty) + requester))
+      context.watch(requester)
+      sender() ! ModelResult.ModelObject(routingTable(modelR), reverseModelReferences(modelR))
+
+    case RequestModel.GetModel(r, requester) =>
+      sender() ! ModelResult.ModelNotFound
   }
 
   def handleGeneralOps: Receive = {
@@ -75,8 +74,8 @@ class ModelRegistry(globals: ReallyGlobals, persistId: String) extends Persisten
   def constructReverseReferencesMap(): Unit =
     reverseModelReferences = routingTable.values.map {
       m =>
-        val referenceFields: List[ReferenceField[_]] = m.fields.values.collect {
-          case f: ReferenceField[_] => f
+        val referenceFields: List[ReferenceField] = m.fields.values.collect {
+          case f: ReferenceField => f
         }.toList
 
         (m.r, referenceFields.map(f => f.collectionR))
@@ -87,6 +86,8 @@ class ModelRegistry(globals: ReallyGlobals, persistId: String) extends Persisten
 object ModelRegistry {
   sealed trait RequestModel
 
+  trait ModelRegistryMessage
+
   object RequestModel {
 
     case class GetModel(r: R, sender: ActorRef) extends RequestModel with RoutableByR
@@ -95,7 +96,7 @@ object ModelRegistry {
 
   }
 
-  sealed trait ModelResult
+  sealed trait ModelResult extends ModelRegistryMessage
   object ModelResult {
 
     case object ModelNotFound extends ModelResult
@@ -108,7 +109,7 @@ object ModelRegistry {
 
   }
 
-  sealed trait ModelOperation extends RoutableByR
+  sealed trait ModelOperation extends ModelRegistryMessage with RoutableByR
 
   object ModelOperation {
     case class ModelCreated(r: R, model: Model, referencedCollections: List[R]) extends ModelOperation
