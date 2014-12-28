@@ -202,26 +202,7 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor
           stay replying AlreadyExists(r)
 
         case None if r.tail.isEmpty =>
-          val requester = sender()
-          validateFields(request.body, model) match {
-            case JsSuccess(jsObj, _) =>
-              val referenceFields = getReferenceFields(model)
-              if (referenceFields.isEmpty) {
-                createAndReply(request, jsObj, model, requester)
-                stay
-              } else {
-                val expectedReferences = askAboutReferenceField(model, referenceFields, jsObj)
-                if (expectedReferences.isEmpty) {
-                  createAndReply(request, jsObj, model, requester)
-                  stay
-                } else {
-                  goto(WaitingReferencesValidation) using ValidationReferences(request, jsObj, model, expectedReferences, Seq.empty, requester)
-                }
-              }
-            case error: JsError =>
-              requester ! ModelValidationFailed(r, error)
-              stay
-          }
+          applyCreateRequest(request, model, sender())
 
         case None =>
           globals.collectionActor ! GetExistenceState(r.tailR)
@@ -235,8 +216,7 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor
           stay
 
         case Some(modelObj) =>
-          updateAndReply(modelObj, model, updateRequest, sender())
-          stay
+          applyUpdateRequest(modelObj, model, updateRequest, sender())
 
         case None =>
           sender() ! CommandError.ObjectNotFound(updateRequest.r)
@@ -264,7 +244,7 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor
       unstashAll()
       validateFields(request.body, model) match {
         case JsSuccess(jsObj, _) =>
-          val referenceFields = getReferenceFields(model)
+          val referenceFields = getModelReferenceFields(model)
           if (referenceFields.isEmpty) {
             createAndReply(request, jsObj, model, requester)
             goto(WithModel) using ModelData(model)
@@ -297,8 +277,13 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor
       log.warning("Unexpected Reference. Probably Coding bug. Event was: {}", e)
       stay
 
-    case Event(ObjectExists(r), data @ ValidationReferences(request, obj, model, expectedReferences, Nil, requester)) if expectedReferences.size == 1 =>
+    case Event(ObjectExists(r), data @ ValidationReferences(request: Create, obj, model, expectedReferences, Nil, requester)) if expectedReferences.size == 1 =>
       createAndReply(request, obj, model, requester)
+      unstashAll()
+      goto(WithModel) using ModelData(model)
+
+    case Event(ObjectExists(r), data @ ValidationReferences(request: Update, obj, model, expectedReferences, Nil, requester)) if expectedReferences.size == 1 =>
+      updateAndReply(request, obj, model, requester)
       unstashAll()
       goto(WithModel) using ModelData(model)
 
@@ -359,6 +344,13 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor
       case (lastTouched, opBody) => lastTouched + (opBody.key -> newRev)
     }
 
+  /**
+   * apply update operations on object and generate new values on object
+   * @param obj
+   * @param ops
+   * @param reqRev
+   * @return
+   */
   def getUpdatedData(obj: DataObject, ops: List[UpdateOp], reqRev: Revision): JsResult[JsObject] = {
     val newObj = obj.data ++ Json.obj("_rev" -> (rev(obj.data) + 1))
     val result = ops map {
@@ -376,15 +368,21 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor
     opBody match {
       case UpdateOp(UpdateCommand.Set, _, _, _) if reqRev < oldObject.lastTouched(opBody.key) =>
         JsError(__ \ errorKey, ValidationError(s"error.revision.outdated"))
+
       case UpdateOp(UpdateCommand.Set, _, _, _) =>
         JsSuccess(Json.obj(opBody.key -> opBody.value))
+
       case UpdateOp(UpdateCommand.AddNumber, _, JsNumber(v), _) =>
         oldObject.data \ opBody.key match {
           case JsNumber(originalValue) => JsSuccess(Json.obj(opBody.key -> (originalValue + v)))
           case _ => JsError(__ \ errorKey, ValidationError(s"error.non.numeric.field"))
         }
-      case UpdateOp(UpdateCommand.AddNumber, _, _, _) => JsError(__ \ errorKey, ValidationError(s"error.value.should.be.number"))
-      case UpdateOp(_, _, _, _) => JsError(__ \ errorKey, ValidationError(s"error.not.supported"))
+
+      case UpdateOp(UpdateCommand.AddNumber, _, _, _) =>
+        JsError(__ \ errorKey, ValidationError(s"error.value.should.be.number"))
+
+      case UpdateOp(_, _, _, _) =>
+        JsError(__ \ errorKey, ValidationError(s"error.not.supported"))
     }
 
   /**
@@ -396,13 +394,29 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor
     context.stop(self)
   }
 
+  /**
+   * notify Materializer view to update state
+   */
   def askMaterializerToUpdate = globals.materializerView ! CollectionViewMaterializer.UpdateProjection(bucketId)
 
-  private def getReferenceFields(m: Model): Map[FieldKey, ReferenceField] =
+  /**
+   * get reference fields from model
+   * @param m
+   * @return
+   */
+  private def getModelReferenceFields(m: Model): Map[FieldKey, ReferenceField] =
     m.fields.collect {
       case (key, field @ ReferenceField(_, _, _, _)) => key -> field
     }
 
+  /**
+   * This function is responsible for ask another CollectionActors about values on reference field
+   * to make sure this values refer to exist object
+   * @param m
+   * @param referenceFields
+   * @param obj
+   * @return
+   */
   private def askAboutReferenceField(m: Model, referenceFields: Map[FieldKey, ReferenceField], obj: JsObject): Map[R, FieldKey] =
     referenceFields collect {
       case (f, ReferenceField(_, true, _, _)) =>
@@ -415,6 +429,41 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor
         v -> f
     }
 
+  /**
+   * This function is responsible for validate create request, apply  create request on bucket and reply to requester
+   * @param request
+   * @param model
+   * @param requester
+   * @return
+   */
+  private def applyCreateRequest(request: Create, model: Model, requester: ActorRef): State =
+    validateFields(request.body, model) match {
+      case JsSuccess(jsObj, _) =>
+        val referenceFields = getModelReferenceFields(model)
+        if (referenceFields.isEmpty) {
+          createAndReply(request, jsObj, model, requester)
+          stay
+        } else {
+          val expectedReferences = askAboutReferenceField(model, referenceFields, jsObj)
+          if (expectedReferences.isEmpty) {
+            createAndReply(request, jsObj, model, requester)
+            stay
+          } else {
+            goto(WaitingReferencesValidation) using ValidationReferences(request, jsObj, model, expectedReferences, Seq.empty, requester)
+          }
+        }
+      case error: JsError =>
+        requester ! ModelValidationFailed(r, error)
+        stay
+    }
+
+  /**
+   * This function is responsible for add new object on bucket and reply to requester
+   * @param request
+   * @param obj
+   * @param model
+   * @param requester
+   */
   private def createAndReply(request: Create, obj: JsObject, model: Model, requester: ActorRef): Unit = {
     model.executeValidate(request.ctx, globals, obj) match {
       case ModelHookStatus.Succeeded =>
@@ -431,6 +480,12 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor
     }
   }
 
+  /**
+   * This function is responsible for execute js reads for fields
+   * @param obj
+   * @param model
+   * @return
+   */
   private def validateFields(obj: JsObject, model: Model): JsResult[JsObject] = {
     val (activeFields, reactiveFields) = model.fields.partition { case (_, v) => v.isInstanceOf[ValueField[_]] }
     JsResultHelpers.merge(validateActiveFields(obj, activeFields)) match {
@@ -444,6 +499,12 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor
     }
   }
 
+  /**
+   * This function is responsible for execute js reads for active fields
+   * @param obj
+   * @param fields
+   * @return
+   */
   private def validateActiveFields(obj: JsObject, fields: Map[FieldKey, Field[_]]): List[JsResult[JsObject]] = {
     fields.map {
       case (keyField, valueField) =>
@@ -453,6 +514,12 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor
     }.toList
   }
 
+  /**
+   * This function is responsible for execute js reads for reactive fields
+   * @param obj
+   * @param fields
+   * @return
+   */
   private def evaluateReactiveFields(obj: JsObject, fields: Map[FieldKey, Field[_]]): List[JsResult[JsObject]] = {
     fields.map {
       case (keyField, valueField) =>
@@ -460,24 +527,68 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor
     }.toList
   }
 
-  private def updateAndReply(modelObj: DataObject, model: Model, updateReq: Request.Update, requester: ActorRef): Unit =
-    getUpdatedData(modelObj, updateReq.body.ops, updateReq.rev) match {
+  /**
+   * handle update request and update bucket
+   * @param modelObj
+   * @param model
+   * @param updateRequest
+   * @param requester
+   */
+  private def applyUpdateRequest(modelObj: DataObject, model: Model, updateRequest: Request.Update, requester: ActorRef): State =
+    getUpdatedData(modelObj, updateRequest.body.ops, updateRequest.rev) match {
       case JsSuccess(obj, _) =>
-        validateObject(obj, model)(updateReq.ctx) match {
+        validateObject(obj, model)(updateRequest.ctx) match {
           case ValidationResponse.ValidData(jsObj) =>
-            persistEvent(CollectionActorEvent.Updated(updateReq.r, updateReq.body.ops, rev(jsObj),
-              model.collectionMeta.version, updateReq.ctx), jsObj, requester, UpdateResult(updateReq.r, rev(jsObj)))
+            val modelReferenceFields = getModelReferenceFields(model)
+            val updatedReferenceField = updateRequest.body.ops collect {
+              case UpdateOp(UpdateCommand.Set, f, _, _) if modelReferenceFields.contains(f) =>
+                f -> modelReferenceFields(f)
+            }
+            if (updatedReferenceField.isEmpty) {
+              updateAndReply(updateRequest, jsObj, model, requester)
+              stay
+            } else {
+              val expectedReferences = askAboutReferenceField(model, updatedReferenceField.toMap, jsObj)
+              if (expectedReferences.isEmpty) {
+                updateAndReply(updateRequest, jsObj, model, requester)
+                stay
+              } else {
+                goto(WaitingReferencesValidation) using ValidationReferences(updateRequest, jsObj, model, expectedReferences, Seq.empty, requester)
+              }
+            }
 
           case ValidationResponse.JSValidationFailed(reason) =>
-            requester ! JSValidationFailed(updateReq.r, reason)
+            requester ! JSValidationFailed(updateRequest.r, reason)
+            stay
           case ValidationResponse.ModelValidationFailed(error) =>
-            requester ! ModelValidationFailed(updateReq.r, error)
+            requester ! ModelValidationFailed(updateRequest.r, error)
+            stay
         }
       case e: JsError =>
         log.debug("Failure while validating update data: " + e)
         requester ! ValidationFailed(e)
+        stay
     }
 
+  /**
+   * This function is responsible for execute preUpdate jsHooks, update bucket and reply to requester
+   * @param jsObj
+   * @param model
+   * @param updateReq
+   * @param requester
+   */
+  private def updateAndReply(updateReq: Request.Update, jsObj: JsObject, model: Model, requester: ActorRef): Unit = {
+    persistEvent(CollectionActorEvent.Updated(updateReq.r, updateReq.body.ops, rev(jsObj),
+      model.collectionMeta.version, updateReq.ctx), jsObj, requester, UpdateResult(updateReq.r, rev(jsObj)))
+  }
+
+  /**
+   * validate object based on Model schema
+   * @param obj
+   * @param model
+   * @param context
+   * @return
+   */
   private def validateObject(obj: JsObject, model: Model)(implicit context: RequestContext): ValidationResponse =
     validateFields(obj, model) match {
       case JsSuccess(jsObj: JsObject, _) => // Continue to JS Validation
@@ -489,7 +600,7 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor
     }
 
   /**
-   * Persist the event and update the current state
+   * Persist the event, update the current state and reply to requester
    * @param evt
    * @param jsObj
    */
@@ -518,7 +629,7 @@ object CollectionActor {
   case object Empty extends CollectionData
   case class ModelData(model: Model) extends CollectionData
   case class CreatingData(obj: JsObject, model: Model) extends CollectionData
-  case class ValidationReferences(request: Create, obj: JsObject, model: Model, expectedReferences: Map[R, FieldKey], invalidReferences: Seq[FieldKey], requester: ActorRef) extends CollectionData
+  case class ValidationReferences(request: RoutableToCollectionActor, obj: JsObject, model: Model, expectedReferences: Map[R, FieldKey], invalidReferences: Seq[FieldKey], requester: ActorRef) extends CollectionData
   case class ValidationParent(request: Create, model: Model, parentR: R, requester: ActorRef) extends CollectionData
 
   case object Stop

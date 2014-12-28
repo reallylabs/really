@@ -574,6 +574,159 @@ class CollectionActorSpec extends BaseActorSpec with BeforeAndAfterEach {
     probe.expectMsg(CommandError.OutdatedRevision)
   }
 
+  it should "update reference field if it refer to exist object" in {
+    val newUserModel = BaseActorSpec.userModel.copy(
+      fields = BaseActorSpec.userModel.fields + ("company" ->
+      ReferenceField("company", true, BaseActorSpec.companyModel.r, List("name")))
+    )
+
+    val actorProp = TestProbe()
+    modelPersistentActor.tell(PersistentModelStore.UpdateModels(List(newUserModel, BaseActorSpec.companyModel)), actorProp.ref)
+    modelPersistentActor.tell(PersistentModelStoreFixture.GetState, actorProp.ref)
+    val result = actorProp.expectMsgType[List[Model]]
+    assert(result.canEqual(List(newUserModel, BaseActorSpec.companyModel)))
+
+    modelRegistryRef.tell(PersistenceUpdate(await = true), actorProp.ref)
+    modelRegistryRef.tell(RequestModel.GetModel(BaseActorSpec.userModel.r, actorProp.ref), actorProp.ref)
+    actorProp.expectMsg(ModelObject(newUserModel, List(BaseActorSpec.companyModel.r)))
+
+    val probe = TestProbe()
+
+    val companyR1 = BaseActorSpec.companyModel.r / globals.quickSand.nextId()
+    val companyObj1 = Json.obj("name" -> "Cloud Niners")
+    globals.collectionActor.tell(Create(ctx, companyR1, companyObj1), probe.ref)
+    probe.expectMsgType[Result.CreateResult]
+
+    val userR = BaseActorSpec.userModel.r / globals.quickSand.nextId()
+    val userObj = Json.obj("name" -> "Ahmed", "age" -> 30, "company" -> companyR1)
+    globals.collectionActor.tell(Create(ctx, userR, userObj), probe.ref)
+    probe.expectMsgType[Result.CreateResult]
+
+    val companyR2 = BaseActorSpec.companyModel.r / globals.quickSand.nextId()
+    val companyObj2 = Json.obj("name" -> "Really IO")
+    globals.collectionActor.tell(Create(ctx, companyR2, companyObj2), probe.ref)
+    probe.expectMsgType[Result.CreateResult]
+
+    val updateBody = UpdateBody(List(UpdateOp(UpdateCommand.Set, "company", JsString(companyR2.toString))))
+    globals.collectionActor.tell(Update(ctx, userR, 1l, updateBody), probe.ref)
+    probe.expectMsgType[UpdateResult]
+
+    globals.collectionActor.tell(GetState(userR), probe.ref)
+    val state = probe.expectMsgType[State]
+    assertResult(companyR2)((state.obj \ "company").as[R])
+  }
+
+  it should "fail if you try to set R for non exist object on reference field" in {
+    val newUserModel = BaseActorSpec.userModel.copy(
+      fields = BaseActorSpec.userModel.fields + ("company" ->
+      ReferenceField("company", true, BaseActorSpec.companyModel.r, List("name")))
+    )
+
+    val actorProp = TestProbe()
+    modelPersistentActor.tell(PersistentModelStore.UpdateModels(List(newUserModel, BaseActorSpec.companyModel)), actorProp.ref)
+    modelPersistentActor.tell(PersistentModelStoreFixture.GetState, actorProp.ref)
+    val result = actorProp.expectMsgType[List[Model]]
+    assert(result.canEqual(List(newUserModel, BaseActorSpec.companyModel)))
+
+    modelRegistryRef.tell(PersistenceUpdate(await = true), actorProp.ref)
+    modelRegistryRef.tell(RequestModel.GetModel(BaseActorSpec.userModel.r, actorProp.ref), actorProp.ref)
+    actorProp.expectMsg(ModelObject(newUserModel, List(BaseActorSpec.companyModel.r)))
+
+    val probe = TestProbe()
+
+    val companyR1 = BaseActorSpec.companyModel.r / globals.quickSand.nextId()
+    val companyObj1 = Json.obj("name" -> "Cloud Niners")
+    globals.collectionActor.tell(Create(ctx, companyR1, companyObj1), probe.ref)
+    probe.expectMsgType[Result.CreateResult]
+
+    val userR = BaseActorSpec.userModel.r / globals.quickSand.nextId()
+    val userObj = Json.obj("name" -> "Ahmed", "age" -> 30, "company" -> companyR1)
+    globals.collectionActor.tell(Create(ctx, userR, userObj), probe.ref)
+    probe.expectMsgType[Result.CreateResult]
+
+    val companyR2 = BaseActorSpec.companyModel.r / globals.quickSand.nextId()
+
+    val updateBody = UpdateBody(List(UpdateOp(UpdateCommand.Set, "company", JsString(companyR2.toString))))
+    globals.collectionActor.tell(Update(ctx, userR, 1l, updateBody), probe.ref)
+    probe.expectMsgType[CommandError.ModelValidationFailed]
+
+    globals.collectionActor.tell(GetState(userR), probe.ref)
+    val state = probe.expectMsgType[State]
+    assertResult(companyR1)((state.obj \ "company").as[R])
+  }
+
+  it should "update reference field to be None if it is optional" in {
+    val newUserModel = BaseActorSpec.userModel.copy(
+      fields = BaseActorSpec.userModel.fields + ("company" ->
+      ReferenceField("company", false, BaseActorSpec.companyModel.r, List("name")))
+    )
+
+    val actorProp = TestProbe()
+    modelPersistentActor.tell(PersistentModelStore.UpdateModels(List(newUserModel, BaseActorSpec.companyModel)), actorProp.ref)
+    modelPersistentActor.tell(PersistentModelStoreFixture.GetState, actorProp.ref)
+    val result = actorProp.expectMsgType[List[Model]]
+    assert(result.canEqual(List(newUserModel, BaseActorSpec.companyModel)))
+
+    modelRegistryRef.tell(PersistenceUpdate(await = true), actorProp.ref)
+    modelRegistryRef.tell(RequestModel.GetModel(BaseActorSpec.userModel.r, actorProp.ref), actorProp.ref)
+    actorProp.expectMsg(ModelObject(newUserModel, List(BaseActorSpec.companyModel.r)))
+
+    val probe = TestProbe()
+
+    val companyR1 = BaseActorSpec.companyModel.r / globals.quickSand.nextId()
+    val companyObj1 = Json.obj("name" -> "Cloud Niners")
+    globals.collectionActor.tell(Create(ctx, companyR1, companyObj1), probe.ref)
+    probe.expectMsgType[Result.CreateResult]
+
+    val userR = BaseActorSpec.userModel.r / globals.quickSand.nextId()
+    val userObj = Json.obj("name" -> "Ahmed", "age" -> 30, "company" -> companyR1)
+    globals.collectionActor.tell(Create(ctx, userR, userObj), probe.ref)
+    probe.expectMsgType[Result.CreateResult]
+
+    val updateBody = UpdateBody(List(UpdateOp(UpdateCommand.Set, "company", JsNull)))
+    globals.collectionActor.tell(Update(ctx, userR, 1l, updateBody), probe.ref)
+    probe.expectMsgType[UpdateResult]
+
+    globals.collectionActor.tell(GetState(userR), probe.ref)
+    val state = probe.expectMsgType[State]
+    assertResult(None)((state.obj \ "company").asOpt[R])
+  }
+
+  it should "allow only set operation on reference field" in {
+    val newUserModel = BaseActorSpec.userModel.copy(
+      fields = BaseActorSpec.userModel.fields + ("company" ->
+      ReferenceField("company", true, BaseActorSpec.companyModel.r, List("name")))
+    )
+
+    val actorProp = TestProbe()
+    modelPersistentActor.tell(PersistentModelStore.UpdateModels(List(newUserModel, BaseActorSpec.companyModel)), actorProp.ref)
+    modelPersistentActor.tell(PersistentModelStoreFixture.GetState, actorProp.ref)
+    val result = actorProp.expectMsgType[List[Model]]
+    assert(result.canEqual(List(newUserModel, BaseActorSpec.companyModel)))
+
+    modelRegistryRef.tell(PersistenceUpdate(await = true), actorProp.ref)
+    modelRegistryRef.tell(RequestModel.GetModel(BaseActorSpec.userModel.r, actorProp.ref), actorProp.ref)
+    actorProp.expectMsg(ModelObject(newUserModel, List(BaseActorSpec.companyModel.r)))
+
+    val probe = TestProbe()
+
+    val companyR1 = BaseActorSpec.companyModel.r / globals.quickSand.nextId()
+    val companyObj1 = Json.obj("name" -> "Cloud Niners")
+    globals.collectionActor.tell(Create(ctx, companyR1, companyObj1), probe.ref)
+    probe.expectMsgType[Result.CreateResult]
+
+    val userR = BaseActorSpec.userModel.r / globals.quickSand.nextId()
+    val userObj = Json.obj("name" -> "Ahmed", "age" -> 30, "company" -> companyR1)
+    globals.collectionActor.tell(Create(ctx, userR, userObj), probe.ref)
+    probe.expectMsgType[Result.CreateResult]
+
+    val companyR2 = BaseActorSpec.companyModel.r / globals.quickSand.nextId()
+
+    val updateBody = UpdateBody(List(UpdateOp(UpdateCommand.AddToSet, "company", JsString(companyR2.toString))))
+    globals.collectionActor.tell(Update(ctx, userR, 1l, updateBody), probe.ref)
+    probe.expectMsgType[CommandError.ValidationFailed]
+  }
+
 }
 
 class CollectionTestReallyGlobals(override val config: ReallyConfig, override val actorSystem: ActorSystem) extends TestReallyGlobals(config, actorSystem) {
