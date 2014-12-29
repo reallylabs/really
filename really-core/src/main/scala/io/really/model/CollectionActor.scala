@@ -7,8 +7,8 @@ import akka.actor._
 import akka.contrib.pattern.ShardRegion.Passivate
 import akka.persistence.{ RecoveryFailure, RecoveryCompleted, SnapshotOffer, PersistentActor }
 import io.really.CommandError._
-import io.really.Request.{ Update, Create }
-import io.really.Result.{ UpdateResult, CreateResult }
+import io.really.Request.{ Update, Create, Delete }
+import io.really.Result.{ UpdateResult, CreateResult, DeleteResult }
 import io.really._
 import _root_.io.really.protocol.{ UpdateCommand, UpdateOp }
 import _root_.io.really.js.JsResultHelpers
@@ -222,7 +222,24 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor
           sender() ! CommandError.ObjectNotFound(updateRequest.r)
           stay
       }
+
+    case Event(deleteRequest: Delete, ModelData(model)) =>
+      bucket.get(deleteRequest.r) match {
+        case None =>
+          sender() ! CommandError.ObjectNotFound(deleteRequest.r)
+
+        case Some(modelObj) if alreadyDeleted(modelObj) =>
+          sender() ! CommandError.ObjectGone(deleteRequest.r)
+
+        case Some(modelObj) =>
+          val newRev = rev(modelObj.data) + 1
+          deleteAndReply(deleteRequest, newRev, model.collectionMeta.version, sender())
+      }
+      stay
   }
+
+  def alreadyDeleted(obj: DataObject): Boolean =
+    (obj.data \ "_deleted").validate[Boolean].getOrElse(false)
 
   /**
    * This function is responsible for handling requests between collection actors
@@ -330,6 +347,14 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor
 
       case CollectionActorEvent.Updated(r, ops, newRev, modelVersion, ctx) =>
         throw new IllegalStateException("Cannot update state of the data was not exist!")
+
+      case CollectionActorEvent.Deleted(r, newRev, modelVersion, _) =>
+        // Json.obj(Model.RevisionField -> 1l, Model.RField -> request.r)
+        bucket += r -> DataObject(Json.obj(
+          Model.RField -> r,
+          Model.RevisionField -> newRev,
+          Model.DeletedField -> true
+        ), modelVersion, bucket(r).lastTouched.mapValues(_ => newRev))
     }
 
   /**
@@ -583,6 +608,20 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor
   }
 
   /**
+   * This function is responsible for execute preDelete jsHooks, update bucket and reply to requester
+   * @param deleteReq
+   * @param newRev
+   * @param modelVersion
+   * @param requester
+   */
+  private def deleteAndReply(deleteReq: Request.Delete, newRev: Revision, modelVersion: ModelVersion, requester: ActorRef): Unit = {
+    persistEvent(
+      CollectionActorEvent.Deleted(deleteReq.r, newRev, modelVersion, deleteReq.ctx),
+      requester, DeleteResult(deleteReq.r)
+    )
+  }
+
+  /**
    * validate object based on Model schema
    * @param obj
    * @param model
@@ -603,11 +642,19 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor
    * Persist the event, update the current state and reply to requester
    * @param evt
    * @param jsObj
+   * @param requester
+   * @param result
    */
-  private def persistEvent(evt: CollectionActorEvent, jsObj: JsObject, requester: ActorRef, result: Response) = {
+  private def persistEvent(evt: CollectionActorEvent, jsObj: JsObject, requester: ActorRef, result: Response): Unit =
+    persistEvent(evt, Some(jsObj), requester, result)
+
+  private def persistEvent(evt: CollectionActorEvent, requester: ActorRef, result: Response): Unit =
+    persistEvent(evt, None, requester, result)
+
+  private def persistEvent(evt: CollectionActorEvent, jsObj: Option[JsObject], requester: ActorRef, result: Response) = {
     persist(evt) {
       event =>
-        updateBucket(event, Some(jsObj))
+        updateBucket(event, jsObj)
         askMaterializerToUpdate
         requester ! result
     }
@@ -659,7 +706,7 @@ object CollectionActor {
     case class Updated(r: R, ops: List[UpdateOp], newRev: Revision, modelVersion: ModelVersion,
       context: RequestContext) extends CollectionActorEvent
 
-    case class Deleted(r: R, context: RequestContext) extends CollectionActorEvent
+    case class Deleted(r: R, newRev: Revision, modelVersion: ModelVersion, context: RequestContext) extends CollectionActorEvent
   }
 
   trait ValidationResponse

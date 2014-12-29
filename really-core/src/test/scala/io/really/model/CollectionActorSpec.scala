@@ -8,7 +8,7 @@ import akka.testkit.{ TestActorRef, TestProbe }
 import akka.persistence.{ Update => PersistenceUpdate }
 import io.really.CommandError.ParentNotFound
 import io.really.Request.{ Update, Delete, Create }
-import io.really.Result.{ UpdateResult, CreateResult }
+import io.really.Result.{ UpdateResult, CreateResult, DeleteResult }
 import io.really.fixture.CollectionActorTest.GetState
 import io.really.fixture.{ CollectionActorTest, PersistentModelStoreFixture }
 import io.really.model.CollectionActor.{ GetExistenceState, State }
@@ -725,6 +725,27 @@ class CollectionActorSpec extends BaseActorSpec with BeforeAndAfterEach {
     val updateBody = UpdateBody(List(UpdateOp(UpdateCommand.AddToSet, "company", JsString(companyR2.toString))))
     globals.collectionActor.tell(Update(ctx, userR, 1l, updateBody), probe.ref)
     probe.expectMsgType[CommandError.ValidationFailed]
+  }
+
+  "Delete" should "return ObjectNotFound for non existing objects" in {
+    val r = R / 'users / 10410
+    globals.collectionActor.tell(Delete(ctx, r), self)
+    expectMsg(CommandError.ObjectNotFound(r))
+  }
+
+  it should "return Deleted for existing objects" in {
+    val r = R / 'users / 123123
+    globals.collectionActor.tell(Create(ctx, r, Json.obj("name" -> "Tamer AbdulRadi", "age" -> 26)), system.deadLetters)
+    globals.collectionActor.tell(Delete(ctx, r), self)
+    expectMsg(DeleteResult(r))
+  }
+
+  it should "return Gone for already deleted objects" in {
+    val r = R / 'users / 123
+    globals.collectionActor.tell(Create(ctx, r, Json.obj("name" -> "Tamer Mohammed", "age" -> 26)), system.deadLetters)
+    globals.collectionActor.tell(Delete(ctx, r), system.deadLetters)
+    globals.collectionActor.tell(Delete(ctx, r), self)
+    expectMsg(CommandError.ObjectGone(r))
   }
 
 }

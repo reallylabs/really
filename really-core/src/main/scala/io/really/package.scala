@@ -217,6 +217,11 @@ package object really {
       val error = Error(404, "object.missing", None)
     }
 
+    case class ObjectGone(_r: R) extends CommandError {
+      val r = Some(_r)
+      val error = Error(410, "object.gone", None)
+    }
+
     case object ModelNotFound extends CommandError {
       val r = None
       val error = Error(420, "model.missing", None)
