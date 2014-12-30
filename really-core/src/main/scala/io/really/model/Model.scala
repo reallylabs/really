@@ -165,8 +165,8 @@ package object model {
 
     val RField = "_r"
     val RevisionField = "_rev"
+    val DeletedField = "_deleted"
 
   }
 
 }
-
