@@ -3,8 +3,9 @@
  */
 package io.really.model.materializer
 
-import akka.actor.ActorRef
-import akka.persistence.Update
+import akka.actor.{ ActorRef, Props }
+import akka.persistence.{ Update, RecoveryCompleted }
+import akka.testkit.{ TestProbe, TestActorRef }
 import io.really.fixture.{ CollectionActorTest, PersistentModelStoreFixture, MaterializerTest }
 import _root_.io.really.json.collection.JSONCollection
 import io.really.model._
@@ -21,7 +22,8 @@ import scala.concurrent.Await
 
 class CollectionViewMaterializerSpec extends BaseActorSpecWithMongoDB {
 
-  lazy val collection = globals.mongodbConntection.collection[JSONCollection](s"${BaseActorSpec.authorModel.r.head.collection}")
+  lazy val collection = globals.mongodbConnection.collection[JSONCollection](s"${BaseActorSpec.authorModel.r.head.collection}")
+  val modelVersion = 23
 
   def getObject(r: R): Option[JsObject] = {
     val query = Json.obj("_r" -> r)
@@ -32,6 +34,41 @@ class CollectionViewMaterializerSpec extends BaseActorSpecWithMongoDB {
   var modelRouterRef: ActorRef = _
   var modelPersistentActor: ActorRef = _
   val models: List[Model] = List(BaseActorSpec.authorModel, BaseActorSpec.postModel)
+
+  def notifyMaterializer(materializer: (ActorRef, TestProbe)) = {
+    materializer._1 ! akka.persistence.Update(await = true)
+  }
+
+  def getPersistentActor(bucketId: BucketID) = {
+    val testProbe = TestProbe()
+    val fakePersistentActor = system.actorOf(TestActors.reportingPersistentActorProps(bucketId, testProbe.ref))
+    (fakePersistentActor, testProbe)
+  }
+
+  def getMaterializer(bucketId: BucketID) = {
+    val probe = TestProbe()
+    val actor = TestActorRef(Props(classOf[MaterializerTest], globals, probe.ref), bucketId)
+    (actor, probe)
+  }
+
+  def createModel(r: R, persistentActor: (ActorRef, TestProbe)) = {
+    val modelCreatedEvent = ModelOperation.ModelCreated(r, BaseActorSpec.authorModel, Nil)
+    persistentActor._1 ! ReportingPersistentActor.Persist(modelCreatedEvent)
+    persistentActor._2.expectMsg(ReportingPersistentActor.Persisted(modelCreatedEvent))
+  }
+
+  def createObject(r: R, persistentActor: (ActorRef, TestProbe)) = {
+    val obj = Json.obj("name" -> "Ahmed")
+    val fullObj = obj ++ Json.obj("_rev" -> 1, "_r" -> r)
+    val event = CollectionActor.CollectionActorEvent.Created(r, fullObj, modelVersion, ctx)
+    persistentActor._1 ! ReportingPersistentActor.Persist(event)
+    persistentActor._2.expectMsg(ReportingPersistentActor.Persisted(event))
+  }
+
+  def deleteObject(r: R, persistentActor: (ActorRef, TestProbe)) = {
+    val event = CollectionActor.CollectionActorEvent.Deleted(r, 3, modelVersion, ctx)
+    persistentActor._1 ! ReportingPersistentActor.Persist(event)
+  }
 
   override def beforeAll() {
     super.beforeAll()
@@ -45,6 +82,11 @@ class CollectionViewMaterializerSpec extends BaseActorSpecWithMongoDB {
     modelRouterRef ! Update(await = true)
     modelRouterRef ! GetModel(BaseActorSpec.authorModel.r, self)
     expectMsg(ModelResult.ModelObject(BaseActorSpec.authorModel, List.empty))
+  }
+
+  override val globals = new TestReallyGlobals(config, system) {
+    val materializerProbe = TestProbe()
+    override val materializerProps = Props(classOf[MaterializerTest], this, materializerProbe.ref)
   }
 
   "Collection View Materializer" should "read ModelCreated message form journal as first message" in {
@@ -95,6 +137,33 @@ class CollectionViewMaterializerSpec extends BaseActorSpecWithMongoDB {
     val o = getObject(r).get
     assertResult("Mohammed")((o \ "name").as[String])
     assertResult(2)((o \ "_rev").as[Revision])
+  }
+
+  it should "delete object from DB when receive Deleted event from journal" in {
+    val r = R / 'authors / 123
+    val bucketId = Helpers.getBucketIDFromR(r)
+
+    val p @ (pActor, pProbe) = getPersistentActor(bucketId)
+    pProbe.expectMsgType[ReportingPersistentActor.ReceivedRecover]
+    pProbe.expectMsgType[ReportingPersistentActor.ReceivedRecover]
+    pProbe.expectMsgType[ReportingPersistentActor.ReceivedRecover]
+    pProbe.expectMsgType[ReportingPersistentActor.ReceivedRecover]
+    val m @ (mActor, mProbe) = getMaterializer(bucketId)
+
+    notifyMaterializer(m)
+    mProbe.expectMsgType[akka.persistence.SnapshotOffer]
+    mProbe.expectNoMsg()
+
+    deleteObject(r, p)
+    pProbe.expectMsgType[ReportingPersistentActor.Persisted].event.asInstanceOf[CollectionActor.CollectionActorEvent.Deleted]
+    pProbe.expectNoMsg()
+
+    notifyMaterializer(m)
+    Thread.sleep(1000)
+    mProbe.expectMsgType[CollectionActor.CollectionActorEvent.Deleted](duration)
+
+    val o = getObject(r).get
+    assertResult(true)((o \ "_deleted").as[Boolean])
   }
 
   it should "update model when receive ModelUpdated from journal" in {

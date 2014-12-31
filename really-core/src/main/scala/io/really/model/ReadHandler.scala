@@ -35,7 +35,7 @@ class ReadHandler(globals: ReallyGlobals) extends Actor with Stash with ActorLog
   private var models: Map[R, Model] = Map.empty
 
   private def collection(r: R): JSONCollection =
-    globals.mongodbConntection.collection[JSONCollection](r.collectionName)
+    globals.mongodbConnection.collection[JSONCollection](r.collectionName)
 
   def receive: Receive = handleRequests
 
@@ -255,7 +255,7 @@ class ReadHandler(globals: ReallyGlobals) extends Actor with Stash with ActorLog
     if (!cmdOpts.includeTotalCount) return Future.successful(None)
     val query = BSONDocumentFormat.partialReads(Json.toJson(cmdOpts.query).as[JsObject]).asOpt
     val command = Count(collection.name, query, None)
-    globals.mongodbConntection.command(command).map(Option[Int])
+    globals.mongodbConnection.command(command).map(Option[Int])
   }
 
   /**

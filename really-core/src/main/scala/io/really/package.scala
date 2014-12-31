@@ -78,7 +78,7 @@ package object really {
 
     def materializerView: ActorRef
 
-    def mongodbConntection: DefaultDB
+    def mongodbConnection: DefaultDB
 
     def subscriptionManager: ActorRef
 

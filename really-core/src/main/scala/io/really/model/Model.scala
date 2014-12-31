@@ -68,8 +68,8 @@ package object model {
         }
     }
 
-    val factory = new NashornScriptEngineFactory
-    val executeValidator: Option[Validator] = jsHooks.onValidate.map { onValidateCode =>
+    lazy val factory = new NashornScriptEngineFactory
+    lazy val executeValidator: Option[Validator] = jsHooks.onValidate.map { onValidateCode =>
       val validateEngine = factory.getScriptEngine(Array("-strict", "--no-java", "--no-syntax-extensions"))
       JsTools.injectSDK(validateEngine.getContext.getBindings(ScriptContext.ENGINE_SCOPE))
 
@@ -86,7 +86,7 @@ package object model {
       validateEngine.asInstanceOf[Invocable].getInterface(classOf[Validator])
     }
 
-    val executeOnGetValidator: Option[OnGet] = jsHooks.preGet.map { onGetCode =>
+    lazy val executeOnGetValidator: Option[OnGet] = jsHooks.preGet.map { onGetCode =>
       val jsEngine = JsTools.newEngineWithSDK()
       val code: String = s"""
         | function onGet (_authValue, _objValue, _underlyingHide) {
@@ -162,7 +162,6 @@ package object model {
   }
 
   object Model {
-
     val RField = "_r"
     val RevisionField = "_rev"
     val DeletedField = "_deleted"

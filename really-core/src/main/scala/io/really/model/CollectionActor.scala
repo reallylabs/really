@@ -71,6 +71,10 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor
         //TODO: mark the object to be corrupted in the future
       }
 
+    case evt: CollectionActorEvent.Deleted =>
+      log.debug(s"$persistenceId Persistor received a Deleted replay event: $evt")
+      updateBucket(evt)
+
     case evt: CollectionActorEvent =>
       log.warning(s"[[NOT IMPLEMENTED]] Got EVENT: $evt")
     //TODO: handle other events
@@ -123,7 +127,7 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor
       log.debug(s"$persistenceId Persistor found the model for r: $r")
       persist(ModelCreated(m.r, m, refL)) {
         event =>
-          askMaterializerToUpdate
+          notifyMaterializerToUpdate()
       }
       unstashAll()
       goto(WithModel) using ModelData(m)
@@ -181,12 +185,12 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor
   def handleModelOperations: StateFunction = {
     case Event(evt @ ModelUpdated(_, newModel, _), _) =>
       log.debug(s"$persistenceId Persistor received a ModelUpdated message for: $r")
-      persist(evt)(_ => askMaterializerToUpdate)
+      persist(evt)(_ => notifyMaterializerToUpdate())
       stay using ModelData(newModel)
 
     case Event(evt @ ModelDeleted(deletedR), _) if deletedR == r =>
       log.debug(s"$persistenceId Persistor received a DeletedModel message for: $r")
-      persist(evt)(_ => askMaterializerToUpdate)
+      persist(evt)(_ => notifyMaterializerToUpdate())
       context.parent ! Passivate(stopMessage = Stop)
       goto(WithoutModel) using Empty
   }
@@ -422,7 +426,11 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor
   /**
    * notify Materializer view to update state
    */
-  def askMaterializerToUpdate = globals.materializerView ! CollectionViewMaterializer.UpdateProjection(bucketId)
+  def notifyMaterializerToUpdate() =
+    globals.materializerView ! CollectionViewMaterializer.Envelope(
+      bucketId,
+      akka.persistence.Update(await = true)
+    )
 
   /**
    * get reference fields from model
@@ -655,7 +663,7 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor
     persist(evt) {
       event =>
         updateBucket(event, jsObj)
-        askMaterializerToUpdate
+        notifyMaterializerToUpdate()
         requester ! result
     }
   }

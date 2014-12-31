@@ -7,6 +7,7 @@ import java.util.concurrent.TimeUnit
 import akka.actor.ActorSystem
 import akka.testkit.{ TestKit, ImplicitSender }
 import akka.util.Timeout
+import scala.concurrent.duration._
 import com.typesafe.config.ConfigFactory
 import _root_.io.really.model._
 import org.joda.time.DateTime
@@ -20,6 +21,7 @@ abstract class BaseActorSpec(conf: ReallyConfig = TestConf.getConfig()) extends 
   import BaseActorSpec._
 
   implicit val timeout = Timeout(5, TimeUnit.SECONDS)
+  val duration = Duration(10, "seconds")
   implicit val executionContext = system.dispatcher
   implicit val config: ReallyConfig = conf
   val globals = new TestReallyGlobals(config, system)
