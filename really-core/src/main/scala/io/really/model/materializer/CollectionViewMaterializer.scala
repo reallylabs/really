@@ -8,7 +8,14 @@ import akka.persistence.{ SnapshotOffer, PersistentView, Update }
 import io.really.json.collection.JSONCollection
 import io.really.model.persistent.ModelRegistry._
 import io.really.model.CollectionActor._
-import io.really.gorilla.{ ModelUpdatedEvent, PersistentCreatedEvent, PersistentUpdatedEvent, PersistentEvent, ModelDeletedEvent }
+import io.really.gorilla.{
+  ModelUpdatedEvent,
+  PersistentCreatedEvent,
+  PersistentUpdatedEvent,
+  PersistentEvent,
+  ModelDeletedEvent,
+  PersistentDeletedEvent
+}
 import io.really.protocol.{ UpdateCommand, UpdateOp }
 import io.really.model._
 import io.really._
@@ -52,7 +59,7 @@ class CollectionViewMaterializer(globals: ReallyGlobals) extends PersistentView 
   /**
    * collection is represent collection object on MongoDB
    */
-  lazy val collection = globals.mongodbConntection.collection[JSONCollection](s"$collectionName")
+  lazy val collection = globals.mongodbConnection.collection[JSONCollection](s"$collectionName")
 
   /**
    * messageMarker is marker for last message consumed and persisted on DB Projection
@@ -99,16 +106,7 @@ class CollectionViewMaterializer(globals: ReallyGlobals) extends PersistentView 
     super.preStart()
   }
 
-  override def receive: Receive = withoutModel orElse generalOps
-
-  def generalOps: Receive = {
-    case UpdateProjection(_) =>
-      log.debug(s"CollectionViewMaterializer with viewId: $viewId for CollectionActor with persistentId: $persistenceId" +
-        s" receive UpdateProjection to replay messages from journal")
-      log.debug(s"Current state for CollectionViewMaterializer with viewId: $viewId for CollectionActor with " +
-        s"persistentId: $persistenceId: $materializerCurrentState")
-      self ! Update(await = true)
-  }
+  override def receive: Receive = withoutModel
 
   def withoutModel: Receive = {
     case SnapshotOffer(metadata, snapshot: SnapshotData) =>
@@ -116,7 +114,7 @@ class CollectionViewMaterializer(globals: ReallyGlobals) extends PersistentView 
         s"persistentId: $persistenceId: $materializerCurrentState")
       messageMarker = snapshot.marker
       _materializerCurrentState = _materializerCurrentState.copy(model = Some(snapshot.model), actorState = "with-model")
-      context.become(withModel(snapshot.model, snapshot.referencedCollections) orElse generalOps)
+      context.become(withModel(snapshot.model, snapshot.referencedCollections))
 
     case ModelOperation.ModelCreated(r, model, refCollections) =>
       log.debug(s"CollectionViewMaterializer with viewId: $viewId for CollectionActor with persistentId: $persistenceId" +
@@ -128,7 +126,7 @@ class CollectionViewMaterializer(globals: ReallyGlobals) extends PersistentView 
       _materializerCurrentState = _materializerCurrentState.copy(
         model = Some(model), lastModelOp = Some("ModelCreated"), lastSequenceNr = lastSequenceNr, actorState = "with-model"
       )
-      context.become(withModel(model, refCollections) orElse generalOps)
+      context.become(withModel(model, refCollections))
       unstashAll()
 
     case msg =>
@@ -171,6 +169,30 @@ class CollectionViewMaterializer(globals: ReallyGlobals) extends PersistentView 
           shutdown()
       }
 
+    case evt @ CollectionActorEvent.Deleted(r, newRev, modelVersion, reqContext) if isPersistent =>
+      log.debug("CollectionViewMaterializer with viewId: {} for CollectionActor with persistentId: {} " +
+        "receive delete event for obj with R: {}", viewId, persistenceId, r)
+      log.debug("Current state for CollectionViewMaterializer with viewId: {} for CollectionActor with " +
+        "persistentId: {}: {}", viewId, persistenceId, materializerCurrentState)
+      val currentSequence = super.lastSequenceNr
+      getObject(r) map {
+        case Right(obj) =>
+          val _ / (_ / R.IdValue(id)) = r
+          val newObj = obj.copy(obj.fields.filter(_._1.startsWith("_"))) ++ Json.obj(
+            Model.DeletedField -> true
+          )
+          deleteObject(newObj, newRev, modelVersion) map {
+            case Right(_) =>
+              persistEvent(PersistentDeletedEvent(evt), currentSequence, model, referencedCollections)
+            case Left(failure) =>
+              context.parent ! failure
+              shutdown()
+          }
+        case Left(failure) =>
+          context.parent ! failure
+          shutdown()
+      }
+
     case ModelOperation.ModelUpdated(r, m, refCollections) if isPersistent =>
       log.debug(s"CollectionViewMaterializer with viewId: $viewId for CollectionActor with persistentId: $persistenceId" +
         s" receive new version for model with r: $r")
@@ -181,7 +203,7 @@ class CollectionViewMaterializer(globals: ReallyGlobals) extends PersistentView 
         model = Some(m), lastModelOp = Some("ModelUpdated"), lastSequenceNr = lastSequenceNr
       )
       globals.gorillaEventCenter ! ModelUpdatedEvent(bucketID, m)
-      context.become(withModel(m, refCollections) orElse generalOps)
+      context.become(withModel(m, refCollections))
 
     case ModelOperation.ModelDeleted(r) if isPersistent =>
       // TODO send clear message to Cleaner to delete all objects on this collection
@@ -276,6 +298,26 @@ class CollectionViewMaterializer(globals: ReallyGlobals) extends PersistentView 
   }
 
   /**
+   * Delete object from DB
+   */
+  private def deleteObject(obj: JsObject, objRevision: Revision, modelVersion: ModelVersion): Future[Either[MaterializerFailure, Unit]] = {
+    collection.save(addMetaData(obj, objRevision, modelVersion)) map {
+      case lastError if lastError.ok =>
+        Right(())
+      case lastError =>
+        log.error(s"Failure while Materializer trying to delete obj: $obj on DB, error: ${lastError.message}")
+        Left(OperationNotComplete("delete", new Exception(lastError.message)))
+    } recover {
+      case e: DatabaseException =>
+        log.error(s"Database Exception error happened during save obj: $obj on collection Materializer, error: ", e)
+        Left(OperationNotComplete("delete", e))
+      case e: Throwable =>
+        log.error(s"Unexpected error happened during save obj: $obj on collection Materializer, error: ", e)
+        Left(OperationNotComplete("delete", e))
+    }
+  }
+
+  /**
    * shutdown Marterializer
    */
   private def shutdown(): Unit = {
@@ -339,7 +381,7 @@ object CollectionViewMaterializer {
     def bucketId: BucketID
   }
 
-  case class UpdateProjection(bucketId: BucketID) extends RoutableToMaterializer
+  case class Envelope(bucketId: BucketID, message: Any) extends RoutableToMaterializer
 
   case class SnapshotData(model: Model, referencedCollections: List[R], marker: Long)
 

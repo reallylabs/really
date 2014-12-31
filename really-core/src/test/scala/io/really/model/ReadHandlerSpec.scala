@@ -22,7 +22,7 @@ import play.api.libs.json.{ JsArray, JsNumber, JsString, Json }
 import scala.concurrent.Await
 
 class ReadHandlerSpec extends BaseActorSpecWithMongoDB {
-  lazy val collection = globals.mongodbConntection.collection[JSONCollection](s"${BaseActorSpec.authorModel.r.head.collection}")
+  lazy val collection = globals.mongodbConnection.collection[JSONCollection](s"${BaseActorSpec.authorModel.r.head.collection}")
 
   var modelRouterRef: ActorRef = _
   var modelPersistentActor: ActorRef = _
@@ -52,7 +52,7 @@ class ReadHandlerSpec extends BaseActorSpecWithMongoDB {
   it should "succeed if the request was exist and return all model fields if the client sent empty fields" in {
     val r = R / 'cars / 9999
     val userObj = Json.obj("model" -> "Honda Civic", "production" -> 2010, "_rev" -> 1, "_r" -> r, "_id" -> 9999)
-    val collection = globals.mongodbConntection.collection[JSONCollection]("cars")
+    val collection = globals.mongodbConnection.collection[JSONCollection]("cars")
     val result = Await.result(collection.save(userObj), 5.second)
     result.ok shouldBe true
     globals.readHandler ! Request.Get(ctx, r, GetOpts(Set("model", "production")))
@@ -63,7 +63,7 @@ class ReadHandlerSpec extends BaseActorSpecWithMongoDB {
   it should "succeed if the request was exist and return only the requested fields" in {
     val r = R / 'cars / 9998
     val userObj = Json.obj("model" -> "Toyota Avalon", "production" -> 2012, "_rev" -> 1, "_r" -> r, "_id" -> 9998)
-    val collection = globals.mongodbConntection.collection[JSONCollection]("cars")
+    val collection = globals.mongodbConnection.collection[JSONCollection]("cars")
     val result = Await.result(collection.save(userObj), 5.second)
     result.ok shouldBe true
     globals.readHandler ! Request.Get(ctx, r, GetOpts(Set("model")))
@@ -108,7 +108,7 @@ class ReadHandlerSpec extends BaseActorSpecWithMongoDB {
     val postObj = Json.obj("title" -> "The post title", "body" -> "The post body",
       "_rev" -> 1, "_r" -> r / 111,
       "_parent0" -> "authors/11/", "_id" -> 111)
-    val collection = globals.mongodbConntection.collection[JSONCollection]("posts_authors")
+    val collection = globals.mongodbConnection.collection[JSONCollection]("posts_authors")
     val result = Await.result(collection.save(postObj), 5.second)
     result.ok shouldBe true
 
@@ -134,7 +134,7 @@ class ReadHandlerSpec extends BaseActorSpecWithMongoDB {
       true,
       false
     )
-    val collection = globals.mongodbConntection.collection[JSONCollection]("posts_authors")
+    val collection = globals.mongodbConnection.collection[JSONCollection]("posts_authors")
     val userObj = Json.obj("title" -> "The post title", "body" -> "The post body",
       "_rev" -> 1, "_r" -> r / 111,
       "_parent0" -> "authors/12/", "_id" -> 111)
@@ -165,7 +165,7 @@ class ReadHandlerSpec extends BaseActorSpecWithMongoDB {
       true,
       false
     )
-    val collection = globals.mongodbConntection.collection[JSONCollection]("posts_authors")
+    val collection = globals.mongodbConnection.collection[JSONCollection]("posts_authors")
     val userObj = Json.obj("title" -> "The post title", "body" -> "The post body",
       "_rev" -> 1, "_r" -> r / 111,
       "_parent0" -> "authors/12/", "_id" -> 111)
@@ -191,7 +191,7 @@ class ReadHandlerSpec extends BaseActorSpecWithMongoDB {
       true,
       false
     )
-    val collection = globals.mongodbConntection.collection[JSONCollection]("posts_authors")
+    val collection = globals.mongodbConnection.collection[JSONCollection]("posts_authors")
     val userObj = Json.obj("title" -> "The post title", "body" -> "The post body",
       "_rev" -> 1, "_r" -> r / 111,
       "_parent0" -> "authors/13/", "_id" -> 111)
@@ -228,7 +228,7 @@ class ReadHandlerSpec extends BaseActorSpecWithMongoDB {
       true,
       false
     )
-    val collection = globals.mongodbConntection.collection[JSONCollection]("cars")
+    val collection = globals.mongodbConnection.collection[JSONCollection]("cars")
     val carObj = Json.obj("model" -> "KIA", "production" -> 2000,
       "_rev" -> 1, "_r" -> r / 1000, "_id" -> 1000)
     val result = Await.result(collection.save(carObj), 5.second)
@@ -244,7 +244,7 @@ class ReadHandlerSpec extends BaseActorSpecWithMongoDB {
 
   it should "handle querying data with ['Gt', 'Lt', 'Gte', 'Lte', 'Between'] operators" in {
     val r = R / 'users
-    val collection = globals.mongodbConntection.collection[JSONCollection]("users")
+    val collection = globals.mongodbConnection.collection[JSONCollection]("users")
     val userObj = Json.obj("name" -> "Augustine", "age" -> 20,
       "_rev" -> 1, "_r" -> r / 1000, "_id" -> 1000)
     val result = Await.result(collection.save(userObj), 5.second)
@@ -363,7 +363,7 @@ class ReadHandlerSpec extends BaseActorSpecWithMongoDB {
       false
     )
     //Add Dummy data
-    val collection = globals.mongodbConntection.collection[JSONCollection]("posts_authors")
+    val collection = globals.mongodbConnection.collection[JSONCollection]("posts_authors")
 
     val postObj = Json.obj("title" -> "The post title", "body" -> "The post body",
       "_rev" -> 1, "_r" -> r / 111,
