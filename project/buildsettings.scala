@@ -14,7 +14,8 @@ object BuildSettings {
     resolvers ++= Seq(
       Resolver.sonatypeRepo("releases"),
       "Typesafe repository releases" at "http://repo.typesafe.com/typesafe/releases/",
-      "krasserm at bintray" at "http://dl.bintray.com/krasserm/maven"
+      "krasserm at bintray" at "http://dl.bintray.com/krasserm/maven",
+      "Scalaz Bintray Repo"  at "http://dl.bintray.com/scalaz/releases"
     )
   ) ++ FormatSettings.settings
 }

@@ -30,6 +30,7 @@
     <logger name="io.really" level="INFO" />
     <logger name="io.really.io" level="INFO" />
     <logger name="akka" level="INFO" />
+    <logger name="Cluster(akka://Really)" level="INFO" />
     <logger name="play" level="INFO" />
     <logger name="application" level="DEBUG" />
 

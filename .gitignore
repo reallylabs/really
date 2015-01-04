@@ -22,6 +22,9 @@ really-core/.settings
 really-io/.classpath
 really-io/.project
 really-io/.settings
+.really
+really-io/.really
+really-core/.really
 # Scala-IDE specific
 .scala_dependencies
 .worksheet

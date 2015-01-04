@@ -15,11 +15,12 @@ object Dependencies {
   val slick = "com.typesafe.slick" %% "slick" % "2.1.0"
   val h2 = "com.h2database" % "h2" % "1.3.175"
   val playScalaTest = "org.scalatestplus" %% "play" % "1.2.0" % "test"
+  val leveldb = "org.iq80.leveldb" % "leveldb" % "0.7"
   val jwtScala = "io.really" %% "jwt-scala" % "1.1"
 
   object Akka {
     private val akkaBase = "com.typesafe.akka"
-    private val version = "2.3.6"
+    private val version = "2.3.8"
 
     val agent = akkaBase %% "akka-agent" % version
     val testKit = akkaBase %% "akka-testkit" % version

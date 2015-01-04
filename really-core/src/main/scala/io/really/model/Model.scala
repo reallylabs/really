@@ -3,7 +3,7 @@
  */
 package io.really
 
-import javax.script.{ ScriptException, ScriptContext, Invocable }
+import javax.script.{ ScriptEngineManager, ScriptException, ScriptContext, Invocable }
 import _root_.io.really.js.JsTools
 import _root_.io.really.model.ModelExceptions.{ InvalidSubCollectionR, InvalidCollectionR }
 import play.api.libs.json._
