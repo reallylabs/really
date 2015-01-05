@@ -3,8 +3,6 @@
  */
 package io.really
 
-import org.joda.time.DateTime
-import scala.concurrent.duration._
 import scala.util.{ Success, Failure }
 import akka.actor._
 import play.api.libs.json._

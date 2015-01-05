@@ -14,7 +14,7 @@ import _root_.io.really.protocol.{ GetOpts }
 
 class RequestDelegateSpec extends BaseActorSpec {
 
-  override val globals = new TestReallyGlobals(config, system) {
+  override lazy val globals = new TestReallyGlobals(config, system) {
     override lazy val requestRouter = self
   }
 

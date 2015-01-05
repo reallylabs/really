@@ -14,23 +14,17 @@ import org.joda.time.DateTime
 import org.scalatest._
 
 abstract class BaseActorSpec(conf: ReallyConfig = TestConf.getConfig()) extends TestKit(TestActorSystem(
-  "TestActorSystem",
-  conf
+  "TestActorSystem", conf
 )) with ImplicitSender with FlatSpecLike with Matchers with BeforeAndAfterAll {
-
-  import BaseActorSpec._
 
   implicit val timeout = Timeout(5, TimeUnit.SECONDS)
   val duration = Duration(10, "seconds")
   implicit val executionContext = system.dispatcher
   implicit val config: ReallyConfig = conf
-  val globals = new TestReallyGlobals(config, system)
-  val ctx = RequestContext(
-    1,
-    UserInfo(AuthProvider.Anonymous, "234567890", None),
-    None, RequestMetadata(None, DateTime.now, "localhost",
-      RequestProtocol.WebSockets)
-  )
+  lazy val globals = new TestReallyGlobals(config, system)
+  val ctx = RequestContext(1, UserInfo(AuthProvider.Anonymous, "234567890", None),
+    RequestMetadata(None, DateTime.now, "localhost",
+      RequestProtocol.WebSockets))
 
   override def beforeAll() = {
     globals.boot()

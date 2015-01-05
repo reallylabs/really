@@ -38,6 +38,7 @@ import org.joda.time._
  * @param globals
  */
 class CollectionViewMaterializer(globals: ReallyGlobals) extends PersistentView with ActorLogging with Stash {
+
   import CollectionViewMaterializer._
   import MaterializerFailure._
 

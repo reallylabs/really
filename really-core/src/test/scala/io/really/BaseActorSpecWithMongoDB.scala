@@ -6,7 +6,8 @@ package io.really
 import com.github.simplyscala.{ MongodProps, MongoEmbedDatabase }
 import org.scalatest.BeforeAndAfterAll
 
-abstract class BaseActorSpecWithMongoDB extends BaseActorSpec with MongoEmbedDatabase with BeforeAndAfterAll {
+abstract class BaseActorSpecWithMongoDB(conf: ReallyConfig = TestConf.getConfig()) extends BaseActorSpec(conf)
+    with MongoEmbedDatabase with BeforeAndAfterAll {
   private var mongoProps: MongodProps = null
 
   override def beforeAll() = {

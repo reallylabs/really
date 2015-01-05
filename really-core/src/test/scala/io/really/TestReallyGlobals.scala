@@ -8,12 +8,18 @@ import java.util.concurrent.atomic.AtomicReference
 import akka.actor.{ ActorSystem, Props, ActorRef }
 import akka.contrib.pattern.{ DistributedPubSubExtension, ClusterSharding }
 import _root_.io.really.gorilla.{ SubscriptionManager, GorillaEventCenterSharding, GorillaEventCenter }
-import _root_.io.really.model.{ ReadHandler, CollectionSharding }
+import _root_.io.really.model.ReadHandler
+import _root_.io.really.fixture.{ PersistentModelStoreFixture, CollectionActorWithCleanJournal }
+import _root_.io.really.model.materializer.CollectionViewMaterializer
+import _root_.io.really.model.CollectionSharding
 import _root_.io.really.quickSand.QuickSand
 import _root_.io.really.model.persistent.{ ModelRegistry, RequestRouter }
-import _root_.io.really.fixture.{ PersistentModelStoreFixture, CollectionActorWithCleanJournal, MaterializerTest }
-import _root_.io.really.model.materializer.{ MaterializerSharding, CollectionViewMaterializer }
+import _root_.io.really.model.materializer.MaterializerSharding
 import akka.event.Logging
+import _root_.io.really.fixture._
+import _root_.io.really.gorilla.ObjectSubscriber
+import _root_.io.really.gorilla.RSubscription
+import _root_.io.really.gorilla._
 import play.api.libs.json.JsObject
 import reactivemongo.api.{ DefaultDB, MongoDriver }
 import scala.collection.JavaConversions._
@@ -52,7 +58,7 @@ class TestReallyGlobals(override val config: ReallyConfig, override val actorSys
   private val db = Database.forURL(config.EventLogStorage.databaseUrl, driver = config.EventLogStorage.driver)
   private val modelRegistryPersistentId = "model-registry-persistent-test"
 
-  def requestProps(ctx: RequestContext, replyTo: ActorRef, cmd: String, body: JsObject): Props =
+  override def requestProps(ctx: RequestContext, replyTo: ActorRef, cmd: String, body: JsObject): Props =
     Props(new RequestDelegate(this, ctx, replyTo, cmd, body))
 
   //todo this should be dynamically loaded from configuration
@@ -62,16 +68,24 @@ class TestReallyGlobals(override val config: ReallyConfig, override val actorSys
   override val readHandlerProps = Props(classOf[ReadHandler], this)
 
   implicit val session = db.createSession()
-  GorillaEventCenter.initializeDB()
 
-  override def gorillaEventCenterProps = Props(classOf[GorillaEventCenter], this, session)
+  override def gorillaEventCenterProps = Props(classOf[GorillaEventCenterFixture], this, session)
 
   override val collectionActorProps = Props(classOf[CollectionActorWithCleanJournal], this)
   override val subscriptionManagerProps = Props(classOf[SubscriptionManager], this)
   override val materializerProps = Props(classOf[CollectionViewMaterializer], this)
   override val persistentModelStoreProps = Props(classOf[PersistentModelStoreFixture], this, modelRegistryPersistentId)
 
+  override def objectSubscriberProps(rSubscription: RSubscription): Props =
+    Props(classOf[ObjectSubscriber], rSubscription, this)
+
+  def replayerProps(rSubscription: RSubscription, objectSubscriber: ActorRef, maxMarker: Option[Revision]): Props =
+    Props(classOf[Replayer], this, objectSubscriber, rSubscription, maxMarker)
+
   override def boot() = {
+    //Create h2 tables if it wasn't exist
+    GorillaEventCenter.initializeDB()
+
     implicit val ec = actorSystem.dispatcher
     val driver = new MongoDriver
     val connection = driver.connection(config.Mongodb.servers)

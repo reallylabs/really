@@ -9,7 +9,7 @@ import org.scalatest.{ Matchers, FlatSpec }
 class HelpersSpec extends FlatSpec with Matchers {
 
   implicit val config: ReallyConfig = TestConf.getConfig()
-  "Get BucketID from R" should "fail when r doesn't conatin ID" in {
+  "Get BucketID from R" should "fail when r doesn't contain ID" in {
 
     val r1 = R / "users"
     intercept[IllegalArgumentException] {

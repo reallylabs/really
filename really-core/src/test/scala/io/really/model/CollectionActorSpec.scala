@@ -27,7 +27,7 @@ import play.api.libs.json._
 
 class CollectionActorSpec extends BaseActorSpec with BeforeAndAfterEach {
 
-  override val globals = new CollectionTestReallyGlobals(config, system)
+  override lazy val globals = new CollectionTestReallyGlobals(config, system)
 
   case class UnsupportedCommand(r: R, cmd: String) extends RoutableToCollectionActor
 

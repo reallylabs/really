@@ -14,6 +14,7 @@ object IOBuild {
     libraryDependencies ++= Seq(
       Akka.actor,
       Akka.testKit,
+      Akka.sharedInMemJournal,
       playScalaTest,
       jwtScala,
       cache,

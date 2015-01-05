@@ -15,7 +15,7 @@ object BuildSettings {
       Resolver.sonatypeRepo("releases"),
       "Typesafe repository releases" at "http://repo.typesafe.com/typesafe/releases/",
       "krasserm at bintray" at "http://dl.bintray.com/krasserm/maven",
-      "Scalaz Bintray Repo"  at "http://dl.bintray.com/scalaz/releases"
+      "dnvriend at bintray" at "http://dl.bintray.com/dnvriend/maven"
     )
   ) ++ FormatSettings.settings
 }

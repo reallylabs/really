@@ -5,12 +5,13 @@ package io.really
 
 import com.typesafe.config.{ Config, ConfigFactory, ConfigException }
 import _root_.io.really.gorilla.EventLogStorageConfig
+import com.typesafe.config.{ Config, ConfigFactory }
+import _root_.io.really.gorilla.{ GorillaConfig, EventLogStorageConfig }
 import _root_.io.really.model.{ MongodbConfig, CollectionActorConfig, ShardingConfig }
 import java.nio.file._
 
-class ReallyConfig(config: Config) extends QuickSandConfig with ShardingConfig
-    with CollectionActorConfig with MongodbConfig with EventLogStorageConfig
-    with RequestDelegateConfig {
+class ReallyConfig(config: Config) extends QuickSandConfig with ShardingConfig with CollectionActorConfig
+    with MongodbConfig with EventLogStorageConfig with RequestDelegateConfig with GorillaConfig {
   protected val reference = ConfigFactory.defaultReference()
 
   private def newPath(file: String): Path = FileSystems.getDefault.getPath(file)
