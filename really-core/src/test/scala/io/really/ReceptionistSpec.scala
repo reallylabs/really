@@ -20,7 +20,7 @@ class ReceptionistSpec extends BaseActorSpec {
 
   val cmd = ""
 
-  override val globals = new TestReallyGlobals(config, system) {
+  override lazy val globals = new TestReallyGlobals(config, system) {
     override def requestProps(ctx: RequestContext, replyTo: ActorRef, cmd: String, body: JsObject): Props =
       TestActors.reportingActorProps(self)
   }

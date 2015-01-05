@@ -6,12 +6,25 @@ package io.really
 import _root_.io.really.model._
 import _root_.io.really.protocol.UpdateOp
 import _root_.io.really.model.CollectionActor.CollectionActorEvent
+import akka.actor.ActorRef
 import play.api.libs.json.{ Json, JsObject }
 
 package object gorilla {
 
   type SubscriptionID = String
   type PushEventType = String
+
+  case class RSubscription(ctx: RequestContext, r: R, fields: Option[Set[FieldKey]], rev: Revision,
+    requestDelegate: ActorRef, pushChannel: ActorRef)
+
+  case class RoomSubscription(ctx: RequestContext, r: R, requestDelegate: ActorRef,
+    pushChannel: ActorRef)
+
+  trait RoutableToGorillaCenter extends RoutableByR
+
+  case class NewSubscription(rSubscription: RSubscription) extends RoutableToGorillaCenter {
+    val r = rSubscription.r
+  }
 
   trait PersistentEvent {
     def event: CollectionActorEvent
@@ -36,13 +49,32 @@ package object gorilla {
 
   trait GorillaLogResponse
 
-  trait GorillaLogEntry
+  trait GorillaLogEntry {
+    def event: EventType
 
-  case class GorillaLogCreatedEntry(event: String, r: R, obj: JsObject, rev: Revision,
-    modelVersion: ModelVersion, userInfo: UserInfo) extends GorillaLogEntry
+    def r: R
 
-  case class GorillaLogUpdatedEntry(event: String, r: R, obj: JsObject, rev: Revision,
-    modelVersion: ModelVersion, userInfo: UserInfo, ops: List[UpdateOp]) extends GorillaLogEntry
+    def rev: Revision
+
+    def modelVersion: ModelVersion
+
+    def userInfo: UserInfo
+  }
+
+  case class GorillaLogCreatedEntry(r: R, obj: JsObject, rev: Revision,
+      modelVersion: ModelVersion, userInfo: UserInfo) extends GorillaLogEntry {
+    val event = "created"
+  }
+
+  case class GorillaLogUpdatedEntry(r: R, obj: JsObject, rev: Revision,
+    modelVersion: ModelVersion, userInfo: UserInfo, ops: List[UpdateOp])
+      extends GorillaLogEntry {
+    val event = "updated"
+  }
+
+  case class GorillaLogDeletedEntry(r: R, rev: Revision, modelVersion: ModelVersion, userInfo: UserInfo) extends GorillaLogEntry {
+    val event = "deleted"
+  }
 
   /*
   * Represent implicit JSON Format for GorillaLogUpdatedEntry
@@ -57,20 +89,15 @@ package object gorilla {
   object GorillaLogCreatedEntry {
     implicit val fmt = Json.format[GorillaLogCreatedEntry]
   }
-
-  case object EventStored extends GorillaLogResponse
-
-  trait GorillaLogError extends GorillaLogResponse
-
-  object GorillaLogError {
-
-    case object UnsupportedEvent extends GorillaLogError
-
-    case class UnexpectedError(reason: String) extends GorillaLogError
-
+  /*
+  * Represent implicit JSON Format for GorillaLogCreatedEntry
+  */
+  object GorillaLogDeletedEntry {
+    implicit val fmt = Json.format[GorillaLogDeletedEntry]
   }
 
-  case class RSubscription(ctx: RequestContext, cid: CID, r: R, fields: Set[FieldKey])
-  case class RoomSubscription(ctx: RequestContext, cid: CID, r: R)
+  implicit object GorillaLogEntryOrdering extends Ordering[GorillaLogEntry] {
+    def compare(a: GorillaLogEntry, b: GorillaLogEntry) = a.rev compare b.rev
+  }
 
 }

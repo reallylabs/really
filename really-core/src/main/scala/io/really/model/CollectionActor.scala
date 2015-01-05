@@ -254,6 +254,13 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor
       log.debug(s"$persistenceId Persistor received a GetExistenceState message for: $r")
       sender() ! bucket.get(r).map(_ => ObjectExists(r)).getOrElse(ObjectNotFound(r))
       stay
+    case Event(GetObject(r), _) =>
+      log.debug(s"$persistenceId Persistor received a GetState message for: $r")
+      bucket.get(r).map(obj =>
+        sender() ! State(obj.data)).getOrElse {
+        sender() ! ObjectNotFound(r)
+      }
+      stay
   }
 
   /**
@@ -333,7 +340,6 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor
         invalidReferences = invalid :+ expected(r)
       )
   }
-
   /**
    * This function is responsible for updating bucket from Collection Events
    * @param evt
@@ -671,20 +677,33 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor
 }
 
 object CollectionActor {
+
   sealed trait CollectionState
+
   case object Initialization extends CollectionState
+
   case object WithoutModel extends CollectionState
+
   case object WithModel extends CollectionState
+
   case object CreatingObject extends CollectionState
+
   case object WaitingReferencesValidation extends CollectionState
+
   case object WaitingParentValidation extends CollectionState
+
   case object UpdatingObject extends CollectionState
 
   sealed trait CollectionData
+
   case object Empty extends CollectionData
+
   case class ModelData(model: Model) extends CollectionData
+
   case class CreatingData(obj: JsObject, model: Model) extends CollectionData
+
   case class ValidationReferences(request: RoutableToCollectionActor, obj: JsObject, model: Model, expectedReferences: Map[R, FieldKey], invalidReferences: Seq[FieldKey], requester: ActorRef) extends CollectionData
+
   case class ValidationParent(request: Create, model: Model, parentR: R, requester: ActorRef) extends CollectionData
 
   case object Stop
@@ -692,6 +711,8 @@ object CollectionActor {
   case class GetExistenceState(r: R) extends InternalRequest
 
   case class State(obj: JsObject) extends Response
+
+  case class GetObject(r: R) extends InternalRequest
 
   trait ObjectResponse {
     def r: R
@@ -703,18 +724,21 @@ object CollectionActor {
 
   trait CollectionActorEvent {
     def r: R
-
+    def rev: Revision
     def context: RequestContext
   }
 
   object CollectionActorEvent {
 
-    case class Created(r: R, obj: JsObject, modelVersion: ModelVersion, context: RequestContext) extends CollectionActorEvent
+    case class Created(r: R, obj: JsObject, modelVersion: ModelVersion, context: RequestContext) extends CollectionActorEvent {
+      val rev = 1L
+    }
 
-    case class Updated(r: R, ops: List[UpdateOp], newRev: Revision, modelVersion: ModelVersion,
+    case class Updated(r: R, ops: List[UpdateOp], rev: Revision, modelVersion: ModelVersion,
       context: RequestContext) extends CollectionActorEvent
 
-    case class Deleted(r: R, newRev: Revision, modelVersion: ModelVersion, context: RequestContext) extends CollectionActorEvent
+    case class Deleted(r: R, rev: Revision, modelVersion: ModelVersion, context: RequestContext) extends CollectionActorEvent
+
   }
 
   trait ValidationResponse
@@ -728,4 +752,5 @@ object CollectionActor {
     case class ValidData(obj: JsObject) extends ValidationResponse
 
   }
+
 }

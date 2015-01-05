@@ -22,7 +22,7 @@ class RequestRouterSpec extends BaseActorSpec {
     Map("name" -> f1, "age" -> f2)
   }
 
-  override val globals = new RequestRouterGlobals(config, system)
+  override lazy val globals = new RequestRouterGlobals(config, system)
 
   val accountsR = R / "profiles"
   val accountsModel = Model(accountsR, collMeta, fields,
@@ -102,20 +102,19 @@ class RequestRouterSpec extends BaseActorSpec {
   }
 
   it should "forward message to subscription manager if command is Subscribe" in {
-    val req = Request.Subscribe(ctx, SubscriptionBody(List.empty))
+    val req = WrappedSubscriptionRequest.WrappedSubscribe(
+      Request.Subscribe(ctx, SubscriptionBody(List.empty)),
+      TestProbe().ref
+    )
     requestRouterRef ! req
     globals.subscriptionManagerTestProps.expectMsg(req)
   }
 
   it should "forward message to subscription manager if command is Unsubscribe" in {
-    val req = Request.Unsubscribe(ctx, UnsubscriptionBody(List.empty))
-    requestRouterRef ! req
-    globals.subscriptionManagerTestProps.expectMsg(req)
-  }
-
-  it should "forward message to subscription manager if command id GetSubscription" in {
-    val r = R / "boards" / 45
-    val req = Request.GetSubscription(ctx, r)
+    val req = WrappedSubscriptionRequest.WrappedUnsubscribe(
+      Request.Unsubscribe(ctx, UnsubscriptionBody(List.empty)),
+      TestProbe().ref
+    )
     requestRouterRef ! req
     globals.subscriptionManagerTestProps.expectMsg(req)
   }

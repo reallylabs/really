@@ -15,6 +15,7 @@ package object protocol {
    * Represents request options on get request
    */
   case class GetOpts(fields: Set[FieldKey] = Set.empty)
+
   /*
    * Represent implicit JSON Format for GetOpts
    */
@@ -35,6 +36,7 @@ package object protocol {
     includeTotalCount: Boolean = false,
     subscribe: Boolean = false
   )
+
   /*
    * Represent implicit JSON Format for ReadOpts
    */
@@ -62,6 +64,7 @@ package object protocol {
     case object RemoveAt extends UpdateCommand
 
     case object InsertAt extends UpdateCommand
+
   }
 
   /*
@@ -96,7 +99,7 @@ package object protocol {
   /*
    * Represents operation on update request
    */
-  case class UpdateOp(op: UpdateCommand, key: String, value: JsValue, opArgs: Option[JsObject] = None)
+  case class UpdateOp(op: UpdateCommand, key: FieldKey, value: JsValue, opArgs: Option[JsObject] = None)
 
   /*
    * Represent implicit JSON Format for UpdateOp
@@ -122,7 +125,7 @@ package object protocol {
   /*
    * Represents subscription operation for one object on subscribe request
    */
-  case class SubscriptionOp(r: R, rev: Int, fields: Set[String] = Set.empty) //TODO change fields type
+  case class SubscriptionOp(r: R, rev: Revision, fields: Set[FieldKey] = Set.empty)
 
   /*
    * Represent implicit JSON Format for SubscriptionOp
@@ -239,12 +242,13 @@ package object protocol {
       def writes(l: List[FieldSnapshot]): JsValue =
         Json.toJson(l.map(f => f.key -> Json.obj("value" -> f.value)).toMap)
     }
+
   }
 
   /*
    * Represent update operation that has processed on specific field
    */
-  case class FieldUpdatedOp(key: String, op: UpdateCommand, opValue: Option[JsValue], opBy: R)
+  case class FieldUpdatedOp(key: FieldKey, op: UpdateCommand, opValue: Option[JsValue])
 
   /*
   * Represent implicit JSON Format for FieldSnapshot
@@ -256,8 +260,8 @@ package object protocol {
       def writes(o: FieldUpdatedOp): JsValue =
         Json.obj(o.key -> Json.obj(
           "op" -> o.op,
-          "opValue" -> o.opValue,
-          "opBy" -> o.opBy
+          "opValue" -> o.opValue
+        //          "opBy" -> o.opBy
         ))
     }
 
@@ -267,9 +271,27 @@ package object protocol {
       def writes(l: List[FieldUpdatedOp]): JsValue =
         Json.toJson(l.map(o => o.key -> Json.obj(
           "op" -> o.op,
-          "opValue" -> o.opValue,
-          "opBy" -> o.opBy
+          "opValue" -> o.opValue
+        //          "opBy" -> o.opBy
         )).toMap)
+    }
+
+  }
+
+  case class SubscriptionFailure(r: R, errorCode: Int, message: String)
+
+  object SubscriptionFailure {
+
+    object SubscriptionFailureWrites extends Writes[SubscriptionFailure] {
+      def writes(sf: SubscriptionFailure): JsValue =
+        Json.obj(
+          "evt" -> "failed",
+          "r" -> sf.r,
+          "error" -> Json.obj(
+            "code" -> sf.errorCode,
+            "message" -> sf.message
+          )
+        )
     }
 
   }

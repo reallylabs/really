@@ -12,7 +12,6 @@ class PushMessageWritesSpec extends FlatSpec with Matchers {
   "Create writes" should "write created push message" in {
     val createdObj = Json.obj("name" -> "Salma", "age" -> 24, "_r" -> "/users/12123123133/", "_rev" -> 1)
     val msg = ProtocolFormats.PushMessageWrites.Created.toJson(
-      "subscriptionID",
       R("/users/"),
       createdObj
     )
@@ -20,18 +19,16 @@ class PushMessageWritesSpec extends FlatSpec with Matchers {
     assertResult(Json.obj(
       "r" -> "/users/*/",
       "evt" -> "created",
-      "meta" -> Json.obj("subscription" -> "subscriptionID"),
       "body" -> createdObj
     ))(msg)
   }
 
   "Delete writes" should "write deleted push message" in {
-    val msg = ProtocolFormats.PushMessageWrites.Deleted.toJson(R("/users/1213329889789/"), R("/friends/1231231232/"))
+    val msg = ProtocolFormats.PushMessageWrites.Deleted.toJson(R("/users/1213329889789/"))
 
     assertResult(Json.obj(
-      "r" -> R("/friends/1231231232/"),
-      "evt" -> "deleted",
-      "meta" -> Json.obj("deletedBy" -> R("/users/1213329889789/"))
+      "r" -> R("/users/1213329889789/"),
+      "evt" -> "deleted"
     ))(msg)
   }
 
@@ -40,7 +37,7 @@ class PushMessageWritesSpec extends FlatSpec with Matchers {
       R("/users/131232344/"),
       24,
       List(
-        FieldUpdatedOp("name", UpdateCommand.Set, Some(JsString("Ahmed")), R("/users/131232344/"))
+        FieldUpdatedOp("name", UpdateCommand.Set, Some(JsString("Ahmed")))
       )
     )
 
@@ -51,8 +48,7 @@ class PushMessageWritesSpec extends FlatSpec with Matchers {
       "body" -> Json.obj(
         "name" -> Json.obj(
           "op" -> "set",
-          "opValue" -> "Ahmed",
-          "opBy" -> R("/users/131232344/")
+          "opValue" -> "Ahmed"
         )
       )
     ))(msg)
