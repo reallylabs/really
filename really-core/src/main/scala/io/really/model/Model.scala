@@ -9,6 +9,7 @@ import _root_.io.really.model.ModelExceptions.{ InvalidSubCollectionR, InvalidCo
 import play.api.libs.json._
 import jdk.nashorn.api.scripting.NashornScriptEngineFactory
 import scala.util.control.NonFatal
+import scala.collection.JavaConverters._
 
 package object model {
   type ModelVersion = Long
@@ -107,6 +108,26 @@ package object model {
       jsEngine.asInstanceOf[Invocable].getInterface(classOf[OnGet])
     }
 
+    lazy val executePreUpdateValidator: Option[PreUpdate] = jsHooks.preUpdate.map { preUpdateCode =>
+      val validateEngine = factory.getScriptEngine(Array("-strict", "--no-java", "--no-syntax-extensions"))
+      JsTools.injectSDK(validateEngine.getContext.getBindings(ScriptContext.ENGINE_SCOPE))
+
+      val codeTemplate =
+        s"""
+        | function preUpdate(_before, _after, _fields) {
+        |   var before = JSON.parse(_before);
+        |   var after = JSON.parse(_after);
+        |   var fields = _fields;
+        |   _before = undefined;
+        |   _after = undefined;
+        |   ${preUpdateCode}
+        | }
+      """.stripMargin
+      validateEngine.eval(codeTemplate)
+      //return the Invocable
+      validateEngine.asInstanceOf[Invocable].getInterface(classOf[PreUpdate])
+    }
+
     def executeValidate(context: RequestContext, globals: ReallyGlobals, input: JsObject): ModelHookStatus = {
       executeValidator match {
         case Some(validator: Validator) =>
@@ -148,7 +169,22 @@ package object model {
 
     }
 
-    def executePreUpdate(context: RequestContext, globals: ReallyGlobals, prev: JsObject, after: JsObject, fieldsChanged: Set[FieldKey]): ModelHookStatus = ???
+    def executePreUpdate(context: RequestContext, globals: ReallyGlobals, before: JsObject, after: JsObject, fieldsChanged: List[FieldKey]): ModelHookStatus = {
+      executePreUpdateValidator match {
+        case Some(preUpdateValidator: PreUpdate) =>
+          try {
+            preUpdateValidator.preUpdate(before.toString, after.toString, fieldsChanged.toArray)
+            ModelHookStatus.Succeeded
+          } catch {
+            case te: ModelHookStatus.JSValidationError => te.terminated
+            case se: ScriptException =>
+              //TODO Log the error
+              println("PreUpdate Script Execution Error: " + se)
+              ModelHookStatus.Terminated(500, "PreUpdate script throws a runtime error")
+          }
+        case None => ModelHookStatus.Succeeded
+      }
+    }
 
     def executePreDelete(context: RequestContext, globals: ReallyGlobals, obj: JsObject): ModelHookStatus = ???
 

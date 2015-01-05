@@ -13,7 +13,6 @@ class ExecuteOnGetSpec extends BaseActorSpec {
   val context = RequestContext(
     tag = 1,
     auth = UserInfo(AuthProvider.Anonymous, "1234567", None),
-    pushChannel = None,
     meta = RequestMetadata(
       traceId = None,
       when = DateTime.now,

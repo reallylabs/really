@@ -84,7 +84,7 @@ class CollectionViewMaterializerSpec extends BaseActorSpecWithMongoDB {
     expectMsg(ModelResult.ModelObject(BaseActorSpec.authorModel, List.empty))
   }
 
-  override val globals = new TestReallyGlobals(config, system) {
+  override lazy val globals = new TestReallyGlobals(config, system) {
     val materializerProbe = TestProbe()
     override val materializerProps = Props(classOf[MaterializerTest], this, materializerProbe.ref)
   }

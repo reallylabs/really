@@ -5,7 +5,7 @@ package io.really.boot
 
 import java.util.concurrent.atomic.AtomicReference
 import akka.actor._
-import akka.contrib.pattern.{ DistributedPubSubExtension }
+import akka.contrib.pattern.DistributedPubSubExtension
 import _root_.io.really.gorilla._
 import _root_.io.really.model.materializer.{ MaterializerSharding, CollectionViewMaterializer }
 import akka.event.Logging
@@ -117,6 +117,12 @@ class DefaultReallyGlobals(override val config: ReallyConfig) extends ReallyGlob
 
     readHandler_.set(actorSystem.actorOf(readHandlerProps, "read-handler"))
   }
+
+  override def objectSubscriberProps(rSubscription: RSubscription): Props =
+    Props(classOf[ObjectSubscriber], rSubscription, this)
+
+  def replayerProps(rSubscription: RSubscription, objectSubscriber: ActorRef, maxMarker: Option[Revision]): Props =
+    Props(classOf[Replayer], this, objectSubscriber, rSubscription, maxMarker)
 
   override def shutdown(): Unit = {
     actorSystem.shutdown()

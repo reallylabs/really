@@ -20,7 +20,7 @@ object CoreBuild {
       Akka.testKit,
       Akka.contrib,
       Akka.slf4j,
-      leveldb,
+      Akka.sharedInMemJournal,
       logback,
       snakeyaml,
       json,

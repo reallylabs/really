@@ -14,7 +14,7 @@ class RequestReadsSpec extends FlatSpec with Matchers {
   val ctx = RequestContext(
     1,
     UserInfo(AuthProvider.Anonymous, "2345678", None),
-    None, RequestMetadata(None, DateTime.now, "localhost", RequestProtocol.WebSockets)
+    RequestMetadata(None, DateTime.now, "localhost", RequestProtocol.WebSockets)
   )
 
   "Subscribe Request reads" should "create subscribe request if you sent correct request" in {
@@ -135,29 +135,6 @@ class RequestReadsSpec extends FlatSpec with Matchers {
     )
 
     val result = req.validate(ProtocolFormats.RequestReads.Unsubscribe.read(ctx))
-
-    assert(result.isError == true)
-  }
-
-  "Get Subscription Request reads" should "create Get Subscription request if you sent correct request" in {
-    val req = Json.obj(
-      "tag" -> 1,
-      "cmd" -> "get-subscription",
-      "r" -> "/users/1123123/"
-    )
-
-    val result = req.validate(ProtocolFormats.RequestReads.GetSubscription.read(ctx))
-
-    assertResult(Request.GetSubscription(ctx, R("/users/1123123/")))(result.get)
-  }
-
-  it should "return JsError if you sent request without r" in {
-    val req = Json.obj(
-      "tag" -> 1,
-      "cmd" -> "get-subscription"
-    )
-
-    val result = req.validate(ProtocolFormats.RequestReads.GetSubscription.read(ctx))
 
     assert(result.isError == true)
   }

@@ -23,12 +23,13 @@ object Dependencies {
     private val version = "2.3.8"
 
     val agent = akkaBase %% "akka-agent" % version
-    val testKit = akkaBase %% "akka-testkit" % version
+    val testKit = akkaBase %% "akka-testkit" % version % "test"
     val actor = akkaBase %% "akka-actor" % version
     val cluster = akkaBase %% "akka-cluster" % version
     val contrib = akkaBase %% "akka-contrib" % version
     val slf4j = akkaBase %%  "akka-slf4j"	%	version
     val persistance = akkaBase %% "akka-persistence-experimental" % version
+    val sharedInMemJournal =  "com.github.dnvriend" %% "akka-persistence-inmemory" % "1.0.0"
     val multiNode = akkaBase %% "akka-multi-node-testkit" % version
   }
 

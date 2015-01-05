@@ -32,7 +32,6 @@ class ExecuteValidateSpec extends BaseActorSpec {
   val context = RequestContext(
     tag = 1,
     auth = UserInfo(AuthProvider.Anonymous, "1234567", None),
-    pushChannel = None,
     meta = RequestMetadata(
       traceId = None,
       when = DateTime.now,
@@ -76,6 +75,56 @@ class ExecuteValidateSpec extends BaseActorSpec {
     val jsHooks: JsHooks = JsHooks(onValidate = Some(validationScript), None, None, None, None, None, None)
     val userModel = new Model(r, collMeta, fields, jsHooks, migrationPlan, List.empty)
     userModel.executeValidate(context, globals, input) should be(Succeeded)
+
+  }
+
+  it should "pass if the preUpdate script ended without calling cancel()" in {
+
+    val preUpdateScript: JsScript =
+      """
+        |var before_str = "Name is: " + before.name + ", age : " + before.age;
+        |var after_str = "Name is: " + after.name + ", age : " + after.age;
+        |print(before_str)
+        |print(after_str)
+        |for(var i =0 ; i < fields.length ;i++){
+        |print("changed field is : "+fields[i]);
+        |}
+      """.stripMargin
+
+    val after: JsObject = Json.obj(
+      "name" -> JsString("Hatem"),
+      "age" -> JsNumber(30),
+      "address" -> Json.obj("streetName" -> JsString("N"), "block" -> JsNumber(300))
+    )
+
+    val fieldsChanged = fields.map(f => f._1).toList
+    val jsHooks: JsHooks = JsHooks(None, None, preUpdate = Some(preUpdateScript), None, None, None, None)
+    val userModel = new Model(r, collMeta, fields, jsHooks, migrationPlan, List.empty)
+    userModel.executeValidate(context, globals, input) should be(Succeeded)
+    userModel.executePreUpdate(context, globals, input, after, fieldsChanged) should be(Succeeded)
+
+  }
+
+  it should "return Terminated object if preUpdate cancel() was called" in {
+
+    val preUpdateScript: JsScript =
+      """
+        |print(after.age)
+        |if(after.age > 30){
+        | cancel(401   , "too Old")
+        |}
+      """.stripMargin
+
+    val after: JsObject = Json.obj(
+      "name" -> JsString("Hatem"),
+      "age" -> JsNumber(50)
+    )
+
+    val fieldsChanged = fields.map(f => f._1).toList
+    val jsHooks: JsHooks = JsHooks(None, None, preUpdate = Some(preUpdateScript), None, None, None, None)
+    val userModel = new Model(r, collMeta, fields, jsHooks, migrationPlan, List.empty)
+    userModel.executeValidate(context, globals, input) should be(Succeeded)
+    userModel.executePreUpdate(context, globals, input, after, fieldsChanged) should be(Terminated(401, "too Old"))
 
   }
 
