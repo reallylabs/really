@@ -26,8 +26,9 @@ package object gorilla {
     val r = rSubscription.r
   }
 
-  trait PersistentEvent {
+  trait PersistentEvent extends RoutableToGorillaCenter {
     def event: CollectionActorEvent
+    val r = event.r
   }
 
   case class PersistentCreatedEvent(event: CollectionActorEvent.Created) extends PersistentEvent

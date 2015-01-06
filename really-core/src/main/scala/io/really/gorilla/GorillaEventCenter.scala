@@ -41,6 +41,7 @@ class GorillaEventCenter(globals: ReallyGlobals)(implicit session: Session) exte
     case ModelUpdatedEvent(_, model) =>
       removeOldModelEvents(model)
     //todo notify the replayers with model updates
+
   }
 
   def handleSubscriptions: Receive = {
@@ -63,8 +64,12 @@ class GorillaEventCenter(globals: ReallyGlobals)(implicit session: Session) exte
         markers += (event.r, 1l)
         events += EventLog("created", event.r, 1l, event.modelVersion, event.obj,
           event.context.auth, None)
-      case PersistentUpdatedEvent(event, obj) if markers.filter(_.r === event.r).exists.run =>
-        markers.filter(_.r === event.r).update((event.r, event.rev))
+      case PersistentUpdatedEvent(event, obj) =>
+        val markerQuery = markers.filter(_.r === event.r)
+        markerQuery.firstOption match {
+          case Some(_) => markerQuery.update((event.r, event.rev))
+          case None => markers += (event.r, event.rev)
+        }
         events += EventLog("updated", event.r, event.rev, event.modelVersion, obj,
           event.context.auth, Some(event.ops))
       case event =>
