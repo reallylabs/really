@@ -393,8 +393,7 @@ class ReplayerSpec(config: ReallyConfig) extends BaseActorSpecWithMongoDB(config
     probe.expectTerminated(replayer)
   }
 
-  //  ignore "Replayer with no max marker" should "get logs if matches the rev first then switch to serve push updates" in {
-  ignore should "get logs if matches the rev first then switch to serve push updates" in {
+  it should "get logs if matches the rev first then switch to serve push updates" in {
     val objectSubActor = TestProbe()
     val requestDelegate = TestProbe().ref
     val pushChannel = TestProbe().ref
@@ -428,7 +427,6 @@ class ReplayerSpec(config: ReallyConfig) extends BaseActorSpecWithMongoDB(config
     val fullObj4 = Json.obj("_r" -> r.toString, "_rev" -> 4L, "name" -> "hamada", "age" -> 20)
     globals.mediator ! Publish(r.toString, PersistentUpdatedEvent(updatedEvent4, fullObj4))
 
-    objectSubActor.expectMsg(GorillaLogCreatedEntry(r, fullObj1, 1L, 1L, createdEvent.context.auth))
     objectSubActor.expectMsg(GorillaLogUpdatedEntry(r, fullObj2, 2L, 1L, updatedEvent2.context.auth, ops2))
     objectSubActor.expectMsg(GorillaLogUpdatedEntry(r, fullObj3, 3L, 1L, updatedEvent3.context.auth, ops3))
     objectSubActor.expectMsg(GorillaLogUpdatedEntry(r, fullObj4, 4L, 1L, updatedEvent4.context.auth, ops4))
