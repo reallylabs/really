@@ -310,9 +310,8 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor
       unstashAll()
       goto(WithModel) using ModelData(model)
 
-    case Event(ObjectExists(r), data @ ValidationReferences(request: Update, after, model, expectedReferences, Nil, requester)) if expectedReferences.size == 1 =>
-      //ToDo :  UpdateAndReplay Method need two jsObject (before , after)
-      updateAndReply(request, after, after, model, requester)
+    case Event(ObjectExists(r), data @ UpdateValidationReferences(request: Update, before, after, model, expectedReferences, Nil, requester)) if expectedReferences.size == 1 =>
+      updateAndReply(request, before, after, model, requester)
       unstashAll()
       goto(WithModel) using ModelData(model)
 
@@ -593,7 +592,9 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor
                 updateAndReply(updateRequest, modelObj.data, jsObj, model, requester)
                 stay
               } else {
-                goto(WaitingReferencesValidation) using ValidationReferences(updateRequest, jsObj, model, expectedReferences, Seq.empty, requester)
+                goto(WaitingReferencesValidation) using UpdateValidationReferences(
+                  updateRequest, modelObj.data, jsObj, model, expectedReferences, Seq.empty, requester
+                )
               }
             }
 
@@ -710,6 +711,8 @@ object CollectionActor {
   case class CreatingData(obj: JsObject, model: Model) extends CollectionData
 
   case class ValidationReferences(request: RoutableToCollectionActor, obj: JsObject, model: Model, expectedReferences: Map[R, FieldKey], invalidReferences: Seq[FieldKey], requester: ActorRef) extends CollectionData
+
+  case class UpdateValidationReferences(request: RoutableToCollectionActor, before: JsObject, after: JsObject, model: Model, expectedReferences: Map[R, FieldKey], invalidReferences: Seq[FieldKey], requester: ActorRef) extends CollectionData
 
   case class ValidationParent(request: Create, model: Model, parentR: R, requester: ActorRef) extends CollectionData
 

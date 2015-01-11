@@ -137,8 +137,7 @@ package object model {
           } catch {
             case te: ModelHookStatus.JSValidationError => te.terminated
             case se: ScriptException =>
-              //TODO Log the error
-              println("Validation Script Execution Error: " + se)
+              globals.logger.error("Validation Script Execution Error: " + se)
               ModelHookStatus.Terminated(500, "Validation script throws a runtime error")
           }
         case None => ModelHookStatus.Succeeded
@@ -178,8 +177,7 @@ package object model {
           } catch {
             case te: ModelHookStatus.JSValidationError => te.terminated
             case se: ScriptException =>
-              //TODO Log the error
-              println("PreUpdate Script Execution Error: " + se)
+              globals.logger.error("PreUpdate Script Execution Error: " + se)
               ModelHookStatus.Terminated(500, "PreUpdate script throws a runtime error")
           }
         case None => ModelHookStatus.Succeeded
