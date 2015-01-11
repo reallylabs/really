@@ -35,7 +35,7 @@ class ObjectSubscriber(rSubscription: RSubscription, globals: ReallyGlobals) ext
   val r = rSubscription.r
   private[gorilla] val logTag = s"ObjectSubscriber ${rSubscription.pushChannel.path}$$$r"
 
-  private[gorilla] var fields = rSubscription.fields.getOrElse(Set.empty)
+  private[gorilla] var fields = rSubscription.fields
 
   val shotgun = context.system.scheduler.scheduleOnce(globals.config.GorillaConfig.waitForReplayer, self, PoisonPill)
 

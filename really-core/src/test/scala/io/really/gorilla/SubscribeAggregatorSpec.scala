@@ -8,7 +8,7 @@ import akka.actor.Props
 import akka.testkit.{ EventFilter, TestProbe, TestActorRef }
 import com.typesafe.config.ConfigFactory
 import io.really._
-import _root_.io.really.WrappedSubscriptionRequest.WrappedSubscribe
+import _root_.io.really.ObjectSubscriptionRequest.SubscribeOnObject
 import _root_.io.really.Request.Subscribe
 import _root_.io.really.gorilla.SubscribeAggregator.{ Subscribed, UnsupportedResponse }
 import _root_.io.really.gorilla.SubscriptionManager.{ SubscriptionDone, SubscribeOnR }
@@ -34,32 +34,12 @@ class SubscribeAggregatorSpec(config: ReallyConfig) extends BaseActorSpec(config
     val manager = TestActorRef[WorkingSubscriptionManagerMock](Props(new WorkingSubscriptionManagerMock(globals)))
     val pushChannel = TestProbe()
     val delegate = TestProbe()
-    val aggregator = TestActorRef[SubscribeAggregator](Props(new SubscribeAggregator(manager, globals)))
-    probe.watch(aggregator)
     val body = SubscriptionBody(List(SubscriptionOp(r1, 1)))
-    aggregator.tell(WrappedSubscribe(Subscribe(ctx, body), pushChannel.ref), delegate.ref)
-    delegate.expectMsg(Subscribed(Set(r1)))
-    aggregator.tell(WrappedSubscribe(Subscribe(ctx, body), pushChannel.ref), delegate.ref)
-    delegate.expectNoMsg()
-    probe.expectTerminated(aggregator)
-  }
-
-  it should "respond with UnsupportedResponse for unknown messages only once, log the error then dies" in {
-    val probe = TestProbe()
-    val manager = TestActorRef[WorkingSubscriptionManagerMock](Props(new WorkingSubscriptionManagerMock(globals)))
-    val delegate = TestProbe()
-    val aggregator = TestActorRef[SubscribeAggregator](Props(new SubscribeAggregator(manager, globals)))
+    val rSub = SubscribeOnObject(Subscribe(ctx, body), pushChannel.ref)
+    val aggregator = TestActorRef[SubscribeAggregator](Props(new SubscribeAggregator(rSub, delegate.ref, manager,
+      globals)))
     probe.watch(aggregator)
-    val msg = "Something Unsupported"
-    EventFilter.error(
-      message = s"Subscribe Aggregator got an unexpected response: $msg and going to die",
-      occurrences = 1
-    ) intercept {
-      aggregator.tell(msg, delegate.ref)
-    }
-    aggregator.tell(msg, delegate.ref)
-    delegate.expectMsg(UnsupportedResponse)
-    delegate.expectNoMsg()
+    delegate.expectMsg(Subscribed(Set(r1)))
     probe.expectTerminated(aggregator)
   }
 
@@ -67,10 +47,11 @@ class SubscribeAggregatorSpec(config: ReallyConfig) extends BaseActorSpec(config
     val manager = TestActorRef[WorkingSubscriptionManagerMock](Props(new HalfWorkingSubscriptionManagerMock(globals)))
     val pushChannel = TestProbe()
     val delegate = TestProbe()
-    val aggregator = TestActorRef[SubscribeAggregator](Props(new SubscribeAggregator(manager, globals)))
     val body = SubscriptionBody(List(SubscriptionOp(r1, 1), SubscriptionOp(r2, 1), SubscriptionOp(r3, 1),
       SubscriptionOp(r4, 1), SubscriptionOp(r5, 1)))
-    aggregator.tell(WrappedSubscribe(Subscribe(ctx, body), pushChannel.ref), delegate.ref)
+    val rSub = SubscribeOnObject(Subscribe(ctx, body), pushChannel.ref)
+    TestActorRef[SubscribeAggregator](Props(new SubscribeAggregator(rSub, delegate.ref, manager,
+      globals)))
     delegate.expectMsg(Subscribed(Set(r2, r4)))
   }
 
@@ -78,10 +59,10 @@ class SubscribeAggregatorSpec(config: ReallyConfig) extends BaseActorSpec(config
     val manager = TestActorRef[WorkingSubscriptionManagerMock](Props(new DisabledSubscriptionManagerMock(globals)))
     val pushChannel = TestProbe()
     val delegate = TestProbe()
-    val aggregator = TestActorRef[SubscribeAggregator](Props(new SubscribeAggregator(manager, globals)))
     val body = SubscriptionBody(List(SubscriptionOp(r1, 1), SubscriptionOp(r2, 1), SubscriptionOp(r3, 1),
       SubscriptionOp(r4, 1), SubscriptionOp(r5, 1)))
-    aggregator.tell(WrappedSubscribe(Subscribe(ctx, body), pushChannel.ref), delegate.ref)
+    val rSub = SubscribeOnObject(Subscribe(ctx, body), pushChannel.ref)
+    TestActorRef[SubscribeAggregator](Props(new SubscribeAggregator(rSub, delegate.ref, manager, globals)))
     delegate.expectMsg(Subscribed(Set.empty))
   }
 
@@ -89,23 +70,17 @@ class SubscribeAggregatorSpec(config: ReallyConfig) extends BaseActorSpec(config
     val manager = TestActorRef[WorkingSubscriptionManagerMock](Props(new UnresponsiveSubscriptionManagerMock(globals)))
     val pushChannel = TestProbe()
     val delegate = TestProbe()
-    val aggregator = TestActorRef[SubscribeAggregator](Props(new SubscribeAggregator(manager, globals)))
     val body = SubscriptionBody(List(SubscriptionOp(r1, 1), SubscriptionOp(r2, 1), SubscriptionOp(r3, 1),
       SubscriptionOp(r4, 1), SubscriptionOp(r5, 1)))
-    aggregator.tell(WrappedSubscribe(Subscribe(ctx, body), pushChannel.ref), delegate.ref)
+    val rSub = SubscribeOnObject(Subscribe(ctx, body), pushChannel.ref)
+    EventFilter.warning(
+      message = s"Subscribe Aggregator timed out while waiting the subscriptions to be fulfilled for requester:" +
+      s" ${delegate.ref}",
+      occurrences = 1
+    ).intercept {
+      TestActorRef[SubscribeAggregator](Props(new SubscribeAggregator(rSub, delegate.ref, manager, globals)))
+    }
     delegate.expectMsg(Subscribed(Set.empty))
-
-    //TODO
-    //    val warningFilter: EventFilter = EventFilter.warning(
-    //      message = s"Subscribe Aggregator timed out while waiting the subscriptions to be fulfilled" +
-    //      s" for requester: $delegate",
-    //      occurrences = 1
-    //    )
-    //    warningFilter.awaitDone(1.minute)
-    //    warningFilter.intercept {
-    //      aggregator.tell(WrappedSubscribe(Subscribe(ctx, body), pushChannel.ref), delegate.ref)
-    //    }
-
   }
 
 }
@@ -114,7 +89,7 @@ class WorkingSubscriptionManagerMock(globals: ReallyGlobals) extends Subscriptio
 
   override def receive = {
     case SubscribeOnR(subData) =>
-      sender() ! SubscriptionDone
+      sender() ! SubscriptionDone(subData.r)
   }
 
 }
@@ -127,7 +102,7 @@ class HalfWorkingSubscriptionManagerMock(globals: ReallyGlobals) extends Subscri
     case SubscribeOnR(subData) =>
       counter += 1
       if (counter % 2 == 0)
-        sender() ! SubscriptionDone
+        sender() ! SubscriptionDone(subData.r)
       else
         sender() ! SubscriptionFailure(subData.r, 500, "Mocked Failure")
   }

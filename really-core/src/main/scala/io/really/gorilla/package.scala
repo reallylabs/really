@@ -14,7 +14,7 @@ package object gorilla {
   type SubscriptionID = String
   type PushEventType = String
 
-  case class RSubscription(ctx: RequestContext, r: R, fields: Option[Set[FieldKey]], rev: Revision,
+  case class RSubscription(ctx: RequestContext, r: R, fields: Set[FieldKey], rev: Revision,
     requestDelegate: ActorRef, pushChannel: ActorRef)
 
   case class RoomSubscription(ctx: RequestContext, r: R, requestDelegate: ActorRef,
@@ -22,7 +22,7 @@ package object gorilla {
 
   trait RoutableToGorillaCenter extends RoutableByR
 
-  case class NewSubscription(rSubscription: RSubscription) extends RoutableToGorillaCenter {
+  case class NewSubscription(replyTo: ActorRef, rSubscription: RSubscription) extends RoutableToGorillaCenter {
     val r = rSubscription.r
   }
 
