@@ -197,7 +197,7 @@ class ObjectSubscriberSpec(config: ReallyConfig) extends BaseActorSpecWithMongoD
     objectSubscriberActor.tell(GetFieldList, testProbe.ref)
     testProbe.expectMsg(Set("name"))
     objectSubscriberActor ! GorillaLogDeletedEntry(r, rev, 1l, userInfo)
-    pushChannel.expectMsg(Deleted.toJson(r))
+    pushChannel.expectMsg(Deleted.toJson(r, userInfo))
     deathProbe.watch(objectSubscriberActor)
     deathProbe.expectTerminated(objectSubscriberActor)
   }
@@ -249,7 +249,7 @@ class ObjectSubscriberSpec(config: ReallyConfig) extends BaseActorSpecWithMongoD
     val friendObject = Json.obj("_r" -> r, "_rev" -> 1L, "fName" -> "Ahmed", "age" -> 23, "lName" -> "Refaey")
     val createdEvent = GorillaLogCreatedEntry(r, friendObject, 1L, 23L, ctx.auth)
     objectSubscriber ! GorillaLogUpdatedEntry(rSub.r, Json.obj(), 1L, 23L, ctx.auth, List.empty)
-    pushChannel.expectMsg(Updated.toJson(r, 1L, List.empty))
+    pushChannel.expectMsg(Updated.toJson(r, 1L, List.empty, ctx.auth))
     objectSubscriber.tell(GetFieldList, testProbe.ref)
     testProbe.expectMsg(Set("fName", "lName", "age"))
   }
@@ -271,7 +271,7 @@ class ObjectSubscriberSpec(config: ReallyConfig) extends BaseActorSpecWithMongoD
       UpdateOp(UpdateCommand.Set, "lName", JsString("Refaey"))
     )
     objectSubscriber ! GorillaLogUpdatedEntry(friendSub.r, Json.obj(), 1L, 23L, ctx.auth, updates)
-    pushChannel.expectMsg(Updated.toJson(r, 1L, List(FieldUpdatedOp("fName", UpdateCommand.Set, Some(JsString("Ahmed"))))))
+    pushChannel.expectMsg(Updated.toJson(r, 1L, List(FieldUpdatedOp("fName", UpdateCommand.Set, Some(JsString("Ahmed")))), ctx.auth))
   }
 
   ignore should "pass nothing if the model.executeOnGet evaluated to Terminated" in {
@@ -346,7 +346,7 @@ class ObjectSubscriberSpec(config: ReallyConfig) extends BaseActorSpecWithMongoD
     pushChannel.expectMsg(Updated.toJson(r, 1L, List(
       FieldUpdatedOp("fName", UpdateCommand.Set, Some(JsString("Ahmed"))),
       FieldUpdatedOp("age", UpdateCommand.Set, Some(JsNumber(23)))
-    )))
+    ), ctx.auth))
     objectSubscriberActor.tell(GetFieldList, testProbe.ref)
     testProbe.expectMsg(Set("fName", "lName", "age"))
     val friendOnGetJs: JsScript =
@@ -372,7 +372,7 @@ class ObjectSubscriberSpec(config: ReallyConfig) extends BaseActorSpecWithMongoD
     pushChannel.expectMsg(Updated.toJson(r, 1L, List(
       FieldUpdatedOp("age", UpdateCommand.Set, Some(JsNumber(29))),
       FieldUpdatedOp("lName", UpdateCommand.Set, Some(JsString("Anderson")))
-    )))
+    ), ctx.auth))
     objectSubscriberActor.tell(GetFieldList, testProbe.ref)
     testProbe.expectMsg(Set("fName", "lName", "age"))
   }
