@@ -146,11 +146,12 @@ package io {
 
     }
 
-    object WrappedSubscriptionRequest {
+    //TODO rename the object
+    object ObjectSubscriptionRequest {
 
-      case class WrappedSubscribe(subscribeObject: Request.Subscribe, pushChannel: ActorRef) extends RoutableToSubscriptionManager
+      case class SubscribeOnObject(subscribeObject: Request.Subscribe, pushChannel: ActorRef) extends RoutableToSubscriptionManager
 
-      case class WrappedUnsubscribe(unsubscribeObject: Request.Unsubscribe, pushChannel: ActorRef) extends RoutableToSubscriptionManager
+      case class UnsubscribeFromObject(unsubscribeObject: Request.Unsubscribe, pushChannel: ActorRef) extends RoutableToSubscriptionManager
 
     }
 

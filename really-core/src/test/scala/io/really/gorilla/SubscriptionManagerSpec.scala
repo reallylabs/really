@@ -32,7 +32,7 @@ class SubscriptionManagerSpec extends BaseActorSpecWithMongoDB {
   val pushChannel = TestProbe()
   val rev: Revision = 1L
   val r: R = R / 'users / 1
-  val rSub = RSubscription(ctx, r, Some(Set("name")), rev, requestDelegate.ref, pushChannel.ref)
+  val rSub = RSubscription(ctx, r, Set("name"), rev, requestDelegate.ref, pushChannel.ref)
 
   val models: List[Model] = List(BaseActorSpec.userModel, BaseActorSpec.carModel,
     BaseActorSpec.companyModel, BaseActorSpec.authorModel, BaseActorSpec.postModel)
@@ -54,7 +54,7 @@ class SubscriptionManagerSpec extends BaseActorSpecWithMongoDB {
       val subs = subscriptionManger.underlyingActor.rSubscriptions
       subs.isEmpty shouldBe true
       subscriptionManger.tell(SubscriptionManager.SubscribeOnR(rSub), caller.ref)
-      caller.expectMsg(SubscriptionManager.SubscriptionDone)
+      caller.expectMsg(SubscriptionManager.SubscriptionDone(rSub.r))
       subs.size shouldBe 1
       val expectedRSub = subs.get(rSub.pushChannel.path).get
       expectedRSub.r shouldEqual rSub.r
@@ -68,7 +68,7 @@ class SubscriptionManagerSpec extends BaseActorSpecWithMongoDB {
     val subs = subscriptionManger.underlyingActor.rSubscriptions
     subs.isEmpty shouldBe true
     subscriptionManger.tell(SubscriptionManager.SubscribeOnR(rSub), caller.ref)
-    caller.expectMsg(SubscriptionManager.SubscriptionDone)
+    caller.expectMsg(SubscriptionManager.SubscriptionDone(rSub.r))
     val rCount = subs.size
     rCount shouldEqual 1
     subscriptionManger.tell(SubscriptionManager.SubscribeOnR(rSub), caller.ref)
@@ -80,7 +80,7 @@ class SubscriptionManagerSpec extends BaseActorSpecWithMongoDB {
     val subs = subscriptionManger.underlyingActor.rSubscriptions
     subs.isEmpty shouldBe true
     subscriptionManger.tell(SubscriptionManager.SubscribeOnR(rSub), caller.ref)
-    caller.expectMsg(SubscriptionManager.SubscriptionDone)
+    caller.expectMsg(SubscriptionManager.SubscriptionDone(rSub.r))
     subscriptionManger.underlyingActor.rSubscriptions.isEmpty shouldBe false
     subscriptionManger.underlyingActor.rSubscriptions.size shouldBe 1
     val subscriptionActor = subscriptionManger.underlyingActor.rSubscriptions.toList(0)._2.objectSubscriber
@@ -91,13 +91,13 @@ class SubscriptionManagerSpec extends BaseActorSpecWithMongoDB {
   }
 
   it should "handle Update subscription fields" in {
-    val rSub1 = RSubscription(ctx, r, Some(Set("name")), rev, requestDelegate.ref, pushChannel.ref)
-    val rSub2 = RSubscription(ctx, r, Some(Set("age", "name")), rev, requestDelegate.ref, pushChannel.ref)
+    val rSub1 = RSubscription(ctx, r, Set("name"), rev, requestDelegate.ref, pushChannel.ref)
+    val rSub2 = RSubscription(ctx, r, Set("age", "name"), rev, requestDelegate.ref, pushChannel.ref)
     val subscriptionManger = TestActorRef[SubscriptionManager](globals.subscriptionManagerProps)
     val subs = subscriptionManger.underlyingActor.rSubscriptions
     subs.isEmpty shouldBe true
     subscriptionManger.tell(SubscriptionManager.SubscribeOnR(rSub1), caller.ref)
-    caller.expectMsg(SubscriptionManager.SubscriptionDone)
+    caller.expectMsg(SubscriptionManager.SubscriptionDone(rSub.r))
     subscriptionManger.tell(SubscriptionManager.SubscribeOnR(rSub2), caller.ref)
     subs.size.shouldEqual(1)
     val expectedRSub = subs.get(rSub1.pushChannel.path).get

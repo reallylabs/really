@@ -45,7 +45,7 @@ class GorillaEventCenter(globals: ReallyGlobals)(implicit session: Session) exte
   }
 
   def handleSubscriptions: Receive = {
-    case NewSubscription(rSub) =>
+    case NewSubscription(replyTo, rSub) =>
       val objectSubscriber = context.actorOf(globals.objectSubscriberProps(rSub))
       val replayer = markers.filter(_.r === rSub.r).firstOption match {
         case Some((_, rev)) =>
@@ -55,7 +55,7 @@ class GorillaEventCenter(globals: ReallyGlobals)(implicit session: Session) exte
       }
       globals.mediator ! Subscribe(rSub.r.toString, replayer)
       objectSubscriber ! ReplayerSubscribed(replayer)
-      sender() ! ObjectSubscribed(objectSubscriber)
+      sender() ! ObjectSubscribed(rSub, replyTo, objectSubscriber)
   }
 
   private def persistEvent(persistentEvent: PersistentEvent): Unit =

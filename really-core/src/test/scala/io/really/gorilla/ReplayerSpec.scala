@@ -84,7 +84,7 @@ class ReplayerSpec(config: ReallyConfig) extends BaseActorSpecWithMongoDB(config
     val pushChannel = TestProbe().ref
     val rev = 23
     val r: R = R / 'users / 123
-    val rSub = RSubscription(ctx, r, None, rev, requestDelegate, pushChannel)
+    val rSub = RSubscription(ctx, r, Set.empty, rev, requestDelegate, pushChannel)
     val replayer = TestActorRef[Replayer](Props(new Replayer(globals, objectSubActor.ref, rSub, Some(rev))))
     replayer.underlyingActor.r should be(r)
     replayer.underlyingActor.min should be(rev)
@@ -114,7 +114,7 @@ class ReplayerSpec(config: ReallyConfig) extends BaseActorSpecWithMongoDB(config
     val pushChannel = TestProbe().ref
     val rev: Revision = 2L
     val r: R = R / 'users / 124
-    val rSub = RSubscription(ctx, r, None, rev, requestDelegate, pushChannel)
+    val rSub = RSubscription(ctx, r, Set.empty, rev, requestDelegate, pushChannel)
     val probe = TestProbe()
     val obj = Json.obj("name" -> "Sara", "age" -> 20)
     val createdEvent = Created(r, obj, 1l, ctx)
@@ -163,7 +163,7 @@ class ReplayerSpec(config: ReallyConfig) extends BaseActorSpecWithMongoDB(config
       val pushChannel = TestProbe().ref
       val rev: Revision = 3L
       val r: R = R / 'users / 125
-      val rSub = RSubscription(ctx, r, None, rev, requestDelegate, pushChannel)
+      val rSub = RSubscription(ctx, r, Set.empty, rev, requestDelegate, pushChannel)
       val probe = TestProbe()
       val obj = Json.obj("name" -> "Sara", "age" -> 20)
       val createdEvent = Created(r, obj, 1l, ctx)
@@ -206,7 +206,7 @@ class ReplayerSpec(config: ReallyConfig) extends BaseActorSpecWithMongoDB(config
       val pushChannel = TestProbe().ref
       val rev: Revision = 33L
       val r: R = R / 'users / 126
-      val rSub = RSubscription(ctx, r, None, rev, requestDelegate, pushChannel)
+      val rSub = RSubscription(ctx, r, Set.empty, rev, requestDelegate, pushChannel)
       val probe = TestProbe()
       val obj = Json.obj("name" -> "Sara", "age" -> 20)
       val createdEvent = Created(r, obj, 1l, ctx)
@@ -247,7 +247,7 @@ class ReplayerSpec(config: ReallyConfig) extends BaseActorSpecWithMongoDB(config
       val pushChannel = TestProbe().ref
       val rev: Revision = 10L
       val r: R = R / 'users / 127
-      val rSub = RSubscription(ctx, r, None, rev, requestDelegate, pushChannel)
+      val rSub = RSubscription(ctx, r, Set.empty, rev, requestDelegate, pushChannel)
       val probe = TestProbe()
 
       val replayer = TestActorRef[Replayer](Props(new Replayer(globals, objectSubActor.ref, rSub, Some(5))))
@@ -269,7 +269,7 @@ class ReplayerSpec(config: ReallyConfig) extends BaseActorSpecWithMongoDB(config
     val pushChannel = TestProbe().ref
     val rev: Revision = 2L
     val r: R = R / 'users / 128
-    val rSub = RSubscription(ctx, r, None, rev, requestDelegate, pushChannel)
+    val rSub = RSubscription(ctx, r, Set.empty, rev, requestDelegate, pushChannel)
     val probe = TestProbe()
 
     globals.collectionActor.tell(Create(ctx, r, Json.obj("name" -> "amal elshihaby", "age" -> 27)), probe.ref)
@@ -323,7 +323,7 @@ class ReplayerSpec(config: ReallyConfig) extends BaseActorSpecWithMongoDB(config
       val pushChannel = TestProbe().ref
       val rev: Revision = 2L
       val r: R = R / 'users / 129
-      val rSub = RSubscription(ctx, r, None, rev, requestDelegate, pushChannel)
+      val rSub = RSubscription(ctx, r, Set.empty, rev, requestDelegate, pushChannel)
       val probe = TestProbe()
 
       globals.collectionActor.tell(Create(ctx, r, Json.obj("name" -> "amal elshihaby", "age" -> 27)), probe.ref)
@@ -382,7 +382,7 @@ class ReplayerSpec(config: ReallyConfig) extends BaseActorSpecWithMongoDB(config
     val pushChannel = TestProbe().ref
     val rev: Revision = 2L
     val r: R = R / 'users / 130
-    val rSub = RSubscription(ctx, r, None, rev, requestDelegate, pushChannel)
+    val rSub = RSubscription(ctx, r, Set.empty, rev, requestDelegate, pushChannel)
     val probe = TestProbe()
 
     val replayer = TestActorRef[Replayer](Props(new Replayer(globals, objectSubActor.ref, rSub, Some(5L))))
@@ -399,7 +399,7 @@ class ReplayerSpec(config: ReallyConfig) extends BaseActorSpecWithMongoDB(config
     val pushChannel = TestProbe().ref
     val rev: Revision = 1L
     val r: R = R / 'users / 131
-    val rSub = RSubscription(ctx, r, None, rev, requestDelegate, pushChannel)
+    val rSub = RSubscription(ctx, r, Set.empty, rev, requestDelegate, pushChannel)
     val probe = TestProbe()
     val fullObj1 = Json.obj("_r" -> r.toString, "_rev" -> 1L, "name" -> "Sara", "age" -> 20)
     val createdEvent = Created(r, fullObj1, 1l, ctx)
@@ -450,7 +450,7 @@ class ReplayerSpec(config: ReallyConfig) extends BaseActorSpecWithMongoDB(config
       val pushChannel = TestProbe().ref
       val rev: Revision = 2L
       val r: R = R / 'users / 132
-      val rSub = RSubscription(ctx, r, None, rev, requestDelegate, pushChannel)
+      val rSub = RSubscription(ctx, r, Set.empty, rev, requestDelegate, pushChannel)
       val probe = TestProbe()
 
       globals.collectionActor.tell(Create(ctx, r, Json.obj("name" -> "amal elshihaby", "age" -> 27)), probe.ref)
@@ -492,7 +492,7 @@ class ReplayerSpec(config: ReallyConfig) extends BaseActorSpecWithMongoDB(config
       val pushChannel = TestProbe().ref
       val rev: Revision = 2L
       val r: R = R / 'users / 99897
-      val rSub = RSubscription(ctx, r, None, rev, requestDelegate, pushChannel)
+      val rSub = RSubscription(ctx, r, Set.empty, rev, requestDelegate, pushChannel)
       val probe = TestProbe()
 
       globals.collectionActor.tell(Create(ctx, r, Json.obj("name" -> "amal elshihaby", "age" -> 27)), probe.ref)
@@ -551,7 +551,7 @@ class ReplayerSpec(config: ReallyConfig) extends BaseActorSpecWithMongoDB(config
     val pushChannel = TestProbe().ref
     val rev: Revision = 69L
     val r: R = R / 'users / 134
-    val rSub = RSubscription(ctx, r, None, rev, requestDelegate, pushChannel)
+    val rSub = RSubscription(ctx, r, Set.empty, rev, requestDelegate, pushChannel)
     val probe = TestProbe()
 
     globals.collectionActor.tell(Create(ctx, r, Json.obj("name" -> "amal elshihaby", "age" -> 27)), probe.ref)
