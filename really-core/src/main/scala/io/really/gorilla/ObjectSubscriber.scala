@@ -104,14 +104,14 @@ class ObjectSubscriber(rSubscription: RSubscription, globals: ReallyGlobals) ext
               op =>
                 FieldUpdatedOp(op.key, op.op, Some(op.value))
             }
-            rSubscription.pushChannel ! Updated.toJson(r, entry.rev, updatedFields)
+            rSubscription.pushChannel ! Updated.toJson(r, entry.rev, updatedFields, entry.userInfo)
           case Left(terminated) =>
         }
       } else {
         subscriptionFailed(502, "Model Version inconsistency")
       }
     case entry: GorillaLogDeletedEntry =>
-      rSubscription.pushChannel ! Deleted.toJson(r)
+      rSubscription.pushChannel ! Deleted.toJson(r, entry.userInfo)
       context.stop(self)
     case UpdateSubscriptionFields(newFields) =>
       if (newFields.isEmpty) {
