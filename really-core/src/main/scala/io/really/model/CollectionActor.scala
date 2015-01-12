@@ -237,7 +237,7 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor
 
         case Some(modelObj) =>
           val newRev = rev(modelObj.data) + 1
-          deleteAndReply(deleteRequest, newRev, model.collectionMeta.version, sender())
+          deleteAndReply(deleteRequest, modelObj.data, newRev, model, sender())
       }
       stay
   }
@@ -628,11 +628,16 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor
    * @param modelVersion
    * @param requester
    */
-  private def deleteAndReply(deleteReq: Request.Delete, newRev: Revision, modelVersion: ModelVersion, requester: ActorRef): Unit = {
-    persistEvent(
-      CollectionActorEvent.Deleted(deleteReq.r, newRev, modelVersion, deleteReq.ctx),
-      requester, DeleteResult(deleteReq.r)
-    )
+  private def deleteAndReply(deleteReq: Request.Delete, jsObj: JsObject, newRev: Revision, model: Model, requester: ActorRef): Unit = {
+    model.executePreDelete(deleteReq.ctx, globals, jsObj) match {
+      case ModelHookStatus.Succeeded =>
+        persistEvent(
+          CollectionActorEvent.Deleted(deleteReq.r, newRev, model.collectionMeta.version, deleteReq.ctx),
+          requester, DeleteResult(deleteReq.r)
+        )
+      case ModelHookStatus.Terminated(code, reason) =>
+        requester ! JSValidationFailed(deleteReq.r, reason) //todo fix me, needs comprehensive reason to be communicated
+    }
   }
 
   /**
