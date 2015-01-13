@@ -38,6 +38,15 @@ class RSpec extends FlatSpec {
     assert(b.head.id.asOpt == Some(12l))
   }
 
+  it should "return the same R without ID if noId is used" in {
+    val a = R / "users" / 112l / "books" / 2468l
+    val b = R / "users" / 112l / "books"
+    assert(b == a.noId)
+
+    assert(b.noId == a.noId)
+
+  }
+
   it should "construct skeleton R with DSL easily as in R/users/friends  => /users/*/friends/*/" in {
     assert((R / "users" / "friends").toString == "/users/*/friends/*/")
   }

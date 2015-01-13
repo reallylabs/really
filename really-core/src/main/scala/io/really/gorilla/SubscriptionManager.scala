@@ -9,7 +9,9 @@ import io.really.protocol.SubscriptionFailure
 import scala.collection.mutable.Map
 import _root_.io.really.model.FieldKey
 import akka.actor._
-import _root_.io.really.{ R, ReallyGlobals }
+import _root_.io.really.{ R, ReallyGlobals, RequestContext }
+import _root_.io.really.rql.RQL.Query
+import _root_.io.really.Result
 import _root_.io.really.WrappedSubscriptionRequest.{ WrappedSubscribe, WrappedUnsubscribe }
 import akka.pattern.{ AskTimeoutException, ask }
 
@@ -110,6 +112,8 @@ object SubscriptionManager {
   case class InternalRSubscription(objectSubscriber: ActorRef, r: R)
 
   case class SubscribeOnR(rSubscription: RSubscription)
+
+  case class SubscribeOnQuery(requester: ActorRef, ctx: RequestContext, query: Query, passOnResults: Result.ReadResult)
 
   case class SubscribeOnRoom(rSubscription: RoomSubscription)
 

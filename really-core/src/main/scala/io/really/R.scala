@@ -86,8 +86,7 @@ object R extends R(Nil) {
    * }}}
    */
   def apply(s: String): R = parser.parse(s) match {
-    case parser.Success(r, _) =>
-      r
+    case parser.Success(r, _) => r
     case parser.NoSuccess(message, in) =>
       throw new IllegalArgumentException(s"Could not parse R. Reason: $message")
   }
@@ -260,6 +259,8 @@ case class R private (tokens: Tokens) {
   def tailR: R = R(tail)
 
   def headR: R = R(List(head))
+
+  def noId: R = copy(tokens = PathToken(head.collection, R.*) :: tail)
 
   def collectionName: String = this.tokens.map(_.collection).mkString("_")
 

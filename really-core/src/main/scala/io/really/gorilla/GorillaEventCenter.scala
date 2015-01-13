@@ -6,7 +6,7 @@ package io.really.gorilla
 import akka.actor._
 import scala.slick.driver.H2Driver.simple._
 import akka.contrib.pattern.DistributedPubSubMediator.Subscribe
-import akka.contrib.pattern.ShardRegion
+import akka.contrib.pattern.{ DistributedPubSubMediator, ShardRegion }
 import io.really.gorilla.SubscriptionManager.ObjectSubscribed
 import io.really.model.{ Model, Helpers }
 import io.really._
@@ -33,14 +33,13 @@ class GorillaEventCenter(globals: ReallyGlobals)(implicit session: Session) exte
   def handleEvent: Receive = {
     case msg: PersistentEvent =>
       persistEvent(msg)
-    //todo pass it to the pubsub
 
     case evt: StreamingEvent =>
-    //todo pass it silently to the pubsub
+      globals.mediator ! evt
 
     case ModelUpdatedEvent(_, model) =>
       removeOldModelEvents(model)
-    //todo notify the replayers with model updates
+    // todo notify the replayers with model updates
 
   }
 
@@ -60,11 +59,13 @@ class GorillaEventCenter(globals: ReallyGlobals)(implicit session: Session) exte
 
   private def persistEvent(persistentEvent: PersistentEvent): Unit =
     persistentEvent match {
-      case PersistentCreatedEvent(event) if !markers.filter(_.r === event.r).exists.run =>
+      case ev @ PersistentCreatedEvent(event) if !markers.filter(_.r === event.r).exists.run =>
         markers += (event.r, 1l)
         events += EventLog("created", event.r, 1l, event.modelVersion, event.obj,
           event.context.auth, None)
-      case PersistentUpdatedEvent(event, obj) =>
+        //publish on the collection R
+        globals.mediator ! DistributedPubSubMediator.Publish(event.r.noId.toString, ev)
+      case ev @ PersistentUpdatedEvent(event, obj) =>
         val markerQuery = markers.filter(_.r === event.r)
         markerQuery.firstOption match {
           case Some(_) => markerQuery.update((event.r, event.rev))
@@ -72,9 +73,10 @@ class GorillaEventCenter(globals: ReallyGlobals)(implicit session: Session) exte
         }
         events += EventLog("updated", event.r, event.rev, event.modelVersion, obj,
           event.context.auth, Some(event.ops))
+        globals.mediator ! DistributedPubSubMediator.Publish(event.r.toString, ev)
       case event =>
         //ignore this event as the event already stored
-        log.info(s"Ignore this event as the event already stored or not supported $event")
+        log.warning(s"Ignore this event ($event) as the event already stored or not supported")
     }
 
   private def removeOldModelEvents(model: Model) =
