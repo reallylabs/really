@@ -23,6 +23,7 @@ object ProtocolFormats {
   private val Meta = "meta"
   private val Fields = "fields"
   private val Event = "evt"
+  private val OpBy = "opBy"
 
   /*
    * JSON Reads for Request
@@ -230,11 +231,13 @@ object ProtocolFormats {
      * Represent Deleted Push Message
      */
     object Deleted {
-      def toJson(r: R) =
+      def toJson(r: R, userInfo: UserInfo) =
         Json.obj(
           R -> r,
-          Event -> "deleted"
-        //          Meta -> Json.obj("deletedBy" -> deletedBy)
+          Event -> "deleted",
+          Meta -> Json.obj(
+            OpBy -> userInfo
+          )
         )
     }
 
@@ -242,12 +245,15 @@ object ProtocolFormats {
      * Represent Updated Push Message
      */
     object Updated {
-      def toJson(r: R, rev: Revision, ops: List[FieldUpdatedOp]) =
+      def toJson(r: R, rev: Revision, ops: List[FieldUpdatedOp], userInfo: UserInfo) =
         Json.obj(
           R -> r,
           Revision -> rev,
           Event -> "updated",
-          Body -> Json.toJson(ops)(FieldUpdatedOp.FieldUpdatedOpListWrites)
+          Body -> Json.toJson(ops)(FieldUpdatedOp.FieldUpdatedOpListWrites),
+          Meta -> Json.obj(
+            OpBy -> userInfo
+          )
         )
     }
 

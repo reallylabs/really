@@ -29,3 +29,6 @@ really-core/.really
 .scala_dependencies
 .worksheet
 *.sc
+
+# really-docs specific
+really-docs/target

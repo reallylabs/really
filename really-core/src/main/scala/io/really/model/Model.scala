@@ -107,6 +107,23 @@ package object model {
       jsEngine.asInstanceOf[Invocable].getInterface(classOf[OnGet])
     }
 
+    lazy val executePreDeleteValidator: Option[PreDelete] = jsHooks.preDelete.map { preDeleteCode =>
+      val validateEngine = factory.getScriptEngine(Array("-strict", "--no-java", "--no-syntax-extensions"))
+      JsTools.injectSDK(validateEngine.getContext.getBindings(ScriptContext.ENGINE_SCOPE))
+
+      val codeTemplate =
+        s"""
+        | function preDelete(value) {
+        |   var input = JSON.parse(value);
+        |   value = undefined
+        |   ${preDeleteCode}
+        | }
+      """.stripMargin
+      validateEngine.eval(codeTemplate)
+      //return the Invocable
+      validateEngine.asInstanceOf[Invocable].getInterface(classOf[PreDelete])
+    }
+
     def executeValidate(context: RequestContext, globals: ReallyGlobals, input: JsObject): ModelHookStatus = {
       executeValidator match {
         case Some(validator: Validator) =>
@@ -150,7 +167,22 @@ package object model {
 
     def executePreUpdate(context: RequestContext, globals: ReallyGlobals, prev: JsObject, after: JsObject, fieldsChanged: Set[FieldKey]): ModelHookStatus = ???
 
-    def executePreDelete(context: RequestContext, globals: ReallyGlobals, obj: JsObject): ModelHookStatus = ???
+    def executePreDelete(context: RequestContext, globals: ReallyGlobals, obj: JsObject): ModelHookStatus = {
+      executePreDeleteValidator match {
+        case Some(preDeleteValidator: PreDelete) =>
+          try {
+            preDeleteValidator.preDelete(obj.toString)
+            ModelHookStatus.Succeeded
+          } catch {
+            case te: ModelHookStatus.JSValidationError => te.terminated
+            case se: ScriptException =>
+              //TODO Log the error
+              println("PreDelete Script Execution Error: " + se)
+              ModelHookStatus.Terminated(500, "PreDelete script throws a runtime error")
+          }
+        case None => ModelHookStatus.Succeeded
+      }
+    }
 
     //Async hooks, does not block the rest of the execution plan
     //config and globals are passed to allow us to send a native "JavaScript SDK" to the script that may require to access other external systems

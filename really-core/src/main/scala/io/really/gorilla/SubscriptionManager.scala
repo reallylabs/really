@@ -4,19 +4,15 @@
 
 package io.really.gorilla
 
-import akka.util.Timeout
-import io.really.protocol.SubscriptionFailure
 import scala.collection.mutable.Map
-import _root_.io.really.model.FieldKey
 import akka.actor._
 import _root_.io.really.{ R, ReallyGlobals, RequestContext }
 import _root_.io.really.rql.RQL.Query
 import _root_.io.really.Result
-import _root_.io.really.WrappedSubscriptionRequest.{ WrappedSubscribe, WrappedUnsubscribe }
-import akka.pattern.{ AskTimeoutException, ask }
-
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.util.control.NonFatal
+import _root_.io.really.model.FieldKey
+import _root_.io.really.protocol.SubscriptionFailure
+import _root_.io.really.{ R, ReallyGlobals }
+import _root_.io.really.ObjectSubscriptionRequest.{ SubscribeOnObject, UnsubscribeFromObject }
 
 /**
  * SubscriptionManager is sharded actor and responsible for managing the subscriptions on objects, rooms and queries
@@ -47,43 +43,46 @@ class SubscriptionManager(globals: ReallyGlobals) extends Actor with ActorLoggin
 
   /**
    * Handles the messages of Objects subscriptions
-   * case `WrappedSubscribe` is expected to come externally as a request to subscribe on an object
-   * case `WrappedUnubscribe` is expected to come externally as a request to unsubscribe on an object
+   * case `SubscribeOnObject` is expected to come externally as a request to subscribe on an object
+   * case `UnsubscribeFromObject` is expected to come externally as a request to unsubscribe on an object
    * case `SubscribeOnR` is expected to come internally from the Subscribe request aggregator
    * case `UnubscribeFromR` is expected to come internally from the Unubscribe request aggregator
    */
   def objectSubscriptionsHandler: Receive = {
-    case request: WrappedSubscribe =>
-      context.actorOf(Props(new SubscribeAggregator(self, globals))) forward request
-    case request: WrappedUnsubscribe =>
+    case request: SubscribeOnObject =>
+      request.subscribeObject.body.subscriptions.length match {
+        case 1 =>
+          val subscriptionOp = request.subscribeObject.body.subscriptions.head
+          self ! SubscribeOnR(RSubscription(
+            request.subscribeObject.ctx,
+            subscriptionOp.r,
+            subscriptionOp.fields,
+            subscriptionOp.rev,
+            sender(),
+            request.pushChannel
+          ))
+        case len if len > 1 =>
+          context.actorOf(Props(new SubscribeAggregator(request, sender(), self, globals)))
+      }
+
+    case request: UnsubscribeFromObject =>
       ???
     case SubscribeOnR(subData) =>
+      val replyTo = sender()
       rSubscriptions.get(subData.pushChannel.path).map {
         rSub =>
-          rSub.objectSubscriber ! UpdateSubscriptionFields(subData.fields.getOrElse(Set.empty))
+          rSub.objectSubscriber ! UpdateSubscriptionFields(subData.fields)
       }.getOrElse {
-        implicit val timeout = Timeout(globals.config.GorillaConfig.waitForGorillaCenter)
-        val originalSender = sender()
-        val result = globals.gorillaEventCenter ? NewSubscription(subData)
-        result.onSuccess {
-          case ObjectSubscribed(objectSubscriber) =>
-            rSubscriptions += subData.pushChannel.path -> InternalRSubscription(objectSubscriber, subData.r)
-            context.watch(objectSubscriber) //TODO handle death
-            context.watch(subData.pushChannel) //TODO handle death
-            originalSender ! SubscriptionDone
-          case _ =>
-            val reason = s"Gorilla Center replied with unexpected response to new subscription request: $subData"
-            failedToRegisterNewSubscription(originalSender, subData.r, subData.pushChannel, reason)
-        }
-        result.onFailure {
-          case e: AskTimeoutException =>
-            val reason = s"SubscriptionManager timed out waiting for the Gorilla center response for" +
-              s" subscription $subData"
-            failedToRegisterNewSubscription(originalSender, subData.r, subData.pushChannel, reason)
-          case NonFatal(e) =>
-            val reason = s"Unexpected error while asking the Gorilla Center to establish a new subscription: $subData"
-            failedToRegisterNewSubscription(originalSender, subData.r, subData.pushChannel, reason)
-        }
+        globals.gorillaEventCenter ! NewSubscription(replyTo, subData)
+      }
+    case ObjectSubscribed(subData, replyTo, objectSubscriber) =>
+      rSubscriptions += subData.pushChannel.path -> InternalRSubscription(objectSubscriber, subData.r)
+      context.watch(objectSubscriber) //TODO handle death
+      context.watch(subData.pushChannel) //TODO handle death
+      if (replyTo == self) {
+        subData.requestDelegate ! SubscribeAggregator.Subscribed(Set(subData.r))
+      } else {
+        replyTo ! SubscriptionDone(subData.r)
       }
     case UnsubscribeFromR(subData) => //TODO Ack the delegate
       rSubscriptions.get(subData.pushChannel.path).map {
@@ -125,8 +124,8 @@ object SubscriptionManager {
 
   case object Unsubscribe
 
-  case class ObjectSubscribed(objectSubscriber: ActorRef)
+  case class ObjectSubscribed(subData: RSubscription, replyTo: ActorRef, objectSubscriber: ActorRef)
 
-  case object SubscriptionDone
+  case class SubscriptionDone(r: R)
 
 }
