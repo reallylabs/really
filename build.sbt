@@ -19,6 +19,4 @@ lazy val `really-io` = project in file("really-io") settings (IOBuild.settings: 
 
 lazy val `really-simple-auth` = project in file("really-simple-auth") settings (AuthBuild.settings: _*) settings (scalariformSettings: _*) enablePlugins(PlayScala) dependsOn `really-utils`
 
-site.settings
-
-site.sphinxSupport()
+lazy val `really-docs` = project in file("really-docs") settings (DocsBuild.settings: _*)
