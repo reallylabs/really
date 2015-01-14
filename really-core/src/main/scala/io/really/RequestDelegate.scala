@@ -22,7 +22,7 @@ class RequestDelegate(globals: ReallyGlobals, ctx: RequestContext, replyTo: Acto
   }
 
   override def preStart() =
-    RequestReads(cmd).map(reads => body.validate(reads(ctx))) match {
+    RequestReads(cmd).map(reads => body.validate(reads(ctx, replyTo))) match {
       case Success(JsSuccess(request, _)) =>
         globals.requestRouter ! request
         context.become(waitingResponseFor(request))

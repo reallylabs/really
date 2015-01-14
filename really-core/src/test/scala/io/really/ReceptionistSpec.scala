@@ -17,7 +17,7 @@ class ReceptionistSpec extends BaseActorSpec {
   import Receptionist._
 
   val request = Json.obj()
-
+  val pushChannel = TestProbe().ref
   val cmd = ""
 
   override lazy val globals = new TestReallyGlobals(config, system) {
@@ -30,21 +30,21 @@ class ReceptionistSpec extends BaseActorSpec {
 
   "Receptionist" should "create different delegate for each request" in {
     val receptionist = system.actorOf(Props(new Receptionist(globals)))
-    receptionist ! DispatchDelegateFor(ctx, cmd, request)
+    receptionist ! DispatchDelegateFor(ctx, cmd, request, pushChannel)
     expectMsgType[ReportingActor.Created]
 
-    receptionist ! DispatchDelegateFor(ctx, cmd, request)
+    receptionist ! DispatchDelegateFor(ctx, cmd, request, pushChannel)
     expectMsgType[ReportingActor.Created]
 
-    receptionist ! DispatchDelegateFor(ctx, cmd, request)
+    receptionist ! DispatchDelegateFor(ctx, cmd, request, pushChannel)
     expectMsgType[ReportingActor.Created]
   }
 
   "Receptionist" should "count requests" in {
     val receptionist = system.actorOf(Props(new Receptionist(globals)))
-    receptionist ! DispatchDelegateFor(ctx, cmd, request)
-    receptionist ! DispatchDelegateFor(ctx, cmd, request)
-    receptionist ! DispatchDelegateFor(ctx, cmd, request)
+    receptionist ! DispatchDelegateFor(ctx, cmd, request, pushChannel)
+    receptionist ! DispatchDelegateFor(ctx, cmd, request, pushChannel)
+    receptionist ! DispatchDelegateFor(ctx, cmd, request, pushChannel)
 
     val f = (receptionist ? GetMetrics).mapTo[Metrics]
     val metrics = Await.result(f, 1.second)
@@ -55,11 +55,11 @@ class ReceptionistSpec extends BaseActorSpec {
     val receptionist = system.actorOf(Props(new Receptionist(globals)))
     val Delay = 100
     Thread.sleep(Delay)
-    receptionist ! DispatchDelegateFor(ctx, cmd, request)
+    receptionist ! DispatchDelegateFor(ctx, cmd, request, pushChannel)
     Thread.sleep(Delay)
-    receptionist ! DispatchDelegateFor(ctx, cmd, request)
+    receptionist ! DispatchDelegateFor(ctx, cmd, request, pushChannel)
     Thread.sleep(Delay)
-    receptionist ! DispatchDelegateFor(ctx, cmd, request)
+    receptionist ! DispatchDelegateFor(ctx, cmd, request, pushChannel)
 
     val f = (receptionist ? GetMetrics).mapTo[Metrics]
     val metrics = Await.result(f, 1.second)

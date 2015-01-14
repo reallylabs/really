@@ -8,7 +8,7 @@ import akka.actor.{ ActorLogging, ActorRef, Actor }
 import akka.contrib.pattern.Aggregator
 import io.really.R
 import io.really.RequestContext
-import io.really.ObjectSubscriptionRequest.SubscribeOnObject
+import io.really.Request.SubscribeOnObject
 import io.really.gorilla.SubscriptionManager.{ SubscriptionDone, SubscribeOnR }
 import io.really.protocol.SubscriptionBody
 import scala.collection.mutable.ArrayBuffer
@@ -20,7 +20,7 @@ class SubscribeAggregator(request: SubscribeOnObject, delegate: ActorRef, subscr
   import context._
   import SubscribeAggregator._
 
-  new SubscribeAggregatorImpl(request.subscribeObject.ctx, delegate, request.subscribeObject.body, request.pushChannel)
+  new SubscribeAggregatorImpl(request.ctx, delegate, request.body, request.pushChannel)
 
   class SubscribeAggregatorImpl(ctx: RequestContext, requestDelegate: ActorRef, body: SubscriptionBody,
       pushChannel: ActorRef) {

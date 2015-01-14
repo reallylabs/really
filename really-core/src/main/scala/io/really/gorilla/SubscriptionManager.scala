@@ -12,7 +12,7 @@ import _root_.io.really.Result
 import _root_.io.really.model.FieldKey
 import _root_.io.really.protocol.SubscriptionFailure
 import _root_.io.really.{ R, ReallyGlobals }
-import _root_.io.really.ObjectSubscriptionRequest.{ SubscribeOnObject, UnsubscribeFromObject }
+import _root_.io.really.Request.{ SubscribeOnObject, UnsubscribeFromObject }
 
 /**
  * SubscriptionManager is sharded actor and responsible for managing the subscriptions on objects, rooms and queries
@@ -50,11 +50,11 @@ class SubscriptionManager(globals: ReallyGlobals) extends Actor with ActorLoggin
    */
   def objectSubscriptionsHandler: Receive = {
     case request: SubscribeOnObject =>
-      request.subscribeObject.body.subscriptions.length match {
+      request.body.subscriptions.length match {
         case 1 =>
-          val subscriptionOp = request.subscribeObject.body.subscriptions.head
+          val subscriptionOp = request.body.subscriptions.head
           self ! SubscribeOnR(RSubscription(
-            request.subscribeObject.ctx,
+            request.ctx,
             subscriptionOp.r,
             subscriptionOp.fields,
             subscriptionOp.rev,

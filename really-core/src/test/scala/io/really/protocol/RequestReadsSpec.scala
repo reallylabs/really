@@ -3,6 +3,7 @@
  */
 package io.really.protocol
 
+import akka.testkit.TestProbe
 import io.really.rql.RQL.Query.QueryReads
 import io.really.rql.RQLTokens.PaginationToken
 import org.joda.time.DateTime
@@ -10,12 +11,9 @@ import org.scalatest.{ Matchers, FlatSpec }
 import play.api.libs.json._
 import io.really._
 
-class RequestReadsSpec extends FlatSpec with Matchers {
-  val ctx = RequestContext(
-    1,
-    UserInfo(AuthProvider.Anonymous, "2345678", None),
-    RequestMetadata(None, DateTime.now, "localhost", RequestProtocol.WebSockets)
-  )
+class RequestReadsSpec extends BaseActorSpec {
+
+  val replyTo = TestProbe().ref
 
   "Subscribe Request reads" should "create subscribe request if you sent correct request" in {
     val req = Json.obj(
@@ -29,16 +27,17 @@ class RequestReadsSpec extends FlatSpec with Matchers {
       )
     )
 
-    val result = req.validate(ProtocolFormats.RequestReads.Subscribe.read(ctx))
+    val result = req.validate(ProtocolFormats.RequestReads.Subscribe.read(ctx, replyTo))
 
-    assertResult(Request.Subscribe(
+    assertResult(Request.SubscribeOnObject(
       ctx,
       SubscriptionBody(
         List(
           SubscriptionOp(R("/users/12131231232/"), 2, Set("name", "age")),
           SubscriptionOp(R("/users/121312787632/"), 2, Set.empty)
         )
-      )
+      ),
+      replyTo
     ))(result.get)
   }
 
@@ -49,7 +48,7 @@ class RequestReadsSpec extends FlatSpec with Matchers {
       "body" -> Json.obj()
     )
 
-    val result = req.validate(ProtocolFormats.RequestReads.Subscribe.read(ctx))
+    val result = req.validate(ProtocolFormats.RequestReads.Subscribe.read(ctx, replyTo))
 
     assert(result.isError == true)
   }
@@ -65,7 +64,7 @@ class RequestReadsSpec extends FlatSpec with Matchers {
       )
     )
 
-    val result = req.validate(ProtocolFormats.RequestReads.Subscribe.read(ctx))
+    val result = req.validate(ProtocolFormats.RequestReads.Subscribe.read(ctx, replyTo))
 
     assert(result.isError == true)
   }
@@ -81,7 +80,7 @@ class RequestReadsSpec extends FlatSpec with Matchers {
       )
     )
 
-    val result = req.validate(ProtocolFormats.RequestReads.Subscribe.read(ctx))
+    val result = req.validate(ProtocolFormats.RequestReads.Subscribe.read(ctx, replyTo))
 
     assert(result.isError == true)
   }
@@ -98,16 +97,17 @@ class RequestReadsSpec extends FlatSpec with Matchers {
       )
     )
 
-    val result = req.validate(ProtocolFormats.RequestReads.Unsubscribe.read(ctx))
+    val result = req.validate(ProtocolFormats.RequestReads.Unsubscribe.read(ctx, replyTo))
 
-    assertResult(Request.Unsubscribe(
+    assertResult(Request.UnsubscribeFromObject(
       ctx,
       UnsubscriptionBody(
         List(
           UnsubscriptionOp(R("/users/12131231232/"), Set("name", "age")),
           UnsubscriptionOp(R("/users/121312787632/"), Set.empty)
         )
-      )
+      ),
+      replyTo
     ))(result.get)
   }
 
@@ -118,7 +118,7 @@ class RequestReadsSpec extends FlatSpec with Matchers {
       "body" -> Json.obj()
     )
 
-    val result = req.validate(ProtocolFormats.RequestReads.Unsubscribe.read(ctx))
+    val result = req.validate(ProtocolFormats.RequestReads.Unsubscribe.read(ctx, replyTo))
 
     assert(result.isError == true)
   }
@@ -134,7 +134,7 @@ class RequestReadsSpec extends FlatSpec with Matchers {
       )
     )
 
-    val result = req.validate(ProtocolFormats.RequestReads.Unsubscribe.read(ctx))
+    val result = req.validate(ProtocolFormats.RequestReads.Unsubscribe.read(ctx, replyTo))
 
     assert(result.isError == true)
   }
@@ -149,7 +149,7 @@ class RequestReadsSpec extends FlatSpec with Matchers {
       )
     )
 
-    val result = req.validate(ProtocolFormats.RequestReads.Get.read(ctx))
+    val result = req.validate(ProtocolFormats.RequestReads.Get.read(ctx, replyTo))
 
     assertResult(Request.Get(ctx, R("/users/1123123/"), GetOpts(Set("firstname", "lastname"))))(result.get)
   }
@@ -164,7 +164,7 @@ class RequestReadsSpec extends FlatSpec with Matchers {
       )
     )
 
-    val result = req.validate(ProtocolFormats.RequestReads.Get.read(ctx))
+    val result = req.validate(ProtocolFormats.RequestReads.Get.read(ctx, replyTo))
     assert(result.isError == true)
   }
 
@@ -178,7 +178,7 @@ class RequestReadsSpec extends FlatSpec with Matchers {
       )
     )
 
-    val result = req.validate(ProtocolFormats.RequestReads.Get.read(ctx))
+    val result = req.validate(ProtocolFormats.RequestReads.Get.read(ctx, replyTo))
 
     assertResult(Request.Get(ctx, R("/users/1123123/"), GetOpts(Set())))(result.get)
   }
@@ -192,7 +192,7 @@ class RequestReadsSpec extends FlatSpec with Matchers {
       )
     )
 
-    val result = req.validate(ProtocolFormats.RequestReads.Get.read(ctx))
+    val result = req.validate(ProtocolFormats.RequestReads.Get.read(ctx, replyTo))
 
     assert(result.isError == true)
   }
@@ -205,7 +205,7 @@ class RequestReadsSpec extends FlatSpec with Matchers {
       "cmdOpts" -> Json.obj()
     )
 
-    val result = req.validate(ProtocolFormats.RequestReads.Get.read(ctx))
+    val result = req.validate(ProtocolFormats.RequestReads.Get.read(ctx, replyTo))
 
     assert(result.isError == true)
   }
@@ -225,7 +225,7 @@ class RequestReadsSpec extends FlatSpec with Matchers {
       )
     )
 
-    val result = req.validate(ProtocolFormats.RequestReads.Update.read(ctx))
+    val result = req.validate(ProtocolFormats.RequestReads.Update.read(ctx, replyTo))
 
     assertResult(Request.Update(
       ctx,
@@ -253,7 +253,7 @@ class RequestReadsSpec extends FlatSpec with Matchers {
       )
     )
 
-    val result = req.validate(ProtocolFormats.RequestReads.Update.read(ctx))
+    val result = req.validate(ProtocolFormats.RequestReads.Update.read(ctx, replyTo))
     assert(result.isError == true)
   }
 
@@ -271,7 +271,7 @@ class RequestReadsSpec extends FlatSpec with Matchers {
       )
     )
 
-    val result = req.validate(ProtocolFormats.RequestReads.Update.read(ctx))
+    val result = req.validate(ProtocolFormats.RequestReads.Update.read(ctx, replyTo))
 
     assert(result.isError == true)
   }
@@ -290,7 +290,7 @@ class RequestReadsSpec extends FlatSpec with Matchers {
       )
     )
 
-    val result = req.validate(ProtocolFormats.RequestReads.Update.read(ctx))
+    val result = req.validate(ProtocolFormats.RequestReads.Update.read(ctx, replyTo))
 
     assert(result.isError == true)
   }
@@ -305,7 +305,7 @@ class RequestReadsSpec extends FlatSpec with Matchers {
       "body" -> Json.obj()
     )
 
-    val result = req.validate(ProtocolFormats.RequestReads.Update.read(ctx))
+    val result = req.validate(ProtocolFormats.RequestReads.Update.read(ctx, replyTo))
     assert(result.isError == true)
   }
 
@@ -321,7 +321,7 @@ class RequestReadsSpec extends FlatSpec with Matchers {
       )
     )
 
-    val result = req.validate(ProtocolFormats.RequestReads.Update.read(ctx))
+    val result = req.validate(ProtocolFormats.RequestReads.Update.read(ctx, replyTo))
     assert(result.isError == true)
   }
 
@@ -332,7 +332,7 @@ class RequestReadsSpec extends FlatSpec with Matchers {
       "r" -> "/users/13432423434"
     )
 
-    val result = req.validate(ProtocolFormats.RequestReads.Delete.read(ctx))
+    val result = req.validate(ProtocolFormats.RequestReads.Delete.read(ctx, replyTo))
 
     assertResult(Request.Delete(ctx, R("/users/13432423434")))(result.get)
   }
@@ -343,7 +343,7 @@ class RequestReadsSpec extends FlatSpec with Matchers {
       "cmd" -> "delete"
     )
 
-    val result = req.validate(ProtocolFormats.RequestReads.Delete.read(ctx))
+    val result = req.validate(ProtocolFormats.RequestReads.Delete.read(ctx, replyTo))
     assert(result.isError == true)
   }
 
@@ -354,7 +354,7 @@ class RequestReadsSpec extends FlatSpec with Matchers {
       "r" -> "/users"
     )
 
-    val result = req.validate(ProtocolFormats.RequestReads.Delete.read(ctx))
+    val result = req.validate(ProtocolFormats.RequestReads.Delete.read(ctx, replyTo))
     assert(result.isError == true)
   }
 
@@ -369,7 +369,7 @@ class RequestReadsSpec extends FlatSpec with Matchers {
       )
     )
 
-    val result = req.validate(ProtocolFormats.RequestReads.Create.read(ctx))
+    val result = req.validate(ProtocolFormats.RequestReads.Create.read(ctx, replyTo))
 
     assertResult(Request.Create(ctx, R("/users/"), Json.obj(
       "firstname" -> "Salma",
@@ -387,7 +387,7 @@ class RequestReadsSpec extends FlatSpec with Matchers {
       )
     )
 
-    val result = req.validate(ProtocolFormats.RequestReads.Create.read(ctx))
+    val result = req.validate(ProtocolFormats.RequestReads.Create.read(ctx, replyTo))
 
     assert(result.isError == true)
   }
@@ -403,7 +403,7 @@ class RequestReadsSpec extends FlatSpec with Matchers {
       )
     )
 
-    val result = req.validate(ProtocolFormats.RequestReads.Create.read(ctx))
+    val result = req.validate(ProtocolFormats.RequestReads.Create.read(ctx, replyTo))
 
     assert(result.isError == true)
   }
@@ -415,7 +415,7 @@ class RequestReadsSpec extends FlatSpec with Matchers {
       "r" -> "/users/"
     )
 
-    val result = req.validate(ProtocolFormats.RequestReads.Create.read(ctx))
+    val result = req.validate(ProtocolFormats.RequestReads.Create.read(ctx, replyTo))
 
     assert(result.isError == true)
   }
@@ -440,7 +440,7 @@ class RequestReadsSpec extends FlatSpec with Matchers {
       )
     )
 
-    val result = req.validate(ProtocolFormats.RequestReads.Read.read(ctx))
+    val result = req.validate(ProtocolFormats.RequestReads.Read.read(ctx, replyTo))
 
     assertResult(Request.Read(ctx, R("/users/"), ReadOpts(
       Set("name", "age"),
@@ -454,7 +454,7 @@ class RequestReadsSpec extends FlatSpec with Matchers {
       0,
       false,
       false
-    )))(result.get)
+    ), replyTo))(result.get)
   }
 
   it should "return JsError if you sent request without r" in {
@@ -476,7 +476,7 @@ class RequestReadsSpec extends FlatSpec with Matchers {
       )
     )
 
-    val result = req.validate(ProtocolFormats.RequestReads.Read.read(ctx))
+    val result = req.validate(ProtocolFormats.RequestReads.Read.read(ctx, replyTo))
 
     assert(result.isError == true)
   }
@@ -501,7 +501,7 @@ class RequestReadsSpec extends FlatSpec with Matchers {
       )
     )
 
-    val result = req.validate(ProtocolFormats.RequestReads.Read.read(ctx))
+    val result = req.validate(ProtocolFormats.RequestReads.Read.read(ctx, replyTo))
     assert(result.isError == true)
   }
 

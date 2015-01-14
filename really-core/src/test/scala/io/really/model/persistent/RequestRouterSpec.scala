@@ -74,7 +74,9 @@ class RequestRouterSpec extends BaseActorSpec {
 
   it should "forward message to read handler if command is Read" in {
     val r = R / "boards"
-    val req = Request.Read(ctx, r, ReadOpts(Set.empty, RQL.EmptyQuery, 10, false, None, 0, false, false))
+    val req = Request.Read(ctx, r,
+      ReadOpts(Set.empty, RQL.EmptyQuery, 10, false, None, 0, false, false),
+      TestProbe().ref)
     requestRouterRef ! req
     globals.readHandlerTestProps.expectMsg(req)
   }
@@ -102,8 +104,8 @@ class RequestRouterSpec extends BaseActorSpec {
   }
 
   it should "forward message to subscription manager if command is Subscribe" in {
-    val req = ObjectSubscriptionRequest.SubscribeOnObject(
-      Request.Subscribe(ctx, SubscriptionBody(List.empty)),
+    val req = Request.SubscribeOnObject(
+      ctx, SubscriptionBody(List.empty),
       TestProbe().ref
     )
     requestRouterRef ! req
@@ -111,8 +113,8 @@ class RequestRouterSpec extends BaseActorSpec {
   }
 
   it should "forward message to subscription manager if command is Unsubscribe" in {
-    val req = ObjectSubscriptionRequest.UnsubscribeFromObject(
-      Request.Unsubscribe(ctx, UnsubscriptionBody(List.empty)),
+    val req = Request.UnsubscribeFromObject(
+      ctx, UnsubscriptionBody(List.empty),
       TestProbe().ref
     )
     requestRouterRef ! req
