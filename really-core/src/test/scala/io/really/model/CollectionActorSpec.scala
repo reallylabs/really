@@ -10,7 +10,7 @@ import io.really.CommandError.ParentNotFound
 import io.really.Request.{ Update, Delete, Create }
 import io.really.Result.{ UpdateResult, CreateResult, DeleteResult }
 import io.really.fixture.CollectionActorTest.GetState
-import io.really.fixture.{ CollectionActorTest, PersistentModelStoreFixture }
+import io.really.fixture.{ CollectionActorWithCleanJournal, CollectionActorTest, PersistentModelStoreFixture }
 import io.really.model.CollectionActor.{ GetExistenceState, State }
 import io.really.model.persistent.ModelRegistry.ModelResult.ModelObject
 import io.really.model.persistent.{ PersistentModelStore }
@@ -33,6 +33,7 @@ class CollectionActorSpec extends BaseActorSpec with BeforeAndAfterEach {
 
   var modelRegistryRef: ActorRef = _
   var modelPersistentActor: ActorRef = _
+
   val models: List[Model] = List(BaseActorSpec.userModel, BaseActorSpec.carModel,
     BaseActorSpec.companyModel, BaseActorSpec.authorModel, BaseActorSpec.postModel)
 
@@ -598,8 +599,10 @@ class CollectionActorSpec extends BaseActorSpec with BeforeAndAfterEach {
     probe.expectMsgType[Result.CreateResult]
 
     val userR = BaseActorSpec.userModel.r / globals.quickSand.nextId()
+    val bucketID = Helpers.getBucketIDFromR(userR)
+    val collectionActorTest = system.actorOf(Props(new CollectionActorWithCleanJournal(globals)), bucketID)
     val userObj = Json.obj("name" -> "Ahmed", "age" -> 30, "company" -> companyR1)
-    globals.collectionActor.tell(Create(ctx, userR, userObj), probe.ref)
+    collectionActorTest.tell(Create(ctx, userR, userObj), probe.ref)
     probe.expectMsgType[Result.CreateResult]
 
     val companyR2 = BaseActorSpec.companyModel.r / globals.quickSand.nextId()
@@ -608,10 +611,10 @@ class CollectionActorSpec extends BaseActorSpec with BeforeAndAfterEach {
     probe.expectMsgType[Result.CreateResult]
 
     val updateBody = UpdateBody(List(UpdateOp(UpdateCommand.Set, "company", JsString(companyR2.toString))))
-    globals.collectionActor.tell(Update(ctx, userR, 1l, updateBody), probe.ref)
+    collectionActorTest.tell(Update(ctx, userR, 1l, updateBody), probe.ref)
     probe.expectMsgType[UpdateResult]
 
-    globals.collectionActor.tell(GetState(userR), probe.ref)
+    collectionActorTest.tell(GetState(userR), probe.ref)
     val state = probe.expectMsgType[State]
     assertResult(companyR2)((state.obj \ "company").as[R])
   }
@@ -621,7 +624,6 @@ class CollectionActorSpec extends BaseActorSpec with BeforeAndAfterEach {
       fields = BaseActorSpec.userModel.fields + ("company" ->
       ReferenceField("company", true, BaseActorSpec.companyModel.r, List("name")))
     )
-
     val actorProp = TestProbe()
     modelPersistentActor.tell(PersistentModelStore.UpdateModels(List(newUserModel, BaseActorSpec.companyModel)), actorProp.ref)
     modelPersistentActor.tell(PersistentModelStoreFixture.GetState, actorProp.ref)
@@ -639,18 +641,22 @@ class CollectionActorSpec extends BaseActorSpec with BeforeAndAfterEach {
     globals.collectionActor.tell(Create(ctx, companyR1, companyObj1), probe.ref)
     probe.expectMsgType[Result.CreateResult]
 
+    val probe2 = TestProbe()
+
     val userR = BaseActorSpec.userModel.r / globals.quickSand.nextId()
+    val bucketID = Helpers.getBucketIDFromR(userR)
+    val collectionActorTest = system.actorOf(Props(new CollectionActorWithCleanJournal(globals)), bucketID)
     val userObj = Json.obj("name" -> "Ahmed", "age" -> 30, "company" -> companyR1)
-    globals.collectionActor.tell(Create(ctx, userR, userObj), probe.ref)
-    probe.expectMsgType[Result.CreateResult]
+    collectionActorTest.tell(Create(ctx, userR, userObj), probe2.ref)
+    probe2.expectMsgType[Result.CreateResult]
 
     val companyR2 = BaseActorSpec.companyModel.r / globals.quickSand.nextId()
 
     val updateBody = UpdateBody(List(UpdateOp(UpdateCommand.Set, "company", JsString(companyR2.toString))))
-    globals.collectionActor.tell(Update(ctx, userR, 1l, updateBody), probe.ref)
-    probe.expectMsgType[CommandError.ModelValidationFailed]
+    collectionActorTest.tell(Update(ctx, userR, 1l, updateBody), probe2.ref)
+    probe2.expectMsgType[CommandError.ModelValidationFailed]
 
-    globals.collectionActor.tell(GetState(userR), probe.ref)
+    collectionActorTest.tell(GetState(userR), probe.ref)
     val state = probe.expectMsgType[State]
     assertResult(companyR1)((state.obj \ "company").as[R])
   }
@@ -679,15 +685,18 @@ class CollectionActorSpec extends BaseActorSpec with BeforeAndAfterEach {
     probe.expectMsgType[Result.CreateResult]
 
     val userR = BaseActorSpec.userModel.r / globals.quickSand.nextId()
+    val bucketID = Helpers.getBucketIDFromR(userR)
+    val collectionActorTest = system.actorOf(Props(new CollectionActorWithCleanJournal(globals)), bucketID)
+
     val userObj = Json.obj("name" -> "Ahmed", "age" -> 30, "company" -> companyR1)
-    globals.collectionActor.tell(Create(ctx, userR, userObj), probe.ref)
+    collectionActorTest.tell(Create(ctx, userR, userObj), probe.ref)
     probe.expectMsgType[Result.CreateResult]
 
     val updateBody = UpdateBody(List(UpdateOp(UpdateCommand.Set, "company", JsNull)))
-    globals.collectionActor.tell(Update(ctx, userR, 1l, updateBody), probe.ref)
+    collectionActorTest.tell(Update(ctx, userR, 1l, updateBody), probe.ref)
     probe.expectMsgType[UpdateResult]
 
-    globals.collectionActor.tell(GetState(userR), probe.ref)
+    collectionActorTest.tell(GetState(userR), probe.ref)
     val state = probe.expectMsgType[State]
     assertResult(None)((state.obj \ "company").asOpt[R])
   }
