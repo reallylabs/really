@@ -6,6 +6,9 @@ package io.really.gorilla
 
 import scala.collection.mutable.Map
 import akka.actor._
+import _root_.io.really.{ R, ReallyGlobals, RequestContext }
+import _root_.io.really.rql.RQL.Query
+import _root_.io.really.Result
 import _root_.io.really.model.FieldKey
 import _root_.io.really.protocol.SubscriptionFailure
 import _root_.io.really.{ R, ReallyGlobals }
@@ -108,6 +111,8 @@ object SubscriptionManager {
   case class InternalRSubscription(objectSubscriber: ActorRef, r: R)
 
   case class SubscribeOnR(rSubscription: RSubscription)
+
+  case class SubscribeOnQuery(requester: ActorRef, ctx: RequestContext, query: Query, passOnResults: Result.ReadResult)
 
   case class SubscribeOnRoom(rSubscription: RoomSubscription)
 
