@@ -3,7 +3,7 @@
  */
 package io.really.model
 
-import akka.actor.{ Stash, Actor, ActorLogging }
+import akka.actor.{ ActorRef, Stash, Actor, ActorLogging }
 import akka.pattern.{ AskTimeoutException, ask }
 import akka.util.Timeout
 
@@ -48,7 +48,7 @@ class ReadHandler(globals: ReallyGlobals) extends Actor with Stash with ActorLog
           handleGet(model, ctx, r, collection(r), cmdOpts) map (requester ! _.merge)
         case Left(error) => requester ! error
       }
-    case Request.Read(ctx, r, cmdOpts) =>
+    case Request.Read(ctx, r, cmdOpts, pushChannel) =>
       val requester = sender()
       getModel(r) map {
         case Right(model) =>

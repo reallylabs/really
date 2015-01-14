@@ -95,7 +95,7 @@ class WebSocketHandler(
             val protocol = RequestProtocol.WebSockets
             val meta = RequestMetadata(traceId, when, host, protocol)
             val ctx = RequestContext(tag.toInt, userInfo, meta)
-            coreGlobals.receptionist ! Receptionist.DispatchDelegateFor(ctx, cmd, request)
+            coreGlobals.receptionist ! Receptionist.DispatchDelegateFor(ctx, cmd, request, actorOut)
           case _ =>
             reply(CommandError.BadJson, None)
         }

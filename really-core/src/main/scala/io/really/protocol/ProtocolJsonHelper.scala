@@ -4,6 +4,7 @@
 package io.really.protocol
 
 import _root_.io.really.Result._
+import akka.actor.ActorRef
 import io.really._
 import play.api.data.validation.ValidationError
 import play.api.libs.json._
@@ -44,7 +45,7 @@ object ProtocolFormats {
     object Subscribe {
       val bodyReads = (__ \ 'body).read[SubscriptionBody]
 
-      def read(ctx: RequestContext) = (bodyReads) map (body => Request.Subscribe(ctx, body))
+      def read(ctx: RequestContext, replyTo: ActorRef) = (bodyReads) map (body => Request.SubscribeOnObject(ctx, body, replyTo))
     }
 
     /*
@@ -53,7 +54,7 @@ object ProtocolFormats {
     object Unsubscribe {
       val bodyReads = (__ \ 'body).read[UnsubscriptionBody]
 
-      def read(ctx: RequestContext) = (bodyReads) map (body => Request.Unsubscribe(ctx, body))
+      def read(ctx: RequestContext, replyTo: ActorRef) = (bodyReads) map (body => Request.UnsubscribeFromObject(ctx, body, replyTo))
     }
 
     /*
@@ -62,7 +63,7 @@ object ProtocolFormats {
     object Get {
       val cmdOptsReads = (__ \ 'cmdOpts).read[GetOpts]
 
-      def read(ctx: RequestContext) = (rObjectReads and cmdOptsReads)((r, cmdOpts) => Request.Get(ctx, r, cmdOpts))
+      def read(ctx: RequestContext, replyTo: ActorRef) = (rObjectReads and cmdOptsReads)((r, cmdOpts) => Request.Get(ctx, r, cmdOpts))
     }
 
     /*
@@ -71,7 +72,7 @@ object ProtocolFormats {
     object Update {
       val bodyReads = (__ \ 'body).read[UpdateBody]
 
-      def read(ctx: RequestContext) =
+      def read(ctx: RequestContext, replyTo: ActorRef) =
         (rObjectReads and revReads and bodyReads)((r, rev, body) => Request.Update(ctx, r, rev, body))
     }
 
@@ -81,7 +82,7 @@ object ProtocolFormats {
     object Read {
       val cmdOptsReads = (__ \ 'cmdOpts).read[ReadOpts]
 
-      def read(ctx: RequestContext) = (rCollectionReads and cmdOptsReads)((r, cmdOpts) => Request.Read(ctx, r, cmdOpts))
+      def read(ctx: RequestContext, replyTo: ActorRef) = (rCollectionReads and cmdOptsReads)((r, cmdOpts) => Request.Read(ctx, r, cmdOpts, replyTo))
     }
 
     /*
@@ -90,7 +91,7 @@ object ProtocolFormats {
     object Create {
       val bodyReads = (__ \ 'body).read[JsObject]
 
-      def read(ctx: RequestContext) =
+      def read(ctx: RequestContext, replyTo: ActorRef) =
         (rCollectionReads and bodyReads)((r, body) => Request.Create(ctx, r, body))
     }
 
@@ -98,7 +99,7 @@ object ProtocolFormats {
      * JSON Reads for [[io.really.Request.Delete]] Request
      */
     object Delete {
-      def read(ctx: RequestContext) = (rObjectReads) map (r => Request.Delete(ctx, r))
+      def read(ctx: RequestContext, replyTo: ActorRef) = (rObjectReads) map (r => Request.Delete(ctx, r))
     }
 
     def apply(cmd: String) = scala.util.Try(cmd match {

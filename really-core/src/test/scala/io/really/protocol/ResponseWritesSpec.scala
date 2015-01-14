@@ -3,6 +3,7 @@
  */
 package io.really.protocol
 
+import akka.testkit.TestProbe
 import io.really.Result._
 import io.really._
 import _root_.io.really.rql.RQLTokens.PaginationToken
@@ -11,15 +12,9 @@ import org.joda.time.DateTime
 import org.scalatest.{ Matchers, FlatSpec }
 import play.api.libs.json.{ JsNull, JsString, Json }
 
-class ResponseWritesSpec extends FlatSpec with Matchers {
+class ResponseWritesSpec extends BaseActorSpec {
 
   import ProtocolFormats.ResponseWrites.resultWrites
-
-  val ctx = RequestContext(
-    1,
-    UserInfo(AuthProvider.Anonymous, "123456789", None, Json.obj()),
-    RequestMetadata(None, DateTime.now, "localhost", RequestProtocol.WebSockets)
-  )
 
   "Subscribe writes" should "write subscribe response schema " in {
     val response = SubscribeResult(Set(
@@ -109,7 +104,7 @@ class ResponseWritesSpec extends FlatSpec with Matchers {
       0,
       false,
       false
-    ))
+    ), TestProbe().ref)
 
     val response = ReadResult(
       R("/users/"),
