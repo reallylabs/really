@@ -310,8 +310,8 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor
       unstashAll()
       goto(WithModel) using ModelData(model)
 
-    case Event(ObjectExists(r), data @ ValidationReferences(request: Update, obj, model, expectedReferences, Nil, requester)) if expectedReferences.size == 1 =>
-      updateAndReply(request, obj, model, requester)
+    case Event(ObjectExists(r), data @ UpdateValidationReferences(request: Update, before, after, model, expectedReferences, Nil, requester)) if expectedReferences.size == 1 =>
+      updateAndReply(request, before, after, model, requester)
       unstashAll()
       goto(WithModel) using ModelData(model)
 
@@ -327,6 +327,14 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor
       stay using data.copy(expectedReferences = expectedReferences - r)
 
     case Event(ObjectNotFound(r), data @ ValidationReferences(request, obj, model, expectedReferences, invalidReferences, requester)) if expectedReferences.size == 1 =>
+      val errors: Seq[(JsPath, Seq[ValidationError])] = (invalidReferences :+ expectedReferences(r)).map { f =>
+        __ \ f -> Seq(ValidationError("invalid.value"))
+      }
+      requester ! ModelValidationFailed(request.r, JsError(errors))
+      unstashAll()
+      goto(WithModel) using ModelData(model)
+
+    case Event(ObjectNotFound(r), data @ UpdateValidationReferences(request: Update, before, after, model, expectedReferences, invalidReferences, requester)) if expectedReferences.size == 1 =>
       val errors: Seq[(JsPath, Seq[ValidationError])] = (invalidReferences :+ expectedReferences(r)).map { f =>
         __ \ f -> Seq(ValidationError("invalid.value"))
       }
@@ -584,15 +592,17 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor
                 f -> modelReferenceFields(f)
             }
             if (updatedReferenceField.isEmpty) {
-              updateAndReply(updateRequest, jsObj, model, requester)
+              updateAndReply(updateRequest, modelObj.data, jsObj, model, requester)
               stay
             } else {
               val expectedReferences = askAboutReferenceField(model, updatedReferenceField.toMap, jsObj)
               if (expectedReferences.isEmpty) {
-                updateAndReply(updateRequest, jsObj, model, requester)
+                updateAndReply(updateRequest, modelObj.data, jsObj, model, requester)
                 stay
               } else {
-                goto(WaitingReferencesValidation) using ValidationReferences(updateRequest, jsObj, model, expectedReferences, Seq.empty, requester)
+                goto(WaitingReferencesValidation) using UpdateValidationReferences(
+                  updateRequest, modelObj.data, jsObj, model, expectedReferences, Seq.empty, requester
+                )
               }
             }
 
@@ -611,14 +621,20 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor
 
   /**
    * This function is responsible for execute preUpdate jsHooks, update bucket and reply to requester
-   * @param jsObj
+   * @param prev
+   * @param after
    * @param model
    * @param updateReq
    * @param requester
    */
-  private def updateAndReply(updateReq: Request.Update, jsObj: JsObject, model: Model, requester: ActorRef): Unit = {
-    persistEvent(CollectionActorEvent.Updated(updateReq.r, updateReq.body.ops, rev(jsObj),
-      model.collectionMeta.version, updateReq.ctx), jsObj, requester, UpdateResult(updateReq.r, rev(jsObj)))
+  private def updateAndReply(updateReq: Request.Update, prev: JsObject, after: JsObject, model: Model, requester: ActorRef): Unit = {
+    model.executePreUpdate(updateReq.ctx, globals, prev, after, (updateReq.body.ops map { op => op.key })) match {
+      case ModelHookStatus.Succeeded =>
+        persistEvent(CollectionActorEvent.Updated(updateReq.r, updateReq.body.ops, rev(after),
+          model.collectionMeta.version, updateReq.ctx), after, requester, UpdateResult(updateReq.r, rev(after)))
+      case ModelHookStatus.Terminated(code, reason) =>
+        requester ! JSValidationFailed(updateReq.r, reason) //todo fix me, needs comprehensive reason to be communicated
+    }
   }
 
   /**
@@ -708,6 +724,8 @@ object CollectionActor {
   case class CreatingData(obj: JsObject, model: Model) extends CollectionData
 
   case class ValidationReferences(request: RoutableToCollectionActor, obj: JsObject, model: Model, expectedReferences: Map[R, FieldKey], invalidReferences: Seq[FieldKey], requester: ActorRef) extends CollectionData
+
+  case class UpdateValidationReferences(request: RoutableToCollectionActor, before: JsObject, after: JsObject, model: Model, expectedReferences: Map[R, FieldKey], invalidReferences: Seq[FieldKey], requester: ActorRef) extends CollectionData
 
   case class ValidationParent(request: Create, model: Model, parentR: R, requester: ActorRef) extends CollectionData
 
