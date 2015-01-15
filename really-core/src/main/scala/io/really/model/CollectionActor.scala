@@ -237,7 +237,7 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor
 
         case Some(modelObj) =>
           val newRev = rev(modelObj.data) + 1
-          deleteAndReply(deleteRequest, newRev, model.collectionMeta.version, sender())
+          deleteAndReply(deleteRequest, modelObj.data, newRev, model, sender())
       }
       stay
   }
@@ -327,6 +327,14 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor
       stay using data.copy(expectedReferences = expectedReferences - r)
 
     case Event(ObjectNotFound(r), data @ ValidationReferences(request, obj, model, expectedReferences, invalidReferences, requester)) if expectedReferences.size == 1 =>
+      val errors: Seq[(JsPath, Seq[ValidationError])] = (invalidReferences :+ expectedReferences(r)).map { f =>
+        __ \ f -> Seq(ValidationError("invalid.value"))
+      }
+      requester ! ModelValidationFailed(request.r, JsError(errors))
+      unstashAll()
+      goto(WithModel) using ModelData(model)
+
+    case Event(ObjectNotFound(r), data @ UpdateValidationReferences(request: Update, before, after, model, expectedReferences, invalidReferences, requester)) if expectedReferences.size == 1 =>
       val errors: Seq[(JsPath, Seq[ValidationError])] = (invalidReferences :+ expectedReferences(r)).map { f =>
         __ \ f -> Seq(ValidationError("invalid.value"))
       }
@@ -636,11 +644,16 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor
    * @param modelVersion
    * @param requester
    */
-  private def deleteAndReply(deleteReq: Request.Delete, newRev: Revision, modelVersion: ModelVersion, requester: ActorRef): Unit = {
-    persistEvent(
-      CollectionActorEvent.Deleted(deleteReq.r, newRev, modelVersion, deleteReq.ctx),
-      requester, DeleteResult(deleteReq.r)
-    )
+  private def deleteAndReply(deleteReq: Request.Delete, jsObj: JsObject, newRev: Revision, model: Model, requester: ActorRef): Unit = {
+    model.executePreDelete(deleteReq.ctx, globals, jsObj) match {
+      case ModelHookStatus.Succeeded =>
+        persistEvent(
+          CollectionActorEvent.Deleted(deleteReq.r, newRev, model.collectionMeta.version, deleteReq.ctx),
+          requester, DeleteResult(deleteReq.r)
+        )
+      case ModelHookStatus.Terminated(code, reason) =>
+        requester ! JSValidationFailed(deleteReq.r, reason) //todo fix me, needs comprehensive reason to be communicated
+    }
   }
 
   /**

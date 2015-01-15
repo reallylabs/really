@@ -5,6 +5,7 @@ package io.really.model
 
 import akka.actor.ActorRef
 import akka.persistence.Update
+import akka.testkit.TestProbe
 import io.really.fixture.PersistentModelStoreFixture
 import io.really.model.persistent.ModelRegistry.RequestModel.GetModel
 import io.really.model.persistent.ModelRegistry.{ ModelResult }
@@ -89,7 +90,7 @@ class ReadHandlerSpec extends BaseActorSpecWithMongoDB {
       false,
       false
     )
-    globals.readHandler ! Request.Read(ctx, r, cmdOpts)
+    globals.readHandler ! Request.Read(ctx, r, cmdOpts, TestProbe().ref)
     expectMsg(CommandError.ModelNotFound)
   }
 
@@ -112,7 +113,7 @@ class ReadHandlerSpec extends BaseActorSpecWithMongoDB {
     val result = Await.result(collection.save(postObj), 5.second)
     result.ok shouldBe true
 
-    globals.readHandler ! Request.Read(ctx, r, cmdOpts)
+    globals.readHandler ! Request.Read(ctx, r, cmdOpts, TestProbe().ref)
     val ret = expectMsgType[ReadResult]
     ret.body.items.size shouldEqual (1)
     ret.body.items(0).body shouldEqual ((postObj - "_id") - "_parent0")
@@ -147,7 +148,7 @@ class ReadHandlerSpec extends BaseActorSpecWithMongoDB {
     val result2 = Await.result(collection.save(userObj2), 5.second)
     result2.ok shouldBe true
 
-    globals.readHandler ! Request.Read(ctx, r, cmdOpts)
+    globals.readHandler ! Request.Read(ctx, r, cmdOpts, TestProbe().ref)
     val ret = expectMsgType[ReadResult]
     ret.body.items.size shouldEqual (1)
     ret.body.totalResults shouldBe Some(2)
@@ -172,7 +173,7 @@ class ReadHandlerSpec extends BaseActorSpecWithMongoDB {
     val result = Await.result(collection.save(userObj), 5.second)
     result.ok shouldBe true
 
-    globals.readHandler ! Request.Read(ctx, r, cmdOpts)
+    globals.readHandler ! Request.Read(ctx, r, cmdOpts, TestProbe().ref)
     val ret = expectMsgType[ReadResult]
     ret.body.items.size shouldEqual (1)
     ret.body.items(0).body shouldEqual Json.obj("_r" -> "/authors/12/posts/112/", "_rev" -> 1, "title" -> "The post title")
@@ -204,7 +205,7 @@ class ReadHandlerSpec extends BaseActorSpecWithMongoDB {
     val result2 = Await.result(collection.save(userObj2), 5.second)
     result2.ok shouldBe true
 
-    globals.readHandler ! Request.Read(ctx, r, cmdOpts)
+    globals.readHandler ! Request.Read(ctx, r, cmdOpts, TestProbe().ref)
     val ret = expectMsgType[ReadResult]
     ret.body.items.size shouldEqual (1)
     ret.body.items(0).body shouldEqual Json.obj(
@@ -234,7 +235,7 @@ class ReadHandlerSpec extends BaseActorSpecWithMongoDB {
     val result = Await.result(collection.save(carObj), 5.second)
     result.ok shouldBe true
 
-    globals.readHandler ! Request.Read(ctx, r, cmdOpts)
+    globals.readHandler ! Request.Read(ctx, r, cmdOpts, TestProbe().ref)
     val ret = expectMsgType[ReadResult]
     ret.body.items.size shouldEqual (1)
     ret.body.items(0).body shouldEqual Json.obj("model" -> "KIA", "renewal" -> 2010,
@@ -276,7 +277,7 @@ class ReadHandlerSpec extends BaseActorSpecWithMongoDB {
       true,
       false
     )
-    globals.readHandler ! Request.Read(ctx, r, cmdOpts)
+    globals.readHandler ! Request.Read(ctx, r, cmdOpts, TestProbe().ref)
     val ret = expectMsgType[ReadResult]
     ret.body.items.size shouldEqual (2)
     ret.body.items(0).body shouldEqual Json.obj("name" -> "Sara", "age" -> 22, "_r" -> "/users/1003/", "_rev" -> 1)
@@ -293,7 +294,7 @@ class ReadHandlerSpec extends BaseActorSpecWithMongoDB {
       true,
       false
     )
-    globals.readHandler ! Request.Read(ctx, r, cmdOpts2)
+    globals.readHandler ! Request.Read(ctx, r, cmdOpts2, TestProbe().ref)
     val ret2 = expectMsgType[ReadResult]
     ret2.body.items.size shouldEqual (1)
     ret2.body.items(0).body shouldEqual Json.obj("name" -> "Joo Woo", "age" -> 10, "_r" -> "/users/1002/", "_rev" -> 1)
@@ -309,7 +310,7 @@ class ReadHandlerSpec extends BaseActorSpecWithMongoDB {
       true,
       false
     )
-    globals.readHandler ! Request.Read(ctx, r, cmdOpts3)
+    globals.readHandler ! Request.Read(ctx, r, cmdOpts3, TestProbe().ref)
     val ret3 = expectMsgType[ReadResult]
     ret3.body.items.size shouldEqual (3)
     ret3.body.items(0).body shouldEqual Json.obj("name" -> "Sara", "age" -> 22, "_r" -> "/users/1003/", "_rev" -> 1)
@@ -327,7 +328,7 @@ class ReadHandlerSpec extends BaseActorSpecWithMongoDB {
       true,
       false
     )
-    globals.readHandler ! Request.Read(ctx, r, cmdOpts4)
+    globals.readHandler ! Request.Read(ctx, r, cmdOpts4, TestProbe().ref)
     val ret4 = expectMsgType[ReadResult]
     ret4.body.items.size shouldEqual (2)
     ret4.body.items(0).body shouldEqual Json.obj("name" -> "Joo Woo", "age" -> 10, "_r" -> "/users/1002/", "_rev" -> 1)
@@ -344,7 +345,7 @@ class ReadHandlerSpec extends BaseActorSpecWithMongoDB {
       true,
       false
     )
-    globals.readHandler ! Request.Read(ctx, r, cmdOpts5)
+    globals.readHandler ! Request.Read(ctx, r, cmdOpts5, TestProbe().ref)
     val ret5 = expectMsgType[ReadResult]
     ret5.body.items.size shouldEqual (1)
     ret5.body.items(0).body shouldEqual Json.obj("name" -> "Sara", "age" -> 22, "_r" -> "/users/1003/", "_rev" -> 1)
@@ -395,14 +396,14 @@ class ReadHandlerSpec extends BaseActorSpecWithMongoDB {
     val result5 = Await.result(collection.save(postObj5), 5.second)
     result5.ok shouldBe true
 
-    globals.readHandler ! Request.Read(ctx, r, cmdOpts)
+    globals.readHandler ! Request.Read(ctx, r, cmdOpts, TestProbe().ref)
     val ret = expectMsgType[ReadResult]
     ret.body.items.size shouldEqual (2)
     ret.body.totalResults shouldBe None
     ret.body.tokens.get.nextToken shouldEqual PaginationToken(114, 1)
     ret.body.tokens.get.prevToken shouldEqual PaginationToken(115, 0)
 
-    globals.readHandler ! Request.Read(ctx, r, cmdOpts.copy(ascending = true))
+    globals.readHandler ! Request.Read(ctx, r, cmdOpts.copy(ascending = true), TestProbe().ref)
     val ret2 = expectMsgType[ReadResult]
     ret2.body.items.size shouldEqual (2)
     ret2.body.totalResults shouldBe None
@@ -410,13 +411,13 @@ class ReadHandlerSpec extends BaseActorSpecWithMongoDB {
     ret2.body.tokens.get.prevToken shouldEqual PaginationToken(111, 0)
 
     val readOpts = cmdOpts.copy(paginationToken = Some(ret.body.tokens.get.nextToken))
-    globals.readHandler ! Request.Read(ctx, r, readOpts)
+    globals.readHandler ! Request.Read(ctx, r, readOpts, TestProbe().ref)
     val ret3 = expectMsgType[ReadResult]
     ret3.body.items.size shouldEqual (2)
     ret3.body.tokens.get.nextToken shouldEqual PaginationToken(112, 1)
     ret3.body.tokens.get.prevToken shouldEqual PaginationToken(113, 0)
 
-    globals.readHandler ! Request.Read(ctx, r, readOpts.copy(ascending = true))
+    globals.readHandler ! Request.Read(ctx, r, readOpts.copy(ascending = true), TestProbe().ref)
     val ret4 = expectMsgType[ReadResult]
     ret4.body.items.size shouldEqual (2)
     ret4.body.totalResults shouldBe None

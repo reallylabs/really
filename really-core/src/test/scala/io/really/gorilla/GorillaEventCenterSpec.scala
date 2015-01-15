@@ -57,6 +57,7 @@ class GorillaEventCenterSpec extends BaseActorSpec {
     globals.gorillaEventCenter.tell(PersistentCreatedEvent(event), probe.ref)
     globals.gorillaEventCenter.tell(GetState(r), probe.ref)
     probe.expectMsg("done")
+    (events.filter(_.r === r).length.run > 0) shouldBe true
     events.filter(_.r === r) foreach {
       element =>
         element shouldEqual EventLog("created", r, 1l, 1l, obj,
@@ -78,11 +79,13 @@ class GorillaEventCenterSpec extends BaseActorSpec {
     globals.gorillaEventCenter.tell(PersistentUpdatedEvent(event, obj), probe.ref)
     globals.gorillaEventCenter.tell(GetState(r), probe.ref)
     probe.expectMsg("done")
+    (events.filter(_.r === r).length.run > 0) shouldBe true
     events.filter(_.r === r) foreach {
       element =>
         element shouldEqual EventLog("updated", r, 2l, 1l, obj,
           ctx.auth, Some(ops))
     }
+    (markers.filter(_.r === r).length.run > 0) shouldBe true
     markers.filter(_.r === r) foreach {
       element =>
         element shouldEqual (r, 2l)
@@ -99,17 +102,19 @@ class GorillaEventCenterSpec extends BaseActorSpec {
     globals.gorillaEventCenter.tell(PersistentUpdatedEvent(event, obj), probe.ref)
     globals.gorillaEventCenter.tell(GetState(r), probe.ref)
     probe.expectMsg("done")
+    (events.filter(_.r === r).length.run > 0) shouldBe true
     events.filter(_.r === r) foreach {
       element =>
         element shouldEqual EventLog("updated", r, 2l, 1l, obj,
           ctx.auth, Some(ops))
     }
+    (markers.filter(_.r === r).length.run > 0) shouldBe true
     markers.filter(_.r === r) foreach {
       element =>
         element shouldEqual (r, 2l)
     }
   }
-  it should "ensure that we are not storing" in {
+  it should "ensure that we are not storing the same r twice" in {
     val probe = TestProbe()
     val r = R / 'users / 123
     val obj = Json.obj("name" -> "Sara", "age" -> 20)
@@ -118,17 +123,19 @@ class GorillaEventCenterSpec extends BaseActorSpec {
     globals.gorillaEventCenter.tell(PersistentCreatedEvent(event), probe.ref)
     globals.gorillaEventCenter.tell(GetState(r), probe.ref)
     probe.expectMsg("done")
+    (events.filter(_.r === r).length.run == 1) shouldBe true
     events.filter(_.r === r) foreach {
       element =>
         element shouldEqual EventLog("created", r, 1l, 1l, obj,
           ctx.auth, None)
     }
+    (markers.filter(_.r === r).length.run > 0) shouldBe true
     markers.filter(_.r === r) foreach {
       element =>
         element shouldEqual (r, 1l)
     }
   }
-  ignore should "remove old model events when it receive ModelUpdated event" in {
+  it should "remove old model events when it receive ModelUpdated event" in {
     val probe = TestProbe()
     val r = R / 'users / globals.quickSand.nextId()
     val bucketID = Helpers.getBucketIDFromR(r)

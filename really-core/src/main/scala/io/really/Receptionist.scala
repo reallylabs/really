@@ -38,9 +38,9 @@ class Receptionist(global: ReallyGlobals) extends Actor with ActorLogging {
     context.actorOf(global.requestProps(ctx, replyTo, cmd, body), delegateName(ctx))
 
   def receive = {
-    case DispatchDelegateFor(ctx, cmd, body) =>
+    case DispatchDelegateFor(ctx, cmd, body, pushChannel) =>
       log.debug("Receptionist received request: {} {} {}", ctx, cmd, body)
-      newDelegate(ctx, sender(), cmd, body)
+      newDelegate(ctx, pushChannel, cmd, body)
       messagesCount += 1
     case GetMetrics =>
       sender() ! Metrics(messagesCount, frequency)
@@ -50,7 +50,7 @@ class Receptionist(global: ReallyGlobals) extends Actor with ActorLogging {
 }
 
 object Receptionist {
-  case class DispatchDelegateFor(ctx: RequestContext, cmd: String, body: JsObject)
+  case class DispatchDelegateFor(ctx: RequestContext, cmd: String, body: JsObject, pushChannel: ActorRef)
   case object GetMetrics
   case class Metrics(messagesCount: BigInt, frequency: BigDecimal)
 }

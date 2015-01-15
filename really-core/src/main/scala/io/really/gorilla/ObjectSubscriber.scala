@@ -5,7 +5,6 @@
 package io.really.gorilla
 
 import akka.actor._
-import akka.util.Timeout
 import io.really.gorilla.GorillaEventCenter.ReplayerSubscribed
 import io.really.gorilla.SubscriptionManager.{ UpdateSubscriptionFields, Unsubscribe }
 import io.really.ReallyGlobals
@@ -14,11 +13,8 @@ import io.really.model.persistent.ModelRegistry.RequestModel.GetModel
 import io.really.model.persistent.ModelRegistry.ModelResult
 import io.really.model.persistent.ModelRegistry.ModelResult.ModelFetchError
 import io.really.protocol.FieldUpdatedOp
-import io.really.protocol.ProtocolFormats.PushMessageWrites.{ Created, Updated, Deleted }
+import io.really.protocol.ProtocolFormats.PushMessageWrites.{ Updated, Deleted }
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
-import scala.util.control.NonFatal
-import akka.pattern.{ AskTimeoutException, ask, pipe }
 import io.really.model.Model
 import io.really.protocol.SubscriptionFailure
 import io.really.protocol.SubscriptionFailure.SubscriptionFailureWrites
@@ -35,7 +31,7 @@ class ObjectSubscriber(rSubscription: RSubscription, globals: ReallyGlobals) ext
   val r = rSubscription.r
   private[gorilla] val logTag = s"ObjectSubscriber ${rSubscription.pushChannel.path}$$$r"
 
-  private[gorilla] var fields = rSubscription.fields.getOrElse(Set.empty)
+  private[gorilla] var fields = rSubscription.fields
 
   val shotgun = context.system.scheduler.scheduleOnce(globals.config.GorillaConfig.waitForReplayer, self, PoisonPill)
 
@@ -59,23 +55,10 @@ class ObjectSubscriber(rSubscription: RSubscription, globals: ReallyGlobals) ext
 
   def receive: Receive = commonHandler orElse waitingModel
 
-  def getModel() = {
-    implicit val timeout = Timeout(globals.config.GorillaConfig.waitForModel)
-    val f = (globals.modelRegistry ? GetModel(rSubscription.r, self)).mapTo[ModelResult]
-    f.recoverWith {
-      case e: AskTimeoutException =>
-        log.debug(s"$logTag timed out waiting for the model object")
-        Future successful ModelResult.ModelFetchError(r, s"Request to fetch the model timed out for R: $r")
-      case NonFatal(e) =>
-        log.error(e, s"$logTag got an unexpected error while getting the model instance")
-        Future successful ModelResult.ModelFetchError(r, s"Request to fetch the model failed for R: $r with error: $e")
-    } pipeTo self
-  }
-
   def waitingModel: Receive = {
     case ReplayerSubscribed(replayer) =>
       context.watch(replayer)
-      getModel()
+      globals.modelRegistry ! GetModel(rSubscription.r, self)
       shotgun.cancel()
     case evt @ ModelResult.ModelObject(m, _) =>
       if (!fields.isEmpty && m.fields.keySet.intersect(fields) == Set.empty) {
@@ -104,14 +87,14 @@ class ObjectSubscriber(rSubscription: RSubscription, globals: ReallyGlobals) ext
               op =>
                 FieldUpdatedOp(op.key, op.op, Some(op.value))
             }
-            rSubscription.pushChannel ! Updated.toJson(r, entry.rev, updatedFields)
+            rSubscription.pushChannel ! Updated.toJson(r, entry.rev, updatedFields, entry.userInfo)
           case Left(terminated) =>
         }
       } else {
         subscriptionFailed(502, "Model Version inconsistency")
       }
     case entry: GorillaLogDeletedEntry =>
-      rSubscription.pushChannel ! Deleted.toJson(r)
+      rSubscription.pushChannel ! Deleted.toJson(r, entry.userInfo)
       context.stop(self)
     case UpdateSubscriptionFields(newFields) =>
       if (newFields.isEmpty) {

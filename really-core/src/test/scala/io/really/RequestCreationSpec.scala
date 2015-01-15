@@ -5,6 +5,7 @@ package io.really
 
 import _root_.io.really.rql.RQL.EmptyQuery
 import _root_.io.really.protocol.ReadOpts
+import akka.testkit.TestProbe
 
 class RequestCreationSpec extends BaseActorSpec {
 
@@ -19,7 +20,7 @@ class RequestCreationSpec extends BaseActorSpec {
   it should "return error if command is Read and r is object" in {
     val r = R / "boards" / 3
     val exception = intercept[IllegalArgumentException] {
-      Request.Read(ctx, r, ReadOpts(Set.empty, EmptyQuery, 10, true, None, 0, false, false))
+      Request.Read(ctx, r, ReadOpts(Set.empty, EmptyQuery, 10, true, None, 0, false, false), TestProbe().ref)
     }
     exception.getMessage.contains("r should be represent collection") shouldEqual true
   }

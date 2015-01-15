@@ -3,7 +3,7 @@
  */
 package io.really.model
 
-import akka.actor.{ Stash, Actor, ActorLogging }
+import akka.actor.{ ActorRef, Stash, Actor, ActorLogging }
 import akka.pattern.{ AskTimeoutException, ask }
 import akka.util.Timeout
 
@@ -18,6 +18,7 @@ import io.really._
 import _root_.io.really.rql.RQL._
 import _root_.io.really.rql.RQLTokens.PaginationToken
 import _root_.io.really.rql.writes.mongo.MongoWrites._
+import _root_.io.really.gorilla.SubscriptionManager.SubscribeOnQuery
 import play.api.libs.json._
 import reactivemongo.api.Cursor
 import reactivemongo.core.commands.Count
@@ -47,14 +48,18 @@ class ReadHandler(globals: ReallyGlobals) extends Actor with Stash with ActorLog
           handleGet(model, ctx, r, collection(r), cmdOpts) map (requester ! _.merge)
         case Left(error) => requester ! error
       }
-    case Request.Read(ctx, r, cmdOpts) =>
+    case Request.Read(ctx, r, cmdOpts, pushChannel) =>
       val requester = sender()
       getModel(r) map {
         case Right(model) =>
           handleRead(model, ctx, r, collection(r), cmdOpts) map {
             result =>
-              //todo handle subscription
-              requester ! ReadResult(r, result, None)
+              val readResult = ReadResult(r, result, None)
+              if (cmdOpts.subscribe)
+                //forward results to subscription manager
+                globals.subscriptionManager ! SubscribeOnQuery(requester, ctx, getQuery(r, cmdOpts), readResult)
+              else
+                requester ! readResult
           } recover {
             case NonFatal(e) =>
               log.error(s"Unexpected error happened during querying resource $r with query ${cmdOpts.query}, error: ", e)

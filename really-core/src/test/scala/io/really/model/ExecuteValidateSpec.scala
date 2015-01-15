@@ -111,9 +111,9 @@ class ExecuteValidateSpec extends BaseActorSpec {
       """
         |print(after.age)
         |if(after.age > 30){
-        | cancel(401   , "too Old")
-        |}
-      """.stripMargin
+        |        | cancel(401   , "too Old")
+        |        |}
+        |      """.stripMargin
 
     val after: JsObject = Json.obj(
       "name" -> JsString("Hatem"),
@@ -125,6 +125,41 @@ class ExecuteValidateSpec extends BaseActorSpec {
     val userModel = new Model(r, collMeta, fields, jsHooks, migrationPlan, List.empty)
     userModel.executeValidate(context, globals, input) should be(Succeeded)
     userModel.executePreUpdate(context, globals, input, after, fieldsChanged) should be(Terminated(401, "too Old"))
+  }
+
+  it should "pass if the preDelete script ended without calling cancel()" in {
+
+    val preDeleteScript: JsScript =
+      """
+        |var deleted = "Name is: " + input.name + ", age : " + input.age;
+        |print(deleted)
+      """.stripMargin
+
+    val jsHooks: JsHooks = JsHooks(None, None, None, preDelete = Some(preDeleteScript), None, None, None)
+    val userModel = new Model(r, collMeta, fields, jsHooks, migrationPlan, List.empty)
+    userModel.executeValidate(context, globals, input) should be(Succeeded)
+    userModel.executePreDelete(context, globals, input) should be(Succeeded)
+
+  }
+
+  it should "return Terminated object if preDelete cancel() was called" in {
+
+    val preDeleteScript: JsScript =
+      """
+        |print(input.age)
+        |if(input.age > 30){
+        | cancel(401   , "too Old")
+        |}
+      """.stripMargin
+
+    val deleted: JsObject = Json.obj(
+      "name" -> JsString("Hatem"),
+      "age" -> JsNumber(50)
+    )
+    val jsHooks: JsHooks = JsHooks(None, None, None, preDelete = Some(preDeleteScript), None, None, None)
+    val userModel = new Model(r, collMeta, fields, jsHooks, migrationPlan, List.empty)
+    userModel.executeValidate(context, globals, deleted) should be(Succeeded)
+    userModel.executePreDelete(context, globals, deleted) should be(Terminated(401, "too Old"))
 
   }
 

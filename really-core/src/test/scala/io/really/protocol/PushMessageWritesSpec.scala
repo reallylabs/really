@@ -24,11 +24,21 @@ class PushMessageWritesSpec extends FlatSpec with Matchers {
   }
 
   "Delete writes" should "write deleted push message" in {
-    val msg = ProtocolFormats.PushMessageWrites.Deleted.toJson(R("/users/1213329889789/"))
+    val msg = ProtocolFormats.PushMessageWrites.Deleted.toJson(
+      R("/users/1213329889789/"),
+      UserInfo(AuthProvider.Anonymous, "234567890", None)
+    )
 
     assertResult(Json.obj(
       "r" -> R("/users/1213329889789/"),
-      "evt" -> "deleted"
+      "evt" -> "deleted",
+      "meta" -> Json.obj(
+        "opBy" -> Json.obj(
+          "authType" -> "anonymous",
+          "uid" -> "234567890",
+          "data" -> Json.obj()
+        )
+      )
     ))(msg)
   }
 
@@ -38,7 +48,8 @@ class PushMessageWritesSpec extends FlatSpec with Matchers {
       24,
       List(
         FieldUpdatedOp("name", UpdateCommand.Set, Some(JsString("Ahmed")))
-      )
+      ),
+      UserInfo(AuthProvider.Anonymous, "234567890", None)
     )
 
     assertResult(Json.obj(
@@ -49,6 +60,13 @@ class PushMessageWritesSpec extends FlatSpec with Matchers {
         "name" -> Json.obj(
           "op" -> "set",
           "opValue" -> "Ahmed"
+        )
+      ),
+      "meta" -> Json.obj(
+        "opBy" -> Json.obj(
+          "authType" -> "anonymous",
+          "uid" -> "234567890",
+          "data" -> Json.obj()
         )
       )
     ))(msg)

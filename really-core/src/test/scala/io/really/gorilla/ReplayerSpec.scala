@@ -84,7 +84,7 @@ class ReplayerSpec(config: ReallyConfig) extends BaseActorSpecWithMongoDB(config
     val pushChannel = TestProbe().ref
     val rev = 23
     val r: R = R / 'users / 123
-    val rSub = RSubscription(ctx, r, None, rev, requestDelegate, pushChannel)
+    val rSub = RSubscription(ctx, r, Set.empty, rev, requestDelegate, pushChannel)
     val replayer = TestActorRef[Replayer](Props(new Replayer(globals, objectSubActor.ref, rSub, Some(rev))))
     replayer.underlyingActor.r should be(r)
     replayer.underlyingActor.min should be(rev)
@@ -114,7 +114,7 @@ class ReplayerSpec(config: ReallyConfig) extends BaseActorSpecWithMongoDB(config
     val pushChannel = TestProbe().ref
     val rev: Revision = 2L
     val r: R = R / 'users / 124
-    val rSub = RSubscription(ctx, r, None, rev, requestDelegate, pushChannel)
+    val rSub = RSubscription(ctx, r, Set.empty, rev, requestDelegate, pushChannel)
     val probe = TestProbe()
     val obj = Json.obj("name" -> "Sara", "age" -> 20)
     val createdEvent = Created(r, obj, 1l, ctx)
@@ -163,7 +163,7 @@ class ReplayerSpec(config: ReallyConfig) extends BaseActorSpecWithMongoDB(config
       val pushChannel = TestProbe().ref
       val rev: Revision = 3L
       val r: R = R / 'users / 125
-      val rSub = RSubscription(ctx, r, None, rev, requestDelegate, pushChannel)
+      val rSub = RSubscription(ctx, r, Set.empty, rev, requestDelegate, pushChannel)
       val probe = TestProbe()
       val obj = Json.obj("name" -> "Sara", "age" -> 20)
       val createdEvent = Created(r, obj, 1l, ctx)
@@ -206,7 +206,7 @@ class ReplayerSpec(config: ReallyConfig) extends BaseActorSpecWithMongoDB(config
       val pushChannel = TestProbe().ref
       val rev: Revision = 33L
       val r: R = R / 'users / 126
-      val rSub = RSubscription(ctx, r, None, rev, requestDelegate, pushChannel)
+      val rSub = RSubscription(ctx, r, Set.empty, rev, requestDelegate, pushChannel)
       val probe = TestProbe()
       val obj = Json.obj("name" -> "Sara", "age" -> 20)
       val createdEvent = Created(r, obj, 1l, ctx)
@@ -247,7 +247,7 @@ class ReplayerSpec(config: ReallyConfig) extends BaseActorSpecWithMongoDB(config
       val pushChannel = TestProbe().ref
       val rev: Revision = 10L
       val r: R = R / 'users / 127
-      val rSub = RSubscription(ctx, r, None, rev, requestDelegate, pushChannel)
+      val rSub = RSubscription(ctx, r, Set.empty, rev, requestDelegate, pushChannel)
       val probe = TestProbe()
 
       val replayer = TestActorRef[Replayer](Props(new Replayer(globals, objectSubActor.ref, rSub, Some(5))))
@@ -269,7 +269,7 @@ class ReplayerSpec(config: ReallyConfig) extends BaseActorSpecWithMongoDB(config
     val pushChannel = TestProbe().ref
     val rev: Revision = 2L
     val r: R = R / 'users / 128
-    val rSub = RSubscription(ctx, r, None, rev, requestDelegate, pushChannel)
+    val rSub = RSubscription(ctx, r, Set.empty, rev, requestDelegate, pushChannel)
     val probe = TestProbe()
 
     globals.collectionActor.tell(Create(ctx, r, Json.obj("name" -> "amal elshihaby", "age" -> 27)), probe.ref)
@@ -323,7 +323,7 @@ class ReplayerSpec(config: ReallyConfig) extends BaseActorSpecWithMongoDB(config
       val pushChannel = TestProbe().ref
       val rev: Revision = 2L
       val r: R = R / 'users / 129
-      val rSub = RSubscription(ctx, r, None, rev, requestDelegate, pushChannel)
+      val rSub = RSubscription(ctx, r, Set.empty, rev, requestDelegate, pushChannel)
       val probe = TestProbe()
 
       globals.collectionActor.tell(Create(ctx, r, Json.obj("name" -> "amal elshihaby", "age" -> 27)), probe.ref)
@@ -382,7 +382,7 @@ class ReplayerSpec(config: ReallyConfig) extends BaseActorSpecWithMongoDB(config
     val pushChannel = TestProbe().ref
     val rev: Revision = 2L
     val r: R = R / 'users / 130
-    val rSub = RSubscription(ctx, r, None, rev, requestDelegate, pushChannel)
+    val rSub = RSubscription(ctx, r, Set.empty, rev, requestDelegate, pushChannel)
     val probe = TestProbe()
 
     val replayer = TestActorRef[Replayer](Props(new Replayer(globals, objectSubActor.ref, rSub, Some(5L))))
@@ -393,14 +393,13 @@ class ReplayerSpec(config: ReallyConfig) extends BaseActorSpecWithMongoDB(config
     probe.expectTerminated(replayer)
   }
 
-  //  ignore "Replayer with no max marker" should "get logs if matches the rev first then switch to serve push updates" in {
-  ignore should "get logs if matches the rev first then switch to serve push updates" in {
+  it should "get logs if matches the rev first then switch to serve push updates" in {
     val objectSubActor = TestProbe()
     val requestDelegate = TestProbe().ref
     val pushChannel = TestProbe().ref
     val rev: Revision = 1L
     val r: R = R / 'users / 131
-    val rSub = RSubscription(ctx, r, None, rev, requestDelegate, pushChannel)
+    val rSub = RSubscription(ctx, r, Set.empty, rev, requestDelegate, pushChannel)
     val probe = TestProbe()
     val fullObj1 = Json.obj("_r" -> r.toString, "_rev" -> 1L, "name" -> "Sara", "age" -> 20)
     val createdEvent = Created(r, fullObj1, 1l, ctx)
@@ -428,7 +427,6 @@ class ReplayerSpec(config: ReallyConfig) extends BaseActorSpecWithMongoDB(config
     val fullObj4 = Json.obj("_r" -> r.toString, "_rev" -> 4L, "name" -> "hamada", "age" -> 20)
     globals.mediator ! Publish(r.toString, PersistentUpdatedEvent(updatedEvent4, fullObj4))
 
-    objectSubActor.expectMsg(GorillaLogCreatedEntry(r, fullObj1, 1L, 1L, createdEvent.context.auth))
     objectSubActor.expectMsg(GorillaLogUpdatedEntry(r, fullObj2, 2L, 1L, updatedEvent2.context.auth, ops2))
     objectSubActor.expectMsg(GorillaLogUpdatedEntry(r, fullObj3, 3L, 1L, updatedEvent3.context.auth, ops3))
     objectSubActor.expectMsg(GorillaLogUpdatedEntry(r, fullObj4, 4L, 1L, updatedEvent4.context.auth, ops4))
@@ -452,7 +450,7 @@ class ReplayerSpec(config: ReallyConfig) extends BaseActorSpecWithMongoDB(config
       val pushChannel = TestProbe().ref
       val rev: Revision = 2L
       val r: R = R / 'users / 132
-      val rSub = RSubscription(ctx, r, None, rev, requestDelegate, pushChannel)
+      val rSub = RSubscription(ctx, r, Set.empty, rev, requestDelegate, pushChannel)
       val probe = TestProbe()
 
       globals.collectionActor.tell(Create(ctx, r, Json.obj("name" -> "amal elshihaby", "age" -> 27)), probe.ref)
@@ -494,7 +492,7 @@ class ReplayerSpec(config: ReallyConfig) extends BaseActorSpecWithMongoDB(config
       val pushChannel = TestProbe().ref
       val rev: Revision = 2L
       val r: R = R / 'users / 99897
-      val rSub = RSubscription(ctx, r, None, rev, requestDelegate, pushChannel)
+      val rSub = RSubscription(ctx, r, Set.empty, rev, requestDelegate, pushChannel)
       val probe = TestProbe()
 
       globals.collectionActor.tell(Create(ctx, r, Json.obj("name" -> "amal elshihaby", "age" -> 27)), probe.ref)
@@ -553,7 +551,7 @@ class ReplayerSpec(config: ReallyConfig) extends BaseActorSpecWithMongoDB(config
     val pushChannel = TestProbe().ref
     val rev: Revision = 69L
     val r: R = R / 'users / 134
-    val rSub = RSubscription(ctx, r, None, rev, requestDelegate, pushChannel)
+    val rSub = RSubscription(ctx, r, Set.empty, rev, requestDelegate, pushChannel)
     val probe = TestProbe()
 
     globals.collectionActor.tell(Create(ctx, r, Json.obj("name" -> "amal elshihaby", "age" -> 27)), probe.ref)

@@ -120,9 +120,9 @@ package io {
 
     object Request {
 
-      case class Subscribe(ctx: RequestContext, body: SubscriptionBody) extends Request with RoutableToSubscriptionManager
+      case class SubscribeOnObject(ctx: RequestContext, body: SubscriptionBody, pushChannel: ActorRef) extends Request with RoutableToSubscriptionManager
 
-      case class Unsubscribe(ctx: RequestContext, body: UnsubscriptionBody) extends Request with RoutableToSubscriptionManager
+      case class UnsubscribeFromObject(ctx: RequestContext, body: UnsubscriptionBody, pushChannel: ActorRef) extends Request with RoutableToSubscriptionManager
 
       case class GetSubscription(ctx: RequestContext, r: R) extends Request with RoutableByR with RoutableToSubscriptionManager
 
@@ -134,7 +134,7 @@ package io {
         require(r.isObject, "r should be represent object")
       }
 
-      case class Read(ctx: RequestContext, r: R, cmdOpts: ReadOpts) extends Request with RoutableToReadHandler {
+      case class Read(ctx: RequestContext, r: R, cmdOpts: ReadOpts, pushChannel: ActorRef) extends Request with RoutableToReadHandler {
         require(r.isCollection, "r should be represent collection")
       }
 
@@ -143,14 +143,6 @@ package io {
       case class Delete(ctx: RequestContext, r: R) extends Request with RoutableToCollectionActor {
         require(r.isObject, "r should be represent object")
       }
-
-    }
-
-    object WrappedSubscriptionRequest {
-
-      case class WrappedSubscribe(subscribeObject: Request.Subscribe, pushChannel: ActorRef) extends RoutableToSubscriptionManager
-
-      case class WrappedUnsubscribe(unsubscribeObject: Request.Unsubscribe, pushChannel: ActorRef) extends RoutableToSubscriptionManager
 
     }
 

@@ -112,13 +112,13 @@ class ObjectSubscriberSpec(config: ReallyConfig) extends BaseActorSpecWithMongoD
     val pushChannel = TestProbe()
     val rev: Revision = 1L
     val r: R = R / 'users / 601
-    val rSub1 = RSubscription(ctx, r, Some(Set("name")), rev, requestDelegate.ref, pushChannel.ref)
+    val rSub1 = RSubscription(ctx, r, Set("name"), rev, requestDelegate.ref, pushChannel.ref)
     val objectSubscriberActor1 = TestActorRef[TestObjectSubscriber](globals.objectSubscriberProps(rSub1))
     objectSubscriberActor1.underlyingActor.fields shouldEqual Set("name")
     objectSubscriberActor1.underlyingActor.r shouldEqual r
     objectSubscriberActor1.underlyingActor.logTag shouldEqual s"ObjectSubscriber ${pushChannel.ref.path}$$$r"
 
-    val rSub2 = RSubscription(ctx, r, Some(Set.empty), rev, requestDelegate.ref, pushChannel.ref)
+    val rSub2 = RSubscription(ctx, r, Set.empty, rev, requestDelegate.ref, pushChannel.ref)
     val objectSubscriberActor2 = system.actorOf(globals.objectSubscriberProps(rSub2))
     val replayer = system.actorOf(Props(new Replayer(globals, objectSubscriberActor2, rSub2, Some(rev))))
     objectSubscriberActor2 ! ReplayerSubscribed(replayer)
@@ -135,7 +135,7 @@ class ObjectSubscriberSpec(config: ReallyConfig) extends BaseActorSpecWithMongoD
     val deathProbe = TestProbe()
     val rev: Revision = 1L
     val r: R = R / 'users / 601
-    val rSub = RSubscription(ctx, r, Some(Set("name")), rev, requestDelegate.ref, pushChannel.ref)
+    val rSub = RSubscription(ctx, r, Set("name"), rev, requestDelegate.ref, pushChannel.ref)
     val objectSubscriberActor = system.actorOf(globals.objectSubscriberProps(rSub))
     deathProbe.watch(objectSubscriberActor)
     objectSubscriberActor ! SubscriptionManager.Unsubscribe
@@ -150,7 +150,7 @@ class ObjectSubscriberSpec(config: ReallyConfig) extends BaseActorSpecWithMongoD
     val deathProbe = TestProbe()
     val rev: Revision = 1L
     val r: R = R / 'users / 602
-    val rSub = RSubscription(ctx, r, Some(Set.empty), rev, requestDelegate.ref, pushChannel.ref)
+    val rSub = RSubscription(ctx, r, Set.empty, rev, requestDelegate.ref, pushChannel.ref)
     val objectSubscriberActor = system.actorOf(globals.objectSubscriberProps(rSub))
     deathProbe.watch(objectSubscriberActor)
     val replayer = system.actorOf(Props(new Replayer(globals, objectSubscriberActor, rSub, Some(rev))))
@@ -170,7 +170,7 @@ class ObjectSubscriberSpec(config: ReallyConfig) extends BaseActorSpecWithMongoD
     val pushChannel = TestProbe()
     val rev: Revision = 1L
     val r: R = R / 'users / 601
-    val rSub = RSubscription(ctx, r, Some(Set("name")), rev, requestDelegate.ref, pushChannel.ref)
+    val rSub = RSubscription(ctx, r, Set("name"), rev, requestDelegate.ref, pushChannel.ref)
     val objectSubscriberActor = system.actorOf(globals.objectSubscriberProps(rSub))
     val replayer = system.actorOf(Props(new Replayer(globals, objectSubscriberActor, rSub, Some(rev))))
     objectSubscriberActor ! ReplayerSubscribed(replayer)
@@ -188,7 +188,7 @@ class ObjectSubscriberSpec(config: ReallyConfig) extends BaseActorSpecWithMongoD
     val deathProbe = TestProbe()
     val rev: Revision = 1L
     val r: R = R / 'users / 601
-    val rSub = RSubscription(ctx, r, Some(Set("name")), rev, requestDelegate.ref, pushChannel.ref)
+    val rSub = RSubscription(ctx, r, Set("name"), rev, requestDelegate.ref, pushChannel.ref)
     val objectSubscriberActor = system.actorOf(globals.objectSubscriberProps(rSub))
     val replayer = system.actorOf(Props(new Replayer(globals, objectSubscriberActor, rSub, Some(rev))))
     objectSubscriberActor ! ReplayerSubscribed(replayer)
@@ -197,7 +197,7 @@ class ObjectSubscriberSpec(config: ReallyConfig) extends BaseActorSpecWithMongoD
     objectSubscriberActor.tell(GetFieldList, testProbe.ref)
     testProbe.expectMsg(Set("name"))
     objectSubscriberActor ! GorillaLogDeletedEntry(r, rev, 1l, userInfo)
-    pushChannel.expectMsg(Deleted.toJson(r))
+    pushChannel.expectMsg(Deleted.toJson(r, userInfo))
     deathProbe.watch(objectSubscriberActor)
     deathProbe.expectTerminated(objectSubscriberActor)
   }
@@ -208,7 +208,7 @@ class ObjectSubscriberSpec(config: ReallyConfig) extends BaseActorSpecWithMongoD
     val pushChannel = TestProbe()
     val rev: Revision = 1L
     val r: R = R / 'users / 601
-    val rSub = RSubscription(ctx, r, None, rev, requestDelegate.ref, pushChannel.ref)
+    val rSub = RSubscription(ctx, r, Set.empty, rev, requestDelegate.ref, pushChannel.ref)
     val objectSubscriber = system.actorOf(globals.objectSubscriberProps(rSub))
     val replayer = system.actorOf(Props(new Replayer(globals, objectSubscriber, rSub, Some(rev))))
     objectSubscriber ! ReplayerSubscribed(replayer)
@@ -224,7 +224,7 @@ class ObjectSubscriberSpec(config: ReallyConfig) extends BaseActorSpecWithMongoD
     val deathProbe = TestProbe()
     val rev: Revision = 1L
     val r: R = R / 'users / 601
-    val rSub = RSubscription(ctx, r, None, rev, requestDelegate.ref, pushChannel.ref)
+    val rSub = RSubscription(ctx, r, Set.empty, rev, requestDelegate.ref, pushChannel.ref)
     val objectSubscriberActor = system.actorOf(globals.objectSubscriberProps(rSub))
     deathProbe.watch(objectSubscriberActor)
     val replayer = system.actorOf(Props(new Replayer(globals, objectSubscriberActor, rSub, Some(rev))))
@@ -241,7 +241,7 @@ class ObjectSubscriberSpec(config: ReallyConfig) extends BaseActorSpecWithMongoD
     val pushChannel = TestProbe()
     val rev: Revision = 1L
     val r = R / 'friend / 1
-    val rSub = RSubscription(ctx, r, None, rev, requestDelegate.ref, pushChannel.ref)
+    val rSub = RSubscription(ctx, r, Set.empty, rev, requestDelegate.ref, pushChannel.ref)
     val friendSub = rSub.copy(r = r)
     val objectSubscriber = system.actorOf(globals.objectSubscriberProps(friendSub))
     val replayer = system.actorOf(Props(new Replayer(globals, objectSubscriber, friendSub, Some(rev))))
@@ -249,7 +249,7 @@ class ObjectSubscriberSpec(config: ReallyConfig) extends BaseActorSpecWithMongoD
     val friendObject = Json.obj("_r" -> r, "_rev" -> 1L, "fName" -> "Ahmed", "age" -> 23, "lName" -> "Refaey")
     val createdEvent = GorillaLogCreatedEntry(r, friendObject, 1L, 23L, ctx.auth)
     objectSubscriber ! GorillaLogUpdatedEntry(rSub.r, Json.obj(), 1L, 23L, ctx.auth, List.empty)
-    pushChannel.expectMsg(Updated.toJson(r, 1L, List.empty))
+    pushChannel.expectMsg(Updated.toJson(r, 1L, List.empty, ctx.auth))
     objectSubscriber.tell(GetFieldList, testProbe.ref)
     testProbe.expectMsg(Set("fName", "lName", "age"))
   }
@@ -260,7 +260,7 @@ class ObjectSubscriberSpec(config: ReallyConfig) extends BaseActorSpecWithMongoD
     val pushChannel = TestProbe()
     val rev: Revision = 1L
     val r: R = R / 'friend / 2
-    val friendSub = RSubscription(ctx, r, Some(Set("fName", "lName")), rev, requestDelegate.ref, pushChannel.ref)
+    val friendSub = RSubscription(ctx, r, Set("fName", "lName"), rev, requestDelegate.ref, pushChannel.ref)
     val objectSubscriber = system.actorOf(globals.objectSubscriberProps(friendSub))
     val replayer = system.actorOf(Props(new Replayer(globals, objectSubscriber, friendSub, Some(rev))))
     objectSubscriber ! ReplayerSubscribed(replayer)
@@ -271,7 +271,7 @@ class ObjectSubscriberSpec(config: ReallyConfig) extends BaseActorSpecWithMongoD
       UpdateOp(UpdateCommand.Set, "lName", JsString("Refaey"))
     )
     objectSubscriber ! GorillaLogUpdatedEntry(friendSub.r, Json.obj(), 1L, 23L, ctx.auth, updates)
-    pushChannel.expectMsg(Updated.toJson(r, 1L, List(FieldUpdatedOp("fName", UpdateCommand.Set, Some(JsString("Ahmed"))))))
+    pushChannel.expectMsg(Updated.toJson(r, 1L, List(FieldUpdatedOp("fName", UpdateCommand.Set, Some(JsString("Ahmed")))), ctx.auth))
   }
 
   ignore should "pass nothing if the model.executeOnGet evaluated to Terminated" in {
@@ -280,8 +280,8 @@ class ObjectSubscriberSpec(config: ReallyConfig) extends BaseActorSpecWithMongoD
     val pushChannel = TestProbe()
     val rev: Revision = 1L
     val r = R / 'brand / 1
-    val rSub = RSubscription(ctx, r, None, rev, requestDelegate.ref, pushChannel.ref)
-    val brandSub = rSub.copy(r = r, fields = Some(Set("name", "since")))
+    val rSub = RSubscription(ctx, r, Set.empty, rev, requestDelegate.ref, pushChannel.ref)
+    val brandSub = rSub.copy(r = r, fields = Set("name", "since"))
     val objectSubscriber = system.actorOf(globals.objectSubscriberProps(brandSub))
     val replayer = system.actorOf(Props(new Replayer(globals, objectSubscriber, brandSub, Some(rev))))
     objectSubscriber ! ReplayerSubscribed(replayer)
@@ -299,7 +299,7 @@ class ObjectSubscriberSpec(config: ReallyConfig) extends BaseActorSpecWithMongoD
     val deathProbe = TestProbe()
     val rev: Revision = 1L
     val r: R = R / 'users / 601
-    val rSub = RSubscription(ctx, r, None, rev, requestDelegate.ref, pushChannel.ref)
+    val rSub = RSubscription(ctx, r, Set.empty, rev, requestDelegate.ref, pushChannel.ref)
     val objectSubscriberActor = system.actorOf(globals.objectSubscriberProps(rSub))
     deathProbe.watch(objectSubscriberActor)
     EventFilter.error(occurrences = 1, message = s"ObjectSubscriber ${rSub.pushChannel.path}$$${r} is going to die since the subscription failed because of: Internal Server Error\n error code: 401") intercept {
@@ -315,7 +315,7 @@ class ObjectSubscriberSpec(config: ReallyConfig) extends BaseActorSpecWithMongoD
     val deathProbe = TestProbe()
     val rev: Revision = 1L
     val r: R = R / 'users / 601
-    val rSub = RSubscription(ctx, r, None, rev, requestDelegate.ref, pushChannel.ref)
+    val rSub = RSubscription(ctx, r, Set.empty, rev, requestDelegate.ref, pushChannel.ref)
     val objectSubscriberActor = system.actorOf(globals.objectSubscriberProps(rSub))
     val replayer = system.actorOf(Props(new Replayer(globals, objectSubscriberActor, rSub, Some(rev))))
     objectSubscriberActor ! ReplayerSubscribed(replayer)
@@ -333,7 +333,7 @@ class ObjectSubscriberSpec(config: ReallyConfig) extends BaseActorSpecWithMongoD
     val pushChannel = TestProbe()
     val rev: Revision = 1L
     val r: R = R / 'friend / 601
-    val rSub = RSubscription(ctx, r, None, rev, requestDelegate.ref, pushChannel.ref)
+    val rSub = RSubscription(ctx, r, Set.empty, rev, requestDelegate.ref, pushChannel.ref)
     val objectSubscriberActor = system.actorOf(globals.objectSubscriberProps(rSub))
     val replayer = system.actorOf(Props(new Replayer(globals, objectSubscriberActor, rSub, Some(rev))))
     objectSubscriberActor ! ReplayerSubscribed(replayer)
@@ -346,7 +346,7 @@ class ObjectSubscriberSpec(config: ReallyConfig) extends BaseActorSpecWithMongoD
     pushChannel.expectMsg(Updated.toJson(r, 1L, List(
       FieldUpdatedOp("fName", UpdateCommand.Set, Some(JsString("Ahmed"))),
       FieldUpdatedOp("age", UpdateCommand.Set, Some(JsNumber(23)))
-    )))
+    ), ctx.auth))
     objectSubscriberActor.tell(GetFieldList, testProbe.ref)
     testProbe.expectMsg(Set("fName", "lName", "age"))
     val friendOnGetJs: JsScript =
@@ -372,7 +372,7 @@ class ObjectSubscriberSpec(config: ReallyConfig) extends BaseActorSpecWithMongoD
     pushChannel.expectMsg(Updated.toJson(r, 1L, List(
       FieldUpdatedOp("age", UpdateCommand.Set, Some(JsNumber(29))),
       FieldUpdatedOp("lName", UpdateCommand.Set, Some(JsString("Anderson")))
-    )))
+    ), ctx.auth))
     objectSubscriberActor.tell(GetFieldList, testProbe.ref)
     testProbe.expectMsg(Set("fName", "lName", "age"))
   }
@@ -383,7 +383,7 @@ class ObjectSubscriberSpec(config: ReallyConfig) extends BaseActorSpecWithMongoD
     val deathProbe = TestProbe()
     val rev: Revision = 1L
     val r: R = R / 'users / 601
-    val rSub = RSubscription(ctx, r, None, rev, requestDelegate.ref, pushChannel.ref)
+    val rSub = RSubscription(ctx, r, Set.empty, rev, requestDelegate.ref, pushChannel.ref)
     val objectSubscriberActor = system.actorOf(globals.objectSubscriberProps(rSub))
     val replayer = system.actorOf(Props(new Replayer(globals, objectSubscriberActor, rSub, Some(rev))))
     objectSubscriberActor ! ReplayerSubscribed(replayer)
@@ -402,7 +402,7 @@ class ObjectSubscriberSpec(config: ReallyConfig) extends BaseActorSpecWithMongoD
     val deathProbe = TestProbe()
     val rev: Revision = 1L
     val r: R = R / 'users / 601
-    val rSub = RSubscription(ctx, r, None, rev, requestDelegate.ref, pushChannel.ref)
+    val rSub = RSubscription(ctx, r, Set.empty, rev, requestDelegate.ref, pushChannel.ref)
     val objectSubscriberActor = system.actorOf(globals.objectSubscriberProps(rSub))
     val replayer = system.actorOf(Props(new Replayer(globals, objectSubscriberActor, rSub, Some(rev))))
     objectSubscriberActor ! ReplayerSubscribed(replayer)
@@ -420,7 +420,7 @@ class ObjectSubscriberSpec(config: ReallyConfig) extends BaseActorSpecWithMongoD
     val deathProbe = TestProbe()
     val rev: Revision = 1L
     val r: R = R / 'users / 601
-    val rSub = RSubscription(ctx, r, None, rev, requestDelegate.ref, pushChannel.ref)
+    val rSub = RSubscription(ctx, r, Set.empty, rev, requestDelegate.ref, pushChannel.ref)
     val objectSubscriberActor = system.actorOf(globals.objectSubscriberProps(rSub))
     deathProbe.watch(objectSubscriberActor)
     objectSubscriberActor ! "To stash message 1"
@@ -434,7 +434,7 @@ class ObjectSubscriberSpec(config: ReallyConfig) extends BaseActorSpecWithMongoD
     val pushChannel = TestProbe()
     val rev: Revision = 1L
     val r: R = R / 'users / 601
-    val rSub = RSubscription(ctx, r, Some(Set("notAField1", "notAField2")), rev, requestDelegate.ref, pushChannel.ref)
+    val rSub = RSubscription(ctx, r, Set("notAField1", "notAField2"), rev, requestDelegate.ref, pushChannel.ref)
     val objectSubscriber = system.actorOf(globals.objectSubscriberProps(rSub))
     val replayer = system.actorOf(Props(new Replayer(globals, objectSubscriber, rSub, Some(rev))))
     objectSubscriber ! ReplayerSubscribed(replayer)
