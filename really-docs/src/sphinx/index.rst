@@ -10,3 +10,4 @@ User's Guide
 .. toctree::
 
    Documentation Guidelines
+   protocol/websocket-protocol
