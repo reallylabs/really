@@ -35,7 +35,7 @@ Request
 
 Access Tokens
 ^^^^^^^^^^^^^
-You **MUST** provide the access token, even anonymous users should have auth token. See Access Token for details on how to pass the access token in your requests.
+You **MUST** provide the access token, even anonymous users should have auth token. See :doc:`../auth/access-token` for details on how to pass the access token in your requests.
 If you didn't specify an access token or an invalid access token, the server response will be
 
 .. code-block:: javascript
