@@ -73,7 +73,7 @@ object Global extends GlobalSettings {
     )
 
     Logger.info("Hello from Really!")
-
+    
     // loading models
     val reallyHome = coreGlobals.config.getReallyHome
     Logger.info(s"(really.home) is ($reallyHome)")

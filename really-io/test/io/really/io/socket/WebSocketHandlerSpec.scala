@@ -148,6 +148,7 @@ class WebSocketHandlerSpec extends BaseIOActorSpec {
         "cmd":"initialize",
         "accessToken":"$token"
         }"""
+
     handler ! valid_initialize_msg
     val em = client.expectMsgType[JsValue]
     em \ "evt" shouldBe JsString("initialized")
