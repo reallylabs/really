@@ -8,6 +8,9 @@ User's Guide
 ************
 
 .. toctree::
+   :maxdepth: 2
 
    Documentation Guidelines
    protocol/websocket-protocol
+   auth/index
+   api/index

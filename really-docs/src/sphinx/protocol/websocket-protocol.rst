@@ -1,6 +1,5 @@
 Websocket Protocol
 ============
-
 .. toctree::
   :maxdepth: 2
 
