@@ -21,7 +21,6 @@ Request
 
 Response
 --------
-
 +-------------+-------------------------------------------------------------------+--------------+
 | Name        | Description                                                       | Required?    |
 +=============+===================================================================+==============+
@@ -47,8 +46,8 @@ Request
 | expires     | Expiration Date/Time in ISO format                                               | no - if missing,               |
 |             |                                                                                  | it's assumed to be never expire|
 +-------------+----------------------------------------------------------------------------------+--------------------------------+
-| _r          | Represent a unique identifier for this persisted user                            | not required in case of        |
-|             |                                                                                  |anonymous login                 |
+|  _r         | Represent a unique identifier for this persisted user                            | not required in case of        |
+|             |                                                                                  | anonymous login                |
 +-------------+----------------------------------------------------------------------------------+--------------------------------+
 | data        | The token can contains other info about the user                                 |                                |
 |             | which depends on the authentication method                                       | no                             |

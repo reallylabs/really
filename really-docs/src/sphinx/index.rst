@@ -15,3 +15,5 @@ User's Guide
    protocol/websocket-protocol
    auth/index
    api/index
+   model/syntax
+   architecture/index
