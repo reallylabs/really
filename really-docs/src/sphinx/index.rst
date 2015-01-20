@@ -10,7 +10,8 @@ User's Guide
 .. toctree::
    :maxdepth: 2
 
-   Documentation Guidelines
+   documentation-guidelines
+   really-contribution/index
    protocol/websocket-protocol
    auth/index
    api/index
