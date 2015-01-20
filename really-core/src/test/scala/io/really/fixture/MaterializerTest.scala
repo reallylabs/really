@@ -4,7 +4,7 @@ import scala.util.Either
 import scala.concurrent.Future
 import akka.actor.ActorRef
 import akka.pattern.pipe
-import akka.persistence.{ SaveSnapshotSuccess, SaveSnapshotFailure }
+import akka.persistence.{ SnapshotSelectionCriteria }
 import play.api.libs.json._
 import io.really.model.{ ModelVersion, Model }
 import io.really.model.materializer.CollectionViewMaterializer
@@ -13,23 +13,29 @@ import io.really.{ BucketID, ReallyGlobals, Revision, R }
 class MaterializerTest(globals: ReallyGlobals, reportTo: ActorRef) extends CollectionViewMaterializer(globals) {
   import io.really.fixture.MaterializerTest._
 
-  def testReceive: Receive = {
-    case GetState(_) =>
+  def testReceive: StateFunction = {
+    case Event(GetState(_), _) =>
       sender ! materializerCurrentState
+      stay
   }
 
-  def reportAny = new Receive {
-    def isDefinedAt(msg: Any) = {
-      reportTo ! msg
+  def reportAny = new StateFunction {
+    def isDefinedAt(msg: Event) = {
+      reportTo ! msg.event
       false
     }
-    def apply(msg: Any) = throw new MatchError(msg)
+    def apply(msg: Event) = throw new MatchError(msg)
   }
 
-  override def withoutModel: Receive = reportAny orElse super.withoutModel orElse testReceive
+  override def handleModelCreated: StateFunction = reportAny orElse super.handleModelCreated orElse testReceive
 
-  override def withModel(model: Model, referencedCollections: List[R]): Receive =
-    reportAny orElse super.withModel(model, referencedCollections) orElse testReceive
+  override def handleModelOperations: StateFunction = reportAny orElse super.handleModelOperations orElse testReceive
+
+  /** for clean journal after finish Test suite */
+  override def postStop() = {
+    deleteSnapshots(SnapshotSelectionCriteria(maxSequenceNr = lastSequenceNr))
+    super.postStop()
+  }
 
 }
 

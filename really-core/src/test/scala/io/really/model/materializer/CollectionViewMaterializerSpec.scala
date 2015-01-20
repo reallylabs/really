@@ -22,10 +22,11 @@ import scala.concurrent.Await
 
 class CollectionViewMaterializerSpec extends BaseActorSpecWithMongoDB {
 
-  lazy val collection = globals.mongodbConnection.collection[JSONCollection](s"${BaseActorSpec.authorModel.r.head.collection}")
+  lazy val auhtorsCollection = globals.mongodbConnection.collection[JSONCollection](s"${BaseActorSpec.authorModel.r.collectionName}")
+  lazy val postsCollection = globals.mongodbConnection.collection[JSONCollection](s"${BaseActorSpec.postModel.r.collectionName}")
   val modelVersion = 23
 
-  def getObject(r: R): Option[JsObject] = {
+  def getObject(r: R, collection: JSONCollection = auhtorsCollection): Option[JsObject] = {
     val query = Json.obj("_r" -> r)
     val cursor: Cursor[JsObject] = collection.find(query).cursor[JsObject]
     Await.result(cursor.headOption, 5.seconds)
@@ -97,7 +98,7 @@ class CollectionViewMaterializerSpec extends BaseActorSpecWithMongoDB {
     expectMsg(CollectionActor.ObjectNotFound(r))
 
     globals.materializerView ! MaterializerTest.GetState(bucketId)
-    expectMsg(CollectionViewMaterializer.MaterializerState(Some(BaseActorSpec.authorModel), Some("ModelCreated"), 1, "with-model"))
+    expectMsg(CollectionViewMaterializer.MaterializerDebuggingState(Some(BaseActorSpec.authorModel), Some("ModelCreated"), 1, "with-model"))
   }
 
   it should "store new object in DB when receive Created event from journal" in {
@@ -112,13 +113,56 @@ class CollectionViewMaterializerSpec extends BaseActorSpecWithMongoDB {
     Thread.sleep(7000)
 
     globals.materializerView ! MaterializerTest.GetState(bucketId)
-    expectMsg(CollectionViewMaterializer.MaterializerState(Some(BaseActorSpec.authorModel), Some("ModelCreated"), 2, "with-model"))
+    expectMsg(CollectionViewMaterializer.MaterializerDebuggingState(Some(BaseActorSpec.authorModel), Some("ModelCreated"), 2, "with-model"))
 
     val o = getObject(r).get
     assert(o.keys == Set("name", "_id", "_r", "_rev", "_metaData"))
     assertResult(1)((o \ "_rev").as[Revision])
-    assertResult(r.head.id.get)((o \ "_id").as[Long])
+    assertResult(r.head.id.get.toString)((o \ "_id").as[String])
     assertResult(BaseActorSpec.authorModel.collectionMeta.version)((o \ "_metaData" \ "modelVersion").as[ModelVersion])
+  }
+
+  it should "store  new object in DB with reference field data when receive Created event from journal" in {
+    //add author object
+    val authorR = R / 'authors / globals.quickSand.nextId()
+    val bucketId = Helpers.getBucketIDFromR(authorR)
+    val obj = Json.obj("name" -> "Ahmed")
+    val req = Request.Create(ctx, authorR, obj)
+
+    globals.collectionActor ! req
+    expectMsgType[Result.CreateResult]
+
+    Thread.sleep(7000)
+
+    globals.materializerView ! MaterializerTest.GetState(bucketId)
+    expectMsg(CollectionViewMaterializer.MaterializerDebuggingState(Some(BaseActorSpec.authorModel), Some("ModelCreated"), 2, "with-model"))
+
+    val o = getObject(authorR).get
+    assert(o.keys == Set("name", "_id", "_r", "_rev", "_metaData"))
+    assertResult(1)((o \ "_rev").as[Revision])
+    assertResult(authorR.head.id.get.toString)((o \ "_id").as[String])
+    assertResult(BaseActorSpec.authorModel.collectionMeta.version)((o \ "_metaData" \ "modelVersion").as[ModelVersion])
+
+    //add post object
+    val postR = authorR / 'posts / globals.quickSand.nextId()
+    val postBucketId = Helpers.getBucketIDFromR(postR)
+    val postObj = Json.obj("title" -> "functional programming", "body" -> "Functional Programming Principles in Scala", "author" -> authorR)
+    val postReq = Request.Create(ctx, postR, postObj)
+
+    globals.collectionActor ! postReq
+    expectMsgType[Result.CreateResult]
+
+    Thread.sleep(7000)
+
+    globals.materializerView ! MaterializerTest.GetState(postBucketId)
+    expectMsg(CollectionViewMaterializer.MaterializerDebuggingState(Some(BaseActorSpec.postModel), Some("ModelCreated"), 2, "with-model"))
+
+    val post = getObject(postR, postsCollection).get
+    val authorDeference = (post \ "author").as[JsObject]
+    assert(post.keys == Set("title", "body", "author", "_id", "_r", "_rev", "_metaData", "_parent1"))
+    assertResult(1)((post \ "_rev").as[Revision])
+    assertResult(BaseActorSpec.authorModel.collectionMeta.version)((o \ "_metaData" \ "modelVersion").as[ModelVersion])
+    assertResult(Json.obj("value" -> authorR, "ref" -> Json.obj("name" -> "Ahmed", "_r" -> authorR, "_rev" -> 1.0)))(authorDeference)
   }
 
   it should "update object on DB when receive Updated event from journal" in {
@@ -132,11 +176,91 @@ class CollectionViewMaterializerSpec extends BaseActorSpecWithMongoDB {
     Thread.sleep(7000)
 
     globals.materializerView ! MaterializerTest.GetState(bucketId)
-    expectMsg(CollectionViewMaterializer.MaterializerState(Some(BaseActorSpec.authorModel), Some("ModelCreated"), 3, "with-model"))
+    expectMsg(CollectionViewMaterializer.MaterializerDebuggingState(Some(BaseActorSpec.authorModel), Some("ModelCreated"), 3, "with-model"))
 
     val o = getObject(r).get
     assertResult("Mohammed")((o \ "name").as[String])
     assertResult(2)((o \ "_rev").as[Revision])
+  }
+
+  it should "update reference field in object in DB and update reference field data when receive Update event from journal" in {
+    //add author object
+    val authorR = R / 'authors / globals.quickSand.nextId()
+    val bucketId = Helpers.getBucketIDFromR(authorR)
+    val obj = Json.obj("name" -> "Ahmed")
+    val req = Request.Create(ctx, authorR, obj)
+
+    globals.collectionActor ! req
+    expectMsgType[Result.CreateResult]
+
+    Thread.sleep(7000)
+
+    globals.materializerView ! MaterializerTest.GetState(bucketId)
+    expectMsg(CollectionViewMaterializer.MaterializerDebuggingState(Some(BaseActorSpec.authorModel), Some("ModelCreated"), 2, "with-model"))
+
+    val o = getObject(authorR).get
+    assert(o.keys == Set("name", "_id", "_r", "_rev", "_metaData"))
+    assertResult(1)((o \ "_rev").as[Revision])
+    assertResult(authorR.head.id.get.toString)((o \ "_id").as[String])
+    assertResult(BaseActorSpec.authorModel.collectionMeta.version)((o \ "_metaData" \ "modelVersion").as[ModelVersion])
+
+    //add post object
+    val postR = authorR / 'posts / globals.quickSand.nextId()
+    val postBucketId = Helpers.getBucketIDFromR(postR)
+    val postObj = Json.obj("title" -> "functional programming", "body" -> "Functional Programming Principles in Scala", "author" -> authorR)
+    val postReq = Request.Create(ctx, postR, postObj)
+
+    globals.collectionActor ! postReq
+    expectMsgType[Result.CreateResult]
+
+    Thread.sleep(7000)
+
+    globals.materializerView ! MaterializerTest.GetState(postBucketId)
+    expectMsg(CollectionViewMaterializer.MaterializerDebuggingState(Some(BaseActorSpec.postModel), Some("ModelCreated"), 2, "with-model"))
+
+    val post = getObject(postR, postsCollection).get
+    val authorDeference = (post \ "author").as[JsObject]
+    assert(post.keys == Set("title", "body", "author", "_id", "_r", "_rev", "_metaData", "_parent1"))
+    assertResult(1)((post \ "_rev").as[Revision])
+    assertResult(BaseActorSpec.authorModel.collectionMeta.version)((o \ "_metaData" \ "modelVersion").as[ModelVersion])
+    assertResult(Json.obj("value" -> authorR, "ref" -> Json.obj("name" -> "Ahmed", "_r" -> authorR, "_rev" -> 1.0)))(authorDeference)
+
+    //add anthor author object
+    val authorR1 = R / 'authors / globals.quickSand.nextId()
+    val bucketId1 = Helpers.getBucketIDFromR(authorR1)
+    val obj1 = Json.obj("name" -> "Ahmed")
+    val req1 = Request.Create(ctx, authorR1, obj1)
+
+    globals.collectionActor ! req1
+    expectMsgType[Result.CreateResult]
+
+    Thread.sleep(7000)
+
+    globals.materializerView ! MaterializerTest.GetState(bucketId1)
+    expectMsg(CollectionViewMaterializer.MaterializerDebuggingState(Some(BaseActorSpec.authorModel), Some("ModelCreated"), 2, "with-model"))
+
+    val o1 = getObject(authorR1).get
+    assert(o1.keys == Set("name", "_id", "_r", "_rev", "_metaData"))
+
+    //update post object
+    val updateReq = Request.Update(ctx, postR, 1, UpdateBody(List(UpdateOp(UpdateCommand.Set, "author", JsString(authorR1.toString()), None))))
+
+    globals.collectionActor ! updateReq
+    expectMsgType[Result.UpdateResult]
+
+    Thread.sleep(7000)
+
+    globals.materializerView ! MaterializerTest.GetState(postBucketId)
+    expectMsg(CollectionViewMaterializer.MaterializerDebuggingState(Some(BaseActorSpec.postModel), Some("ModelCreated"), 3, "with-model"))
+
+    val post2 = getObject(postR, postsCollection).get
+    assertResult(2)((post2 \ "_rev").as[Revision])
+
+    val authorDeference2 = (post2 \ "author").as[JsObject]
+    assert(post2.keys == Set("title", "body", "author", "_id", "_r", "_rev", "_metaData", "_parent1"))
+    assertResult(2)((post2 \ "_rev").as[Revision])
+    assertResult(BaseActorSpec.authorModel.collectionMeta.version)((post2 \ "_metaData" \ "modelVersion").as[ModelVersion])
+    assertResult(Json.obj("value" -> authorR1, "ref" -> Json.obj("name" -> "Ahmed", "_r" -> authorR1, "_rev" -> 1.0)))(authorDeference2)
   }
 
   it should "delete object from DB when receive Deleted event from journal" in {
@@ -151,8 +275,6 @@ class CollectionViewMaterializerSpec extends BaseActorSpecWithMongoDB {
     val m @ (mActor, mProbe) = getMaterializer(bucketId)
 
     notifyMaterializer(m)
-    mProbe.expectMsgType[akka.persistence.SnapshotOffer]
-    mProbe.expectNoMsg()
 
     deleteObject(r, p)
     pProbe.expectMsgType[ReportingPersistentActor.Persisted].event.asInstanceOf[CollectionActor.CollectionActorEvent.Deleted]
@@ -167,8 +289,15 @@ class CollectionViewMaterializerSpec extends BaseActorSpecWithMongoDB {
   }
 
   it should "update model when receive ModelUpdated from journal" in {
-    val r = R / 'authors / 123
+    val r = R / 'authors / globals.quickSand.nextId()
     val bucketId = Helpers.getBucketIDFromR(r)
+
+    globals.collectionActor ! CollectionActorTest.GetState(r)
+    expectMsg(CollectionActor.ObjectNotFound(r))
+
+    globals.materializerView ! MaterializerTest.GetState(bucketId)
+    expectMsgType[CollectionViewMaterializer.MaterializerDebuggingState]
+
     val newAuthorModel = BaseActorSpec.authorModel.copy(
       collectionMeta = CollectionMetadata(BaseActorSpec.authorModel.collectionMeta.version),
       fields = Map(
@@ -186,7 +315,8 @@ class CollectionViewMaterializerSpec extends BaseActorSpecWithMongoDB {
     Thread.sleep(3000)
 
     globals.materializerView ! MaterializerTest.GetState(bucketId)
-    expectMsg(CollectionViewMaterializer.MaterializerState(Some(newAuthorModel), Some("ModelUpdated"), 4, "with-model"))
+    val msg = expectMsgType[CollectionViewMaterializer.MaterializerDebuggingState]
+    assert(msg.model == Some(newAuthorModel))
   }
 
 }

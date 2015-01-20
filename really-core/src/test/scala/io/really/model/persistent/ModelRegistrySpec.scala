@@ -64,7 +64,7 @@ class ModelRegistrySpec extends BaseActorSpec with BeforeAndAfterEach {
 
     modelRouterRef ! Update(await = true)
     modelRouterRef ! GetModel(BaseActorSpec.postModel.r, self)
-    expectMsg(ModelResult.ModelObject(BaseActorSpec.postModel, List.empty))
+    expectMsg(ModelResult.ModelObject(BaseActorSpec.postModel, List(R / 'authors)))
   }
 
   it should "handle model updated event" in {
