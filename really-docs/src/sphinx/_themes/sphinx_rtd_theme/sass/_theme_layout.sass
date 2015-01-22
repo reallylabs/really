@@ -1,0 +1,317 @@
+.wy-affix
+  position: fixed
+  top: $gutter
+
+.wy-menu
+  a:hover
+    text-decoration: none
+
+.wy-menu-horiz
+  +clearfix
+  ul, li
+    display: inline-block
+  li:hover
+    background: rgba(255,255,255,.1)
+  li
+    &.divide-left
+      border-left: solid 1px hsl(0, 0%, 25%)
+    &.divide-right
+      border-right: solid 1px hsl(0, 0%, 25%)
+  a
+    height: $base-font-size * 2
+    display: inline-block
+    line-height: $base-font-size * 2
+    padding: 0 $base-font-size
+
+.wy-side-head
+  background-color: #D9E8F5
+  margin-bottom: 1em
+
+.wy-menu-vertical
+  height: 80%
+  overflow-y: scroll
+
+.wy-menu-vertical
+  header
+    height: $base-font-size * 2
+    display: inline-block
+    line-height: $base-font-size * 2
+    padding: 0 $gutter
+    display: block
+    font-weight: bold
+    text-transform: uppercase
+    font-size: 80%
+    color: $menu-logo-color
+    white-space: nowrap
+
+  ul
+    margin-bottom: 0
+  li
+    &.divide-top
+      border-top: solid 1px hsl(0, 0%, 25%)
+    &.divide-bottom
+      border-bottom: solid 1px hsl(0, 0%, 25%)
+    &.current
+      background: #D9E8F5
+      a
+        color: #003354
+        // border-right: solid 1px darken($section-background-color, 20%)
+        padding: $gutter / 4 $gutter * 1.5
+        &:hover
+          background: #91bed4
+  // On state for the first level
+  li.on a, li.current > a
+    color: $text-color
+    padding: $gutter / 4 $gutter
+    font-weight: bold
+    position: relative
+    background: #fff
+    border: none
+    border-bottom: solid 1px darken($section-background-color, 20%)
+    border-top: solid 1px darken($section-background-color, 20%)
+    padding-left: $gutter -4px
+    +font-smooth
+    &:after
+      content: ''
+      position: relative
+    &:hover
+      background: $section-background-color
+  // This is the on state for pages beyond second level
+  li.toctree-l2.current > a
+    background: darken($section-background-color, 20%)
+    padding: $gutter / 4 $gutter * 1.5
+  li.current ul
+    display: block
+  li ul
+    margin-bottom: 0
+    margin-left: 1em
+    display: none
+  .local-toc
+    li ul
+      display: block
+  li ul li a
+    margin-bottom: 0
+    // color: $text-light
+    font-weight: normal
+  a
+    display: inline-block
+    line-height: 18px
+    padding: $gutter / 4 $gutter
+    display: block
+    position: relative
+    font-size: 90%
+    color: #003354
+    -webkit-transition: all 0.3s ease-out
+    transition: all 0.3s ease-out
+    &:hover
+      color: #fff
+      background-color: #F26101
+      cursor: pointer
+    &:active
+      background-color: $menu-logo-color
+      cursor: pointer
+      color: $white
+
+.wy-menu-vertical .menu-active
+  color: #fff !important
+  background-color: #F26101 !important
+
+.wy-side-nav-search
+  z-index: $z-index-popover
+  text-align: center
+  padding: 1em 1.5em
+  display: block
+  color: $section-background-color
+  // margin-bottom: $gutter / 2
+  input[type=text]
+    width: 100%
+    padding: 6px 12px
+    border-color: transparent transparent #CCC transparent
+    box-shadow: none
+  img
+    display: block
+    margin: auto auto $gutter / 2 auto
+    height: 45px
+    width: 45px
+    background-color: $menu-logo-color
+    padding: 5px
+    border-radius: 100%
+  > a, .wy-dropdown > a
+    color: $section-background-color
+    font-size: 100%
+    font-weight: bold
+    display: inline-block
+    padding: $base-line-height / 6 $base-line-height / 4
+    margin-bottom: $gutter / 2
+    +font-smooth
+    &:hover
+      background: rgba(255,255,255,.1)
+
+.wy-nav .wy-menu-vertical
+  header
+    color: $link-color
+  a
+    color: $text-light
+    &:hover
+      background-color: $link-color
+      color: $white
+
+[data-menu-wrap]
+  +transition(all .2s ease-in)
+  position: absolute
+  opacity: 1
+  width: 100%
+  opacity: 0
+  &.move-center
+    left: 0
+    right: auto
+    opacity: 1
+  &.move-left
+    right: auto
+    left: -100%
+    opacity: 0
+  &.move-right
+    right: -100%
+    left: auto
+    opacity: 0
+
+.wy-body-for-nav
+  background-color: #fff
+
+.wy-grid-for-nav
+  position: absolute
+  width: 100%
+  height: 100%
+
+.wy-nav-side
+  position: fixed
+  top: 0
+  left: 0
+  width: $nav-desktop-width
+  overflow: hidden
+  height: 100%
+  min-height: 100%
+  z-index: $z-index-popover
+
+.wy-nav-top
+  display: none
+  background: $link-color
+  color: $white
+  padding: $gutter / 4 $gutter / 2
+  position: relative
+  line-height: 50px
+  text-align: center
+  font-size: 100%
+  +clearfix
+  a
+    color: $white
+    font-weight: bold
+    +font-smooth
+  img
+    margin-right: $base-line-height / 2
+    height: 45px
+    width: 45px
+    background-color: $menu-logo-color
+    padding: 5px
+    border-radius: 100%
+  i
+    font-size: 30px
+    float: left
+    margin-top: 10px
+    cursor: pointer
+
+.wy-nav-content-wrap
+  margin-left: $nav-desktop-width
+  background: $section-background-color
+  border-left: 1px solid #D9E8F5
+  min-height: 100%
+
+.wy-nav-content
+  padding: $gutter $gutter * 2
+  height: 100%
+  max-width: 800px
+  margin: auto
+
+.wy-body-mask
+  position: fixed
+  width: 100%
+  height: 100%
+  background: rgba(0,0,0,.2)
+  display: none
+  z-index: $z-index-modal - 1
+  &.on
+    display: block
+footer
+  color: $gray-light
+  p
+    margin-bottom: $base-line-height / 2
+
+.rst-footer-buttons
+  +clearfix
+
+#search-results
+  .search li
+    margin-bottom: $base-line-height
+    border-bottom: solid 1px $table_border_color
+    padding-bottom: $base-line-height
+  .search li:first-child
+    border-top: solid 1px $table_border_color
+    padding-top: $base-line-height
+  .search li a
+    font-size: 120%
+    margin-bottom: $base-line-height / 2
+    display: inline-block
+  .context
+    color: $text-medium
+    font-size: 90%
+
+
++media($tablet)
+  .wy-body-for-nav
+    background: $section-background-color
+  .wy-nav-top
+    display: block
+  .wy-nav-side
+    @if $nav-desktop-position == left
+      left: -$nav-desktop-width
+    @else
+      right: -$nav-desktop-width
+    &.shift
+      width: 85%
+      left: 0
+  .wy-nav-content-wrap
+    margin-left: 0
+    .wy-nav-content
+      padding: $gutter
+    &.shift
+      position: fixed
+      min-width: 100%
+      left: 85%
+      top: 0
+      height: 100%
+      overflow: hidden
+
++media($desktop-wider)
+  .wy-nav-content-wrap
+    background: rgba(0,0,0,.05)
+  .wy-nav-content
+    margin: 0
+    background: $section-background-color
+
+@media print
+  .rst-versions, footer, .wy-nav-side
+    display: none
+  .wy-nav-content-wrap
+    margin-left: 0
+
+nav.stickynav
+  position: fixed
+  top: 0
+
+.logo
+  width: 150px
+  margin: 0 auto
+  padding: 1em 0 .5em
+  display: block
+  border-width: 0
+  border-radius: 0

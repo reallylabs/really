@@ -53,3 +53,18 @@ Really relies on the `sbt-site plugin <https://github.com/sbt/sbt-site>`__ to ma
 
 * ``sbt makeSite`` generates the Sphinx documentation in ``<project-dir>/target/sphinx/html/index.html``.
 * ``sbt previewSite`` start a web server at ``localhost:4000`` which points to the documentation's index.
+
+
+Working with the theme
+----------------------
+
+Documentation theme is `sphinx_rtd_theme <https://github.com/snide/sphinx_rtd_theme>`__, customized to match the Really design, you can find the customized theme at `really-docs-theme <https://github.com/reallylabs/really-docs-theme>`__
+
+The theme is added to Really code as a subtree, so this will make it easy to separate the theme from Really code.
+If there is a change to the theme design, it should be in `really-docs-theme <https://github.com/reallylabs/really-docs-theme>`__ not in this repo, then making s subtree pull here should get the new changes.
+
+.. code:: bash
+
+	$ git remote add really-docs-theme https://github.com/reallylabs/really-docs-theme
+
+	$ git subtree pull --prefix=really-docs/src/sphinx/_themes/sphinx_rtd_theme really-docs-theme master
