@@ -16,11 +16,11 @@ abstract class CalculatedField[T] extends ReactiveField[T] {
 
   def dependsOn: List[FieldKey]
 
-  val engine = JsTools.newEngineWithSDK()
-  val bindings = JsTools.getBindings(engine)
-  val undefined = bindings.get("undefined")
+  lazy val engine = JsTools.newEngineWithSDK()
+  lazy val bindings = JsTools.getBindings(engine)
+  lazy val undefined = bindings.get("undefined")
 
-  private[this] val calculator: Invocable = {
+  private[this] lazy val calculator: Invocable = {
     engine.eval(calculatorExpression)
     engine.asInstanceOf[Invocable]
   }
