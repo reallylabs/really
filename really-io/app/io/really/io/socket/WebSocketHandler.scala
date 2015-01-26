@@ -65,6 +65,7 @@ class WebSocketHandler(
         decodeAccessToken(tag, accessToken) match {
           case Right((expiresIn, authInfo)) =>
             push(Protocol.initialized(tag, authInfo))
+            context.system.scheduler.scheduleOnce(expiresIn, self, PoisonPill)(context.dispatcher)
             context.become(
               initializedReceive(expiresIn, authInfo) orElse idleReceive
             )
@@ -85,7 +86,6 @@ class WebSocketHandler(
 
   def initializedReceive(expiresIn: FiniteDuration, userInfo: UserInfo): Receive = {
     case msg: String =>
-      context.system.scheduler.scheduleOnce(expiresIn, self, PoisonPill)(context.dispatcher)
       asJsObject(msg).map { request =>
         request.validate((tagReads and traceIdReads and cmdReads).tupled) match {
           case JsSuccess((tag, traceId, cmd), _) =>
@@ -133,7 +133,6 @@ object WebSocketHandler {
   def props(
     ioGlobals: IOGlobals,
     coreGlobals: ReallyGlobals,
-    accessToken: AccessTokenInfo,
     header: RequestHeader
   )(actorOut: ActorRef): Props =
     Props(new WebSocketHandler(ioGlobals, coreGlobals, header, actorOut))

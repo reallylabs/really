@@ -13,8 +13,10 @@ import io.really.io.{ Global, AccessTokenInfo }
 import javax.script._
 
 object Application extends Controller {
+
   import play.api.Play.current
 
+  //to be used in REST interface
   def extractAccessToken(req: RequestHeader): Option[AccessTokenInfo] = {
     val header: Option[String] =
       req.headers.get("Authorization")
@@ -33,16 +35,11 @@ object Application extends Controller {
 
   def socket(protocolVersion: String) = WebSocket.tryAcceptWithActor[String, JsValue] {
     request =>
-      val maybeAccessToken = extractAccessToken(request)
-      maybeAccessToken match {
-        case Some(tokenInfo) =>
-          //let's process
-          //validate the version
-          if (protocolVersion != "v0.1")
-            Future.successful(Left(encodeError(BadRequest, "Protocol Version Is Not Supported!")))
-          else Future.successful(Right(WebSocketHandler.props(Global.ioGlobals, Global.coreGlobals, tokenInfo, request)))
-        case None => Future.successful(Left(encodeError(Forbidden, "Access Token Missing!")))
-      }
+      //let's process
+      //validate the version
+      if (protocolVersion != "v0.1")
+        Future.successful(Left(encodeError(BadRequest, "Protocol Version Is Not Supported!")))
+      else Future.successful(Right(WebSocketHandler.props(Global.ioGlobals, Global.coreGlobals, request)))
   }
 
 }
