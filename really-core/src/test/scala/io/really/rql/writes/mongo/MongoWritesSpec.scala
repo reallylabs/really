@@ -104,23 +104,13 @@ class MongoWritesSpec extends FlatSpec with Matchers {
     query.isInstanceOf[SimpleQuery] shouldBe true
   }
 
-  it should "fail if the query contains numeric operator and value is string" in {
-    val queryRequest = Json.obj(
-      "filter" -> "firstName = $name1 and age < $age",
-      "values" -> Json.obj("name1" -> "amal", "age" -> "ten")
-    )
-    val JsError(e) = Json.fromJson[Query](queryRequest)
-    val error = Seq(JsPath() -> Seq(ValidationError("The Query value must be Number in case of query operator is '<'.")))
-    e shouldEqual error
-  }
-
   it should "fail if the query contains 'IN' operator and value isn't array" in {
     val queryRequest = Json.obj(
       "filter" -> "firstName = $name1 and age IN $age",
       "values" -> Json.obj("name1" -> "amal", "age" -> "ten")
     )
     val JsError(e) = Json.fromJson[Query](queryRequest)
-    val error = Seq(JsPath() -> Seq(ValidationError("The Query value must be JsArray in case of query operator is 'IN'.")))
+    val error = Seq(JsPath() -> Seq(ValidationError("The Query value of `age` must be JsArray in case of query operator is 'IN'.")))
     e shouldEqual error
   }
 
