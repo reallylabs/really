@@ -77,8 +77,8 @@ object RQL {
 
       def applyOn(right: JsValue, left: JsValue): Boolean =
         (right, left) match {
-          case (JsNumber(r), JsArray(Seq(JsNumber(num1), JsNumber(num2)))) => r > num1 && r < num2
-          case (JsString(r), JsArray(Seq(JsString(num1), JsString(num2)))) => r > num1 && r < num2
+          case (JsNumber(r), JsArray(Seq(JsNumber(num1), JsNumber(num2)))) => r >= num1 && r <= num2
+          case (JsString(r), JsArray(Seq(JsString(num1), JsString(num2)))) => r >= num1 && r <= num2
           case _ => false
         }
     }

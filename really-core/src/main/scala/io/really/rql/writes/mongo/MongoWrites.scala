@@ -34,7 +34,7 @@ object MongoWrites {
       case Between =>
         val value = sq.termValue.value.as[Seq[JsNumber]]
         Json.obj(
-          sq.key.term -> Json.obj("$gt" -> value(0), "$lt" -> value(1))
+          sq.key.term -> Json.obj("$gte" -> value(0), "$lte" -> value(1))
         )
       case _ =>
         Json.obj(
