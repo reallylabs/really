@@ -145,9 +145,6 @@ class Replayer(globals: ReallyGlobals, objectSubscriber: ActorRef, rSubscription
   def servePushUpdates: Receive = _servePushUpdates orElse commonHandler
 
   def _servePushUpdates: Receive = {
-    case PersistentCreatedEvent(event) =>
-    //The only case a push update about created event should happen if the client subscribed on an object before
-    // creation with a previous knowledge about the object ID, Do nothing for now!
     case PersistentUpdatedEvent(event, obj) =>
       objectSubscriber ! GorillaLogUpdatedEntry(event.r, obj, event.rev, event.modelVersion, event.context.auth,
         event.ops)

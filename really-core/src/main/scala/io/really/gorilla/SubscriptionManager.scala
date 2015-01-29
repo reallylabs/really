@@ -9,7 +9,7 @@ import akka.actor._
 import _root_.io.really.{ R, ReallyGlobals, RequestContext }
 import _root_.io.really.rql.RQL.Query
 import _root_.io.really.Result
-import _root_.io.really.model.FieldKey
+import _root_.io.really.model.{ FieldKey, Model }
 import _root_.io.really.protocol.SubscriptionFailure
 import _root_.io.really.{ R, ReallyGlobals }
 import _root_.io.really.Request.{ SubscribeOnObject, UnsubscribeFromObject }
@@ -19,13 +19,11 @@ import _root_.io.really.Request.{ SubscribeOnObject, UnsubscribeFromObject }
  * @param globals
  */
 class SubscriptionManager(globals: ReallyGlobals) extends Actor with ActorLogging {
-
-  type SubscriberIdentifier = ActorPath
-
   import SubscriptionManager._
 
   private[gorilla] var rSubscriptions: Map[SubscriberIdentifier, InternalRSubscription] = Map.empty
   private[gorilla] var roomSubscriptions: Map[SubscriberIdentifier, InternalRSubscription] = Map.empty
+  private[gorilla] var querySubscriptions: Map[SubscriptionID, ActorRef] = Map.empty
 
   def failedToRegisterNewSubscription(originalSender: ActorRef, r: R, newSubscriber: ActorRef, reason: String) = {
     newSubscriber ! SubscriptionFailure(r, 500, reason)
@@ -67,6 +65,7 @@ class SubscriptionManager(globals: ReallyGlobals) extends Actor with ActorLoggin
 
     case request: UnsubscribeFromObject =>
       ???
+
     case SubscribeOnR(subData) =>
       val replyTo = sender()
       rSubscriptions.get(subData.pushChannel.path).map {
@@ -75,6 +74,7 @@ class SubscriptionManager(globals: ReallyGlobals) extends Actor with ActorLoggin
       }.getOrElse {
         globals.gorillaEventCenter ! NewSubscription(replyTo, subData)
       }
+
     case ObjectSubscribed(subData, replyTo, objectSubscriber) =>
       rSubscriptions += subData.pushChannel.path -> InternalRSubscription(objectSubscriber, subData.r)
       context.watch(objectSubscriber) //TODO handle death
@@ -84,12 +84,25 @@ class SubscriptionManager(globals: ReallyGlobals) extends Actor with ActorLoggin
       } else {
         replyTo ! SubscriptionDone(subData.r)
       }
+
     case UnsubscribeFromR(subData) => //TODO Ack the delegate
       rSubscriptions.get(subData.pushChannel.path).map {
         rSub =>
           rSub.objectSubscriber ! Unsubscribe
           rSubscriptions -= subData.pushChannel.path
       }
+
+    case SubscribeOnQuery(requester, pushChannel, ctx, r, query, model, fields, results) =>
+      // create an id for this subscription
+      val subscriptionId = globals.quickSand.nextId().toString()
+      // initiate subscriber actor
+      globals.gorillaEventCenter ! NewQuerySubscription(subscriptionId, pushChannel, ctx, r, query, model, fields)
+      // ship results to the requester along with the subscription id
+      requester ! results.copy(subscription = Some(subscriptionId))
+
+    case QuerySubscribed(subscriptionId, querySubscriber) =>
+      querySubscriptions += (subscriptionId -> querySubscriber)
+      context.watch(querySubscriber)
   }
 
   def roomSubscriptionsHandler: Receive = {
@@ -112,7 +125,10 @@ object SubscriptionManager {
 
   case class SubscribeOnR(rSubscription: RSubscription)
 
-  case class SubscribeOnQuery(requester: ActorRef, ctx: RequestContext, query: Query, passOnResults: Result.ReadResult)
+  case class SubscribeOnQuery(requester: ActorRef, pushChannel: ActorRef,
+    ctx: RequestContext, r: R, query: Query,
+    model: Model, fields: Set[FieldKey],
+    passOnResults: Result.ReadResult)
 
   case class SubscribeOnRoom(rSubscription: RoomSubscription)
 
@@ -125,6 +141,8 @@ object SubscriptionManager {
   case object Unsubscribe
 
   case class ObjectSubscribed(subData: RSubscription, replyTo: ActorRef, objectSubscriber: ActorRef)
+
+  case class QuerySubscribed(subscriptionId: String, querySubscriber: ActorRef)
 
   case class SubscriptionDone(r: R)
 

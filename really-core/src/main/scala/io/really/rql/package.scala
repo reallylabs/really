@@ -5,8 +5,8 @@ package io.really.rql
 
 import io.really.model.Field
 import play.api.data.validation.ValidationError
-import play.api.libs.json._
 import play.api.libs.functional.syntax._
+import play.api.libs.json._
 import scala.util.parsing.input.Positional
 
 object RQL {
@@ -111,7 +111,6 @@ object RQL {
     def isValid: Either[ValidationError, RQLSuccess] = Right(RQLSuccess(this))
 
     def validateObject(obj: JsObject, fields: Set[Field[_]]): Boolean = true
-
   }
 
   case class SimpleQuery(key: Term, op: Operator, termValue: TermValue) extends Query with Positional {
@@ -164,7 +163,8 @@ object RQL {
 
     private def parseAndValidate(filter: String, values: JsObject): JsResult[Query] =
       RQLParser.parse(filter, values) match {
-        case Right(q) =>
+        case Right(q) => //q.validate
+
           q.isValid match {
             case Right(_) => JsSuccess(q)
             case Left(error) => JsError(Seq(JsPath() -> Seq(error)))

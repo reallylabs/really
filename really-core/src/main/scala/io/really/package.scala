@@ -10,10 +10,10 @@ package io {
   import play.api.data.validation.ValidationError
   import reactivemongo.api.DefaultDB
   import akka.actor.{ Props, ActorSystem, ActorRef }
-  import io.really.model.{ FieldKey, DataObject }
+  import io.really.model.{ FieldKey, DataObject, Model }
   import io.really.quickSand.QuickSand
   import io.really.protocol._
-  import io.really.gorilla.RSubscription
+  import io.really.gorilla.{ QuerySubscription, RSubscription }
   import org.joda.time.DateTime
   import play.api.libs.json._
 
@@ -55,6 +55,8 @@ package io {
       def requestRouterProps: Props
 
       def objectSubscriberProps(rSubscription: RSubscription): Props
+
+      def querySubscriberProps(subscriptionId: String, model: Model, querySubscription: QuerySubscription): Props
 
       def replayerProps(rSubscription: RSubscription, objectSubscriber: ActorRef, maxMarker: Option[Revision]): Props
 

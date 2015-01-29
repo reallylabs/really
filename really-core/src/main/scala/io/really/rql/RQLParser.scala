@@ -9,6 +9,13 @@ import play.api.libs.json.{ JsValue, JsObject }
 import scala.util.parsing.combinator._
 
 object RQLParser {
+  /**
+   * The main function in this object, takes a query string and a the json object containing the values and returns
+   * the Query instance.
+   * @param filter the query string
+   * @param values a `JsObject` that holds the values {fieldName -> value}
+   * @return
+   */
   def parse(filter: String, values: JsObject): Either[RQL.ParseError, Query] = {
     val parser = new RQLParser(values)
     try {

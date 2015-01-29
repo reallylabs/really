@@ -57,7 +57,8 @@ class ReadHandler(globals: ReallyGlobals) extends Actor with Stash with ActorLog
               val readResult = ReadResult(r, result, None)
               if (cmdOpts.subscribe)
                 //forward results to subscription manager
-                globals.subscriptionManager ! SubscribeOnQuery(requester, ctx, getQuery(r, cmdOpts), readResult)
+                globals.subscriptionManager ! SubscribeOnQuery(requester, pushChannel,
+                  ctx, r, getQuery(r, cmdOpts), model, getRequestFields(cmdOpts.fields, model), readResult)
               else
                 requester ! readResult
           } recover {
