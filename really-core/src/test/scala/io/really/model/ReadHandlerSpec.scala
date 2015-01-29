@@ -347,7 +347,7 @@ class ReadHandlerSpec extends BaseActorSpecWithMongoDB {
     )
     globals.readHandler ! Request.Read(ctx, r, cmdOpts5, TestProbe().ref)
     val ret5 = expectMsgType[ReadResult]
-    ret5.body.items.size shouldEqual (1)
+    ret5.body.items.size shouldEqual (2)
     ret5.body.items(0).body shouldEqual Json.obj("name" -> "Sara", "age" -> 22, "_r" -> "/users/1003/", "_rev" -> 1)
   }
 

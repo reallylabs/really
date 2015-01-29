@@ -67,7 +67,7 @@ class MongoWritesSpec extends FlatSpec with Matchers {
 
   it should "write query with Operator `Between`" in {
     val q = SimpleQuery(Term("age"), Operator.Between, TermValue(JsArray(Seq(JsNumber(20), JsNumber(25)))))
-    Json.toJson(q) shouldEqual Json.obj("age" -> Json.obj("$gt" -> 20, "$lt" -> 25))
+    Json.toJson(q) shouldEqual Json.obj("age" -> Json.obj("$gte" -> 20, "$lte" -> 25))
   }
 
   it should "write complex query" in {
