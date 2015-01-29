@@ -15,13 +15,11 @@ project/boot/
 project/plugins/project/
 
 # Scala-IDE specific
-really-core/.cache
-really-core/.classpath
-really-core/.project
-really-core/.settings
-really-io/.classpath
-really-io/.project
-really-io/.settings
+**/.cache
+**/.classpath
+**/.project
+**/.settings
+**/.classpath
 .really
 really-io/.really
 really-core/.really

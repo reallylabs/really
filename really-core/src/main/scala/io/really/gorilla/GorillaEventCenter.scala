@@ -7,7 +7,7 @@ import akka.actor._
 import scala.slick.driver.H2Driver.simple._
 import akka.contrib.pattern.DistributedPubSubMediator.Subscribe
 import akka.contrib.pattern.{ DistributedPubSubMediator, ShardRegion }
-import io.really.gorilla.SubscriptionManager.ObjectSubscribed
+import io.really.gorilla.SubscriptionManager.{ QuerySubscribed, ObjectSubscribed }
 import io.really.model.{ Model, Helpers }
 import io.really._
 import scala.slick.jdbc.meta.MTable
@@ -55,6 +55,12 @@ class GorillaEventCenter(globals: ReallyGlobals)(implicit session: Session) exte
       globals.mediator ! Subscribe(rSub.r.toString, replayer)
       objectSubscriber ! ReplayerSubscribed(replayer)
       sender() ! ObjectSubscribed(rSub, replyTo, objectSubscriber)
+    case NewQuerySubscription(subscriptionId, pushChannel, ctx, r, query, model, fields) =>
+      //create the query subscription actor
+      val querySubscriber = context.actorOf(globals.querySubscriberProps(subscriptionId, model, QuerySubscription(ctx, r, fields, query, pushChannel)))
+      globals.mediator ! Subscribe(r.noId.toString, querySubscriber)
+      sender() ! QuerySubscribed(subscriptionId, querySubscriber)
+
   }
 
   private def persistEvent(persistentEvent: PersistentEvent): Unit =

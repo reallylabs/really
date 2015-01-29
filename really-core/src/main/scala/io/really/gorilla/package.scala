@@ -6,16 +6,19 @@ package io.really
 import _root_.io.really.model._
 import _root_.io.really.protocol.UpdateOp
 import _root_.io.really.model.CollectionActor.CollectionActorEvent
-import akka.actor.ActorRef
+import akka.actor.{ ActorPath, ActorRef }
+import _root_.io.really.rql.RQL.Query
 import play.api.libs.json.{ Json, JsObject }
 
 package object gorilla {
-
+  type SubscriberIdentifier = ActorPath
   type SubscriptionID = String
   type PushEventType = String
 
   case class RSubscription(ctx: RequestContext, r: R, fields: Set[FieldKey], rev: Revision,
     requestDelegate: ActorRef, pushChannel: ActorRef)
+
+  case class QuerySubscription(ctx: RequestContext, r: R, fields: Set[FieldKey], query: Query, pushChannel: ActorRef)
 
   case class RoomSubscription(ctx: RequestContext, r: R, requestDelegate: ActorRef,
     pushChannel: ActorRef)
@@ -26,6 +29,7 @@ package object gorilla {
     val r = rSubscription.r
   }
 
+  case class NewQuerySubscription(subscriptionId: String, pushChannel: ActorRef, ctx: RequestContext, val r: R, query: Query, model: Model, fields: Set[FieldKey]) extends RoutableToGorillaCenter
   trait PersistentEvent extends RoutableToGorillaCenter {
     def event: CollectionActorEvent
     val r = event.r

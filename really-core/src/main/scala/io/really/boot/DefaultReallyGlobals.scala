@@ -9,7 +9,7 @@ import akka.contrib.pattern.DistributedPubSubExtension
 import _root_.io.really.gorilla._
 import _root_.io.really.model.materializer.{ MaterializerSharding, CollectionViewMaterializer }
 import akka.event.Logging
-import _root_.io.really.model.ReadHandler
+import io.really.model.{ Model, ReadHandler, CollectionSharding, CollectionActor }
 import _root_.io.really.model.persistent.{ ModelRegistry, RequestRouter, PersistentModelStore }
 import reactivemongo.api.{ DefaultDB, MongoDriver }
 import scala.collection.JavaConversions._
@@ -17,7 +17,6 @@ import scala.collection.JavaConversions._
 import scala.slick.driver.H2Driver.simple._
 import akka.contrib.pattern.ClusterSharding
 import _root_.io.really._
-import _root_.io.really.model.{ CollectionSharding, CollectionActor }
 import play.api.libs.json.JsObject
 import _root_.io.really.quickSand.QuickSand
 
@@ -120,6 +119,9 @@ class DefaultReallyGlobals(override val config: ReallyConfig) extends ReallyGlob
 
   override def objectSubscriberProps(rSubscription: RSubscription): Props =
     Props(classOf[ObjectSubscriber], rSubscription, this)
+
+  def querySubscriberProps(subscriptionId: String, model: Model, querySubscription: QuerySubscription): Props =
+    Props(classOf[QuerySubscriber], this, subscriptionId, model, querySubscription)
 
   def replayerProps(rSubscription: RSubscription, objectSubscriber: ActorRef, maxMarker: Option[Revision]): Props =
     Props(classOf[Replayer], this, objectSubscriber, rSubscription, maxMarker)
