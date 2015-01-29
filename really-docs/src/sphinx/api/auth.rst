@@ -18,7 +18,11 @@ Really Authentication support creating new users accounts as the following
 
 .. note::
 
-  * The authType can be any of this list password (Email/password) //TODO facebook
+  * The authType can be any of this list
+
+    - password (Email/password)
+    - //TODO facebook
+
   * Each authType has his own parameters
 
 Email/Password Authentication
