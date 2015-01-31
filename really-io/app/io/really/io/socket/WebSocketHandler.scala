@@ -2,12 +2,12 @@ package io.really.io.socket
 
 import akka.actor._
 import _root_.io.really._
-import _root_.io.really.io.{ AccessTokenInfo, IOGlobals }
+import _root_.io.really.io.{AccessTokenInfo, IOGlobals}
 import _root_.io.really.protocol.Protocol
 import org.joda.time.DateTime
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
-import play.api.mvc.{ Session, RequestHeader }
+import play.api.mvc.{Session, RequestHeader}
 import play.api.mvc.RequestHeader
 import scala.concurrent.duration._
 import scala.util.control.NonFatal
@@ -15,11 +15,11 @@ import _root_.io.really.jwt._
 import _root_.io.really.protocol.ProtocolFormats.RequestReads._
 
 class WebSocketHandler(
-    ioGlobals: IOGlobals,
-    coreGlobals: ReallyGlobals,
-    header: RequestHeader,
-    actorOut: ActorRef
-) extends Actor with ActorLogging {
+                        ioGlobals: IOGlobals,
+                        coreGlobals: ReallyGlobals,
+                        header: RequestHeader,
+                        actorOut: ActorRef
+                        ) extends Actor with ActorLogging {
 
   import _root_.io.really.protocol.ProtocolFormats.CommandErrorWrites._
 
@@ -65,6 +65,7 @@ class WebSocketHandler(
         decodeAccessToken(tag, accessToken) match {
           case Right((expiresIn, authInfo)) =>
             push(Protocol.initialized(tag, authInfo))
+            context.system.scheduler.scheduleOnce(expiresIn, self, PoisonPill)(context.dispatcher)
             context.become(
               initializedReceive(expiresIn, authInfo) orElse idleReceive
             )
@@ -85,7 +86,6 @@ class WebSocketHandler(
 
   def initializedReceive(expiresIn: FiniteDuration, userInfo: UserInfo): Receive = {
     case msg: String =>
-      context.system.scheduler.scheduleOnce(expiresIn, self, PoisonPill)(context.dispatcher)
       asJsObject(msg).map { request =>
         request.validate((tagReads and traceIdReads and cmdReads).tupled) match {
           case JsSuccess((tag, traceId, cmd), _) =>
@@ -131,10 +131,9 @@ class WebSocketHandler(
 
 object WebSocketHandler {
   def props(
-    ioGlobals: IOGlobals,
-    coreGlobals: ReallyGlobals,
-    accessToken: AccessTokenInfo,
-    header: RequestHeader
-  )(actorOut: ActorRef): Props =
+             ioGlobals: IOGlobals,
+             coreGlobals: ReallyGlobals,
+             header: RequestHeader
+             )(actorOut: ActorRef): Props =
     Props(new WebSocketHandler(ioGlobals, coreGlobals, header, actorOut))
 }
