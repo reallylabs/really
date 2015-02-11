@@ -237,10 +237,10 @@ class CollectionViewMaterializer(globals: ReallyGlobals) extends PersistentView 
         Left(ObjectNotFound(r))
     } recover {
       case e: DatabaseException =>
-        log.error(s"Database Exception error happened during getting $r on collection Materializer, error: ", e)
+        log.error(s"Database Exception error happened during getting $r on collection Materializer, error: {}", e)
         Left(OperationNotComplete("get", e))
       case e: Throwable =>
-        log.error(s"Unexpected error happened during getting $r on collection Materializer, error: ", e)
+        log.error(s"Unexpected error happened during getting $r on collection Materializer, error: {}", e)
         Left(OperationNotComplete("get", e))
     }
   }
@@ -258,10 +258,10 @@ class CollectionViewMaterializer(globals: ReallyGlobals) extends PersistentView 
         Left(OperationNotComplete("update", new Exception(lastError.message)))
     } recover {
       case e: DatabaseException =>
-        log.error(s"Database Exception error happened during insert obj: $obj on collection Materializer, error: ", e)
+        log.error(s"Database Exception error happened during insert obj: $obj on collection Materializer, error: {}", e)
         Left(OperationNotComplete("insert", e))
       case e: Throwable =>
-        log.error(s"Unexpected error happened during insert obj: $obj on collection Materializer, error: ", e)
+        log.error(s"Unexpected error happened during insert obj: $obj on collection Materializer, error: {}", e)
         Left(OperationNotComplete("insert", e))
     }
   }
@@ -277,10 +277,10 @@ class CollectionViewMaterializer(globals: ReallyGlobals) extends PersistentView 
         Left(OperationNotComplete("update", new Exception(lastError.message)))
     } recover {
       case e: DatabaseException =>
-        log.error(s"Database Exception error happened during save obj: $obj on collection Materializer, error: ", e)
+        log.error(s"Database Exception error happened during save obj: $obj on collection Materializer, error: {}", e)
         Left(OperationNotComplete("update", e))
       case e: Throwable =>
-        log.error(s"Unexpected error happened during save obj: $obj on collection Materializer, error: ", e)
+        log.error(s"Unexpected error happened during save obj: $obj on collection Materializer, error: {}", e)
         Left(OperationNotComplete("update", e))
     }
   }
@@ -310,10 +310,10 @@ class CollectionViewMaterializer(globals: ReallyGlobals) extends PersistentView 
         Left(OperationNotComplete("delete", new Exception(lastError.message)))
     } recover {
       case e: DatabaseException =>
-        log.error(s"Database Exception error happened during save obj: $obj on collection Materializer, error: ", e)
+        log.error(s"Database Exception error happened during save obj: $obj on collection Materializer, error: {}", e)
         Left(OperationNotComplete("delete", e))
       case e: Throwable =>
-        log.error(s"Unexpected error happened during save obj: $obj on collection Materializer, error: ", e)
+        log.error(s"Unexpected error happened during save obj: $obj on collection Materializer, error: {}", e)
         Left(OperationNotComplete("delete", e))
     }
   }
