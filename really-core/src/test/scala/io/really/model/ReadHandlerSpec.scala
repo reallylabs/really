@@ -18,7 +18,7 @@ import _root_.io.really.rql.RQL.{ Term, Operator, TermValue, SimpleQuery, EmptyQ
 import _root_.io.really.rql.RQLTokens.PaginationToken
 import scala.concurrent.duration._
 
-import play.api.libs.json.{ JsArray, JsNumber, JsString, Json }
+import play.api.libs.json._
 
 import scala.concurrent.Await
 
@@ -116,7 +116,7 @@ class ReadHandlerSpec extends BaseActorSpecWithMongoDB {
     globals.readHandler ! Request.Read(ctx, r, cmdOpts, TestProbe().ref)
     val ret = expectMsgType[ReadResult]
     ret.body.items.size shouldEqual (1)
-    ret.body.items(0).body shouldEqual ((postObj - "_id") - "_parent0")
+    ret.body.items(0).body - "author" shouldEqual ((postObj - "_id") - "_parent0")
     ret.subscription shouldBe None
     ret.body.totalResults shouldBe None
     ret.body.tokens.get.nextToken shouldEqual PaginationToken(111, 1)
@@ -208,7 +208,7 @@ class ReadHandlerSpec extends BaseActorSpecWithMongoDB {
     globals.readHandler ! Request.Read(ctx, r, cmdOpts, TestProbe().ref)
     val ret = expectMsgType[ReadResult]
     ret.body.items.size shouldEqual (1)
-    ret.body.items(0).body shouldEqual Json.obj(
+    ret.body.items(0).body - "author" shouldEqual Json.obj(
       "title" -> "The post title",
       "body" -> "The post body",
       "_rev" -> 1, "_r" -> r / 111

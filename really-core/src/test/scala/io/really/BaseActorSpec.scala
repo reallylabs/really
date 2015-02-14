@@ -80,7 +80,8 @@ object BaseActorSpec {
     CollectionMetadata(23),
     Map(
       "title" -> ValueField("title", DataType.RString, None, None, true),
-      "body" -> ValueField("body", DataType.RString, None, None, true)
+      "body" -> ValueField("body", DataType.RString, None, None, true),
+      "author" -> ReferenceField("author", false, R / 'authors, List("name"))
     ),
     JsHooks(
       None,

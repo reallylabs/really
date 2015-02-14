@@ -3,28 +3,19 @@
  */
 package io.really.model.materializer
 
-import akka.actor.{ Stash, ActorLogging }
-import akka.persistence.{ SnapshotOffer, PersistentView, Update }
-import io.really.json.collection.JSONCollection
-import io.really.model.persistent.ModelRegistry._
-import io.really.model.CollectionActor._
-import io.really.gorilla.{
-  ModelUpdatedEvent,
-  PersistentCreatedEvent,
-  PersistentUpdatedEvent,
-  PersistentEvent,
-  ModelDeletedEvent,
-  PersistentDeletedEvent
-}
-import io.really.protocol.{ UpdateCommand, UpdateOp }
-import io.really.model._
+import akka.actor.{ FSM, Stash, ActorLogging }
+import akka.persistence.{ SaveSnapshotFailure, SaveSnapshotSuccess, SnapshotOffer, PersistentView }
 import io.really._
-import reactivemongo.api.Cursor
-import reactivemongo.api.indexes.{ Index, IndexType }
-import reactivemongo.core.errors.DatabaseException
-import scala.concurrent.Future
-import play.api.libs.json._
-import org.joda.time._
+import _root_.io.really.model.materializer.CollectionViewMaterializer.{ MaterializerData, MaterializerState }
+import _root_.io.really.model.{ ReferenceField, FieldKey, Model, Helpers }
+import _root_.io.really.model.persistent.ModelRegistry.ModelOperation
+import _root_.io.really.gorilla._
+import _root_.io.really.model.CollectionActor.CollectionActorEvent
+import _root_.io.really.model.materializer.MongoStorage._
+import _root_.io.really.protocol.UpdateCommand
+import _root_.io.really.protocol.UpdateOp
+import play.api.libs.json.{ JsNumber, Json, JsObject }
+import akka.pattern.pipe
 
 /**
  * Collection view Materializer is Akka Persistent view for Collection Actor Persistent
@@ -37,10 +28,10 @@ import org.joda.time._
  *
  * @param globals
  */
-class CollectionViewMaterializer(globals: ReallyGlobals) extends PersistentView with ActorLogging with Stash {
 
+class CollectionViewMaterializer(val globals: ReallyGlobals) extends PersistentView
+    with FSM[MaterializerState, MaterializerData] with ActorLogging with Stash with MongoStorage {
   import CollectionViewMaterializer._
-  import MaterializerFailure._
 
   /**
    * Bucket Id is used as identifier for a set of the objects in this collection
@@ -51,16 +42,6 @@ class CollectionViewMaterializer(globals: ReallyGlobals) extends PersistentView 
    * r is used as identifier for R that represent this collection
    */
   val r: R = Helpers.getRFromBucketID(bucketID)
-
-  /**
-   * collectionName is used as identifier for collection name on DB
-   */
-  val collectionName = r.collectionName
-
-  /**
-   * collection is represent collection object on MongoDB
-   */
-  lazy val collection = globals.mongodbConnection.collection[JSONCollection](s"$collectionName")
 
   /**
    * messageMarker is marker for last message consumed and persisted on DB Projection
@@ -80,20 +61,16 @@ class CollectionViewMaterializer(globals: ReallyGlobals) extends PersistentView 
 
   /**
    * The Materializer does not fetch events from the journal automatically,
-   * Collection Actor must explicitly update this view by sending [[UpdateProjection]] request
+   * Collection Actor must explicitly update this view by sending [[Envelope]] request
    */
   override def autoUpdate: Boolean = false
 
   log.debug(s"CollectionViewMaterializer with viewId: $viewId for CollectionActor with persistentId: $persistenceId starting with BucketID: $bucketID and R: $r")
 
-  private val defaultIndexes: Seq[Index] = r.tail.foldLeft(Seq(Index(Seq("_r" -> IndexType.Ascending), unique = true)))(
-    (indexes, token) => indexes.+:(Index(Seq((s"_parent${r.tail.indexOf(token)}" -> IndexType.Ascending)), unique = false))
-  )
-
   /**
    * materializerCurrentState is present current state for view and this used for debugging and testing
    */
-  private var _materializerCurrentState: MaterializerState = _
+  private var _materializerCurrentState: MaterializerDebuggingState = _
 
   /**
    * Return `materializerCurrentState`
@@ -103,21 +80,38 @@ class CollectionViewMaterializer(globals: ReallyGlobals) extends PersistentView 
   override def preStart() = {
     //create indexes
     defaultIndexes map (createIndex)
-    _materializerCurrentState = MaterializerState(None, None, lastSequenceNr, "without-model")
+    _materializerCurrentState = MaterializerDebuggingState(None, None, lastSequenceNr, "without-model")
     super.preStart()
   }
 
-  override def receive: Receive = withoutModel
+  startWith(Initialization, Empty)
 
-  def withoutModel: Receive = {
-    case SnapshotOffer(metadata, snapshot: SnapshotData) =>
+  when(Initialization)(handleRecover orElse handleModelCreated orElse stashMessage)
+  when(WithModel)(handleModelOperations orElse handleCollectionEvents orElse handleInternalRequest orElse handleSnapshotResponse)
+  when(WaitingDBOperation)(handleDBResponses orElse stashMessage)
+  when(WithingReferenceField)(handleReferenceFieldOperations orElse stashMessage)
+
+  initialize()
+
+  /**
+   * This function is responsible for handle messages when CollectionMaterializer restart and replay snapshot
+   * @return
+   */
+  def handleRecover: StateFunction = {
+    case Event(SnapshotOffer(metadata, snapshot: SnapshotData), _) =>
       log.debug(s"Current state for CollectionViewMaterializer with viewId: $viewId for CollectionActor with " +
         s"persistentId: $persistenceId: $materializerCurrentState")
       messageMarker = snapshot.marker
       _materializerCurrentState = _materializerCurrentState.copy(model = Some(snapshot.model), actorState = "with-model")
-      context.become(withModel(snapshot.model, snapshot.referencedCollections))
+      unstashAll()
+      goto(WithModel) using ModelData(snapshot.model, snapshot.referencedCollections)
+  }
 
-    case ModelOperation.ModelCreated(r, model, refCollections) =>
+  /**
+   * This function is responsible for handle [[ModelOperation.ModelCreated]] message
+   */
+  def handleModelCreated: StateFunction = {
+    case Event(ModelOperation.ModelCreated(r, model, refCollections), _) =>
       log.debug(s"CollectionViewMaterializer with viewId: $viewId for CollectionActor with persistentId: $persistenceId" +
         s" receive the model for r: $r")
       log.debug(s"Current state for CollectionViewMaterializer with viewId: $viewId for CollectionActor with " +
@@ -127,74 +121,17 @@ class CollectionViewMaterializer(globals: ReallyGlobals) extends PersistentView 
       _materializerCurrentState = _materializerCurrentState.copy(
         model = Some(model), lastModelOp = Some("ModelCreated"), lastSequenceNr = lastSequenceNr, actorState = "with-model"
       )
-      context.become(withModel(model, refCollections))
       unstashAll()
-
-    case msg =>
-      stash()
+      goto(WithModel) using ModelData(model, refCollections.toSet)
   }
 
-  def withModel(model: Model, referencedCollections: List[R]): Receive = {
-    case evt @ CollectionActorEvent.Created(r, obj, modelVersion, reqContext) if isPersistent =>
-      log.debug(s"CollectionViewMaterializer with viewId: $viewId for CollectionActor with persistentId: $persistenceId " +
-        s"receive create event for obj with R: $r")
-      log.debug(s"Current state for CollectionViewMaterializer with viewId: $viewId for CollectionActor with " +
-        s"persistentId: $persistenceId: $materializerCurrentState")
-      val currentSequence = super.lastSequenceNr
-      saveObject(obj, model) map {
-        case Right(_) =>
-          persistEvent(PersistentCreatedEvent(evt), currentSequence, model, referencedCollections)
-        case Left(failure) =>
-          context.parent ! failure
-          shutdown()
-      }
-
-    case evt @ CollectionActorEvent.Updated(r, ops, rev, modelVersion, reqContext) if isPersistent =>
-      log.debug(s"CollectionViewMaterializer with viewId: $viewId for CollectionActor with persistentId: $persistenceId " +
-        s"receive update event for obj with R: $r")
-      log.debug(s"Current state for CollectionViewMaterializer with viewId: $viewId for CollectionActor with " +
-        s"persistentId: $persistenceId: $materializerCurrentState")
-      val currentSequence = super.lastSequenceNr
-      getObject(r) map {
-        case Right(obj) =>
-          val newObj = applyUpdateOps(obj, ops)
-          updateObject(newObj, rev, modelVersion) map {
-            case Right(_) =>
-              persistEvent(PersistentUpdatedEvent(evt, newObj), currentSequence, model, referencedCollections)
-            case Left(failure) =>
-              context.parent ! failure
-              shutdown()
-          }
-        case Left(failure) =>
-          context.parent ! failure
-          shutdown()
-      }
-
-    case evt @ CollectionActorEvent.Deleted(r, newRev, modelVersion, reqContext) if isPersistent =>
-      log.debug("CollectionViewMaterializer with viewId: {} for CollectionActor with persistentId: {} " +
-        "receive delete event for obj with R: {}", viewId, persistenceId, r)
-      log.debug("Current state for CollectionViewMaterializer with viewId: {} for CollectionActor with " +
-        "persistentId: {}: {}", viewId, persistenceId, materializerCurrentState)
-      val currentSequence = super.lastSequenceNr
-      getObject(r) map {
-        case Right(obj) =>
-          val _ / (_ / R.IdValue(id)) = r
-          val newObj = obj.copy(obj.fields.filter(_._1.startsWith("_"))) ++ Json.obj(
-            Model.DeletedField -> true
-          )
-          deleteObject(newObj, newRev, modelVersion) map {
-            case Right(_) =>
-              persistEvent(PersistentDeletedEvent(evt), currentSequence, model, referencedCollections)
-            case Left(failure) =>
-              context.parent ! failure
-              shutdown()
-          }
-        case Left(failure) =>
-          context.parent ! failure
-          shutdown()
-      }
-
-    case ModelOperation.ModelUpdated(r, m, refCollections) if isPersistent =>
+  /**
+   * This function is responsible for handle Model Operation messages like
+   * [[ModelOperation.ModelUpdated]], [[ModelOperation.ModelDeleted]]
+   * @return
+   */
+  def handleModelOperations: StateFunction = {
+    case Event(ModelOperation.ModelUpdated(r, m, refCollections), _) if isPersistent =>
       log.debug(s"CollectionViewMaterializer with viewId: $viewId for CollectionActor with persistentId: $persistenceId" +
         s" receive new version for model with r: $r")
       log.debug(s"Current state for CollectionViewMaterializer with viewId: $viewId for CollectionActor with " +
@@ -203,119 +140,240 @@ class CollectionViewMaterializer(globals: ReallyGlobals) extends PersistentView 
       _materializerCurrentState = _materializerCurrentState.copy(
         model = Some(m), lastModelOp = Some("ModelUpdated"), lastSequenceNr = lastSequenceNr
       )
-      globals.gorillaEventCenter ! ModelUpdatedEvent(bucketID, m)
-      context.become(withModel(m, refCollections))
+      notifyGorillaEventCenter(ModelUpdatedEvent(bucketID, m))
+      stay using ModelData(m, refCollections.toSet)
 
-    case ModelOperation.ModelDeleted(r) if isPersistent =>
+    case Event(ModelOperation.ModelDeleted(r), _) if isPersistent =>
       // TODO send clear message to Cleaner to delete all objects on this collection
       // TODO send Terminate to ReferenceUpdater
-      globals.gorillaEventCenter ! ModelDeletedEvent(bucketID)
+      notifyGorillaEventCenter(ModelDeletedEvent(bucketID))
       shutdown()
+      stay
   }
 
   /**
-   * save snapshot for this view
+   * This function responsible for handle Collection Events
+   * @return
    */
-  private def takeSnapshot(model: Model, referencedCollections: List[R], marker: Long): Unit = {
-    messageMarker = marker
-    saveSnapshot(SnapshotData(model, referencedCollections, marker))
+  def handleCollectionEvents: StateFunction = {
+    case Event(evt @ CollectionActorEvent.Created(r, obj, modelVersion, reqContext), ModelData(model, referencedCollections)) if isPersistent =>
+      log.debug(s"CollectionViewMaterializer with viewId: $viewId for CollectionActor with persistentId: $persistenceId " +
+        s"receive create event for obj with R: $r")
+      log.debug(s"Current state for CollectionViewMaterializer with viewId: $viewId for CollectionActor with " +
+        s"persistentId: $persistenceId: $materializerCurrentState")
+      val currentSequence = super.lastSequenceNr
+      val referenceFields = getReferenceField(model, obj)
+      if (referenceFields.isEmpty) {
+        saveObject(obj, model) pipeTo self
+        goto(WaitingDBOperation) using DBOperationInfo(
+          DBOperation.Insert,
+          None,
+          model,
+          referencedCollections,
+          evt,
+          currentSequence
+        )
+      } else {
+        val expected = askAboutReferenceFields(referenceFields)
+        goto(WithingReferenceField) using ReferenceFieldsData(
+          DBOperation.Insert,
+          obj,
+          model,
+          referencedCollections,
+          Map.empty,
+          expected,
+          evt,
+          currentSequence
+        )
+      }
+
+    case Event(evt @ CollectionActorEvent.Updated(r, ops, rev, modelVersion, reqContext), ModelData(model, referencedCollections)) if isPersistent =>
+      log.debug(s"CollectionViewMaterializer with viewId: $viewId for CollectionActor with persistentId: $persistenceId " +
+        s"receive update event for obj with R: $r")
+      log.debug(s"Current state for CollectionViewMaterializer with viewId: $viewId for CollectionActor with " +
+        s"persistentId: $persistenceId: $materializerCurrentState")
+      getObject(r) pipeTo self
+      goto(WaitingDBOperation) using DBOperationInfo(DBOperation.Get, Some(DBOperation.Update), model, referencedCollections, evt, super.lastSequenceNr)
+
+    case Event(evt @ CollectionActorEvent.Deleted(r, newRev, modelVersion, reqContext), ModelData(model, referencedCollections)) if isPersistent =>
+      log.debug("CollectionViewMaterializer with viewId: {} for CollectionActor with persistentId:  {} " +
+        "receive delete event for obj with R: {}", viewId, persistenceId, r)
+      log.debug("Current state for CollectionViewMaterializer with viewId: {} for CollectionActor with " +
+        "persistentId: {}: {}", viewId, persistenceId, materializerCurrentState)
+      getObject(r) pipeTo self
+      goto(WaitingDBOperation) using DBOperationInfo(DBOperation.Get, Some(DBOperation.Delete), model, referencedCollections, evt, super.lastSequenceNr)
+
   }
 
   /**
-   * get object with specific r from Projection DB
-   * @param r is represent r for object
-   * @return Future[ObjectResult]
+   * This function is responsible for handling requests between materializer view actors
+   * @return
    */
-  private def getObject(r: R, collection: JSONCollection = collection): Future[Either[MaterializerFailure, JsObject]] = {
-    val query = Json.obj("_r" -> r)
-    val cursor: Cursor[JsObject] = collection.find(query).cursor[JsObject]
-    cursor.headOption map {
-      case Some(obj) =>
-        Right(obj)
-      case None =>
-        log.debug(s"Collection Materializer try to get object with R: $r, and this object was not found on DB.")
-        Left(ObjectNotFound(r))
-    } recover {
-      case e: DatabaseException =>
-        log.error(s"Database Exception error happened during getting $r on collection Materializer, error: {}", e)
-        Left(OperationNotComplete("get", e))
-      case e: Throwable =>
-        log.error(s"Unexpected error happened during getting $r on collection Materializer, error: {}", e)
-        Left(OperationNotComplete("get", e))
-    }
+  def handleInternalRequest: StateFunction = {
+    case Event(GetObject(_, r), _) =>
+      val requester = sender()
+      getObject(r) map (requester ! _)
+      stay
   }
 
-  /**
-   * Save new object on DB
-   * @param obj is present obj data
-   */
-  private def saveObject(obj: JsObject, model: Model): Future[Either[MaterializerFailure, Unit]] = {
-    // TODO Dereference reference fields
-    collection.insert(addMetaData(obj, 1L, model.collectionMeta.version, Some(DateTime.now()))) map {
-      case lastError if lastError.ok => Right(())
-      case lastError =>
-        log.error(s"Failure while Materializer trying to insert obj: $obj on DB, error: ${lastError.message}")
-        Left(OperationNotComplete("update", new Exception(lastError.message)))
-    } recover {
-      case e: DatabaseException =>
-        log.error(s"Database Exception error happened during insert obj: $obj on collection Materializer, error: {}", e)
-        Left(OperationNotComplete("insert", e))
-      case e: Throwable =>
-        log.error(s"Unexpected error happened during insert obj: $obj on collection Materializer, error: {}", e)
-        Left(OperationNotComplete("insert", e))
-    }
+  def handleSnapshotResponse: StateFunction = {
+    case Event(SaveSnapshotSuccess(metadata), _) =>
+      log.debug(s"Materializer received SaveSnapshotSuccess for snapshot: ${metadata}")
+      stay()
+    case Event(SaveSnapshotFailure(metadata, failure), _) =>
+      log.error(failure, s"Materializer received SaveSnapshotFailure for snapshot: ${metadata}")
+      stay()
   }
 
-  /**
-   * Update object on DB
-   */
-  private def updateObject(obj: JsObject, objRevision: Revision, modelVersion: ModelVersion): Future[Either[MaterializerFailure, Unit]] = {
-    collection.save(addMetaData(obj, objRevision, modelVersion)) map {
-      case lastError if lastError.ok => Right(())
-      case lastError =>
-        log.error(s"Failure while Materializer trying to update obj: $obj on DB, error: ${lastError.message}")
-        Left(OperationNotComplete("update", new Exception(lastError.message)))
-    } recover {
-      case e: DatabaseException =>
-        log.error(s"Database Exception error happened during save obj: $obj on collection Materializer, error: {}", e)
-        Left(OperationNotComplete("update", e))
-      case e: Throwable =>
-        log.error(s"Unexpected error happened during save obj: $obj on collection Materializer, error: {}", e)
-        Left(OperationNotComplete("update", e))
-    }
+  def handleDBResponses: StateFunction = {
+    case Event(OperationSucceeded(r, obj), DBOperationInfo(DBOperation.Insert, None, model, referencedCollections, event: CollectionActorEvent.Created, currentSequence)) =>
+      persistAndNotifyGorilla(PersistentCreatedEvent(event), currentSequence, model, referencedCollections)
+      unstashAll()
+      goto(WithModel) using ModelData(model, referencedCollections)
+
+    case Event(OperationSucceeded(r, obj), DBOperationInfo(DBOperation.Get, Some(DBOperation.Update), model, referencedCollections, event: CollectionActorEvent.Updated, currentSequence)) =>
+      val (referencedOps, ops) = event.ops.partition(o => getModelReferenceField(model).contains(o.key))
+      if (referencedOps.isEmpty) {
+        val newObj = applyUpdateOps(obj, ops)
+        updateObject(newObj, event.rev, event.modelVersion) pipeTo self
+        stay using (DBOperationInfo(DBOperation.Update, None, model, referencedCollections, event, currentSequence))
+      } else {
+        val expected = askAboutReferenceFields(referencedOps.map(o => (o.key, o.value.as[R])).toMap)
+        val newObj = applyUpdateOps(obj, ops)
+        goto(WithingReferenceField) using ReferenceFieldsData(
+          DBOperation.Update,
+          newObj,
+          model,
+          referencedCollections,
+          Map.empty,
+          expected,
+          event,
+          currentSequence
+        )
+      }
+
+    case Event(OperationSucceeded(r, obj), DBOperationInfo(DBOperation.Get, Some(DBOperation.Delete), model, referencedCollections, event: CollectionActorEvent.Deleted, currentSequence)) =>
+      val _ / (_ / R.IdValue(id)) = r
+      val newObj = obj.copy(obj.fields.filter(_._1.startsWith("_"))) ++ Json.obj(
+        Model.DeletedField -> true
+      )
+      deleteObject(newObj, event.rev, event.modelVersion) pipeTo self
+      stay using (DBOperationInfo(DBOperation.Delete, None, model, referencedCollections, event, currentSequence))
+
+    case Event(OperationSucceeded(r, obj), DBOperationInfo(DBOperation.Update, None, model, referencedCollections, event: CollectionActorEvent.Updated, currentSequence)) =>
+      persistAndNotifyGorilla(PersistentUpdatedEvent(event, obj), currentSequence, model, referencedCollections)
+      //TODO notify to update any object refer to this object
+      unstashAll()
+      goto(WithModel) using ModelData(model, referencedCollections)
+
+    case Event(OperationSucceeded(r, obj), DBOperationInfo(DBOperation.Delete, None, model, referencedCollections, event: CollectionActorEvent.Deleted, currentSequence)) =>
+      persistAndNotifyGorilla(PersistentDeletedEvent(event), currentSequence, model, referencedCollections)
+      //TODO notify to update any object refer to this object
+      unstashAll()
+      goto(WithModel) using ModelData(model, referencedCollections)
+
+    case Event(OperationFailed(_, failure), DBOperationInfo(_, _, model, referencedCollections, _, _)) =>
+      context.parent ! failure
+      shutdown()
+      unstashAll()
+      goto(WithModel) using ModelData(model, referencedCollections)
+  }
+
+  def handleReferenceFieldOperations: StateFunction = {
+    case e @ Event(OperationSucceeded(r, obj), data @ ReferenceFieldsData(_, _, _, _, _, expected, _, _)) if !expected.contains(r) =>
+      log.warning("Unexpected Reference. Probably Coding bug. Event was: {}", e)
+      stay
+
+    case Event(OperationSucceeded(r, obj), data @ ReferenceFieldsData(DBOperation.Insert, _, _, _, received, expected, _, _)) =>
+      val referencesObjects = received + (expected(r) -> obj)
+      val newExpected = expected - r
+      if (newExpected.isEmpty) {
+        val newObj = writeReferenceField(data.obj, referencesObjects, data.model)
+        saveObject(newObj, data.model) pipeTo self
+        unstashAll()
+        goto(WaitingDBOperation) using DBOperationInfo(
+          data.operation,
+          None,
+          data.model,
+          data.referencedCollections,
+          data.collectionEvent,
+          data.currentMessageNum
+        )
+      } else {
+        stay using data.copy(received = referencesObjects, expected = newExpected)
+      }
+
+    case Event(OperationSucceeded(r, obj), data @ ReferenceFieldsData(DBOperation.Update, _, _, _, received, expected, event: CollectionActorEvent.Updated, _)) =>
+      val referencesObjects = received + (expected(r) -> obj)
+      val newExpected = expected - r
+      if (newExpected.isEmpty) {
+        val newObj = writeReferenceField(data.obj, referencesObjects, data.model)
+        updateObject(newObj, event.rev, event.modelVersion) pipeTo self
+        unstashAll()
+        goto(WaitingDBOperation) using DBOperationInfo(
+          data.operation,
+          None,
+          data.model,
+          data.referencedCollections,
+          data.collectionEvent,
+          data.currentMessageNum
+        )
+      } else {
+        stay using data.copy(received = referencesObjects, expected = newExpected)
+      }
   }
 
   /**
    * apply update operations on object
    */
-  private def applyUpdateOps(obj: JsObject, ops: List[UpdateOp]): JsObject = {
-    val result: List[JsObject] = ops map {
-      case UpdateOp(UpdateCommand.Set, key, value, _) =>
-        obj ++ Json.obj(key -> value)
-      case UpdateOp(UpdateCommand.AddNumber, key, JsNumber(v), _) =>
-        obj ++ Json.obj(key -> ((obj \ key).as[JsNumber].value + v))
+  private def applyUpdateOps(obj: JsObject, ops: List[UpdateOp]): JsObject =
+    ops match {
+      case Nil => obj
+      case ops =>
+        val result: List[JsObject] = ops map {
+          case UpdateOp(UpdateCommand.Set, key, value, _) =>
+            obj ++ Json.obj(key -> value)
+          case UpdateOp(UpdateCommand.AddNumber, key, JsNumber(v), _) =>
+            obj ++ Json.obj(key -> ((obj \ key).as[JsNumber].value + v))
+        }
+        result.foldLeft(Json.obj())((o, a) => a ++ o)
     }
-    result.foldLeft(Json.obj())((o, a) => a ++ o)
+
+  /**
+   * notify gorillaEventCenter
+   */
+  def notifyGorillaEventCenter(event: ModelEvent) = globals.gorillaEventCenter ! event
+
+  /**
+   * This function is responsible for stashing message if it should handle on another state
+   * @return
+   */
+  def stashMessage: StateFunction = {
+    case msg =>
+      stash()
+      stay()
   }
 
   /**
-   * Delete object from DB
+   * send event to gorilla event center and create snapshot
+   * @param evt
+   * @param currentSequence
+   * @param model
+   * @param referencedCollections
    */
-  private def deleteObject(obj: JsObject, objRevision: Revision, modelVersion: ModelVersion): Future[Either[MaterializerFailure, Unit]] = {
-    collection.save(addMetaData(obj, objRevision, modelVersion)) map {
-      case lastError if lastError.ok =>
-        Right(())
-      case lastError =>
-        log.error(s"Failure while Materializer trying to delete obj: $obj on DB, error: ${lastError.message}")
-        Left(OperationNotComplete("delete", new Exception(lastError.message)))
-    } recover {
-      case e: DatabaseException =>
-        log.error(s"Database Exception error happened during save obj: $obj on collection Materializer, error: {}", e)
-        Left(OperationNotComplete("delete", e))
-      case e: Throwable =>
-        log.error(s"Unexpected error happened during save obj: $obj on collection Materializer, error: {}", e)
-        Left(OperationNotComplete("delete", e))
-    }
+  private def persistAndNotifyGorilla(evt: PersistentEvent, currentSequence: Long, model: Model, referencedCollections: Set[R]) = {
+    globals.gorillaEventCenter ! evt
+    messageMarker = currentSequence
+    _materializerCurrentState = _materializerCurrentState.copy(lastSequenceNr = lastSequenceNr)
+    takeSnapshot(model, referencedCollections, currentSequence)
+  }
+
+  /**
+   * save snapshot for this view
+   */
+  private def takeSnapshot(model: Model, referencedCollections: Set[R], marker: Long): Unit = {
+    messageMarker = marker
+    saveSnapshot(SnapshotData(model, referencedCollections, marker))
   }
 
   /**
@@ -326,81 +384,87 @@ class CollectionViewMaterializer(globals: ReallyGlobals) extends PersistentView 
   }
 
   /**
-   * add meta data and DB fields for new object
-   */
-  private def addMetaData(obj: JsObject, objRevision: Revision, modelVersion: ModelVersion, createdAt: Option[DateTime] = None): JsObject = {
-    val r = (obj \ "_r").as[R]
-    val parentsData = r.tail.foldLeft(Json.obj())(
-      (data, token) => data ++ Json.obj(s"_parent${r.tail.indexOf(token)}" -> R / token)
-    )
-    val createdTime = createdAt match {
-      case Some(time) => time
-      case None => (obj \ "_metaData" \ "createdAt").as[DateTime]
-    }
-    obj ++ parentsData ++ Json.obj(
-      "_id" -> r.head.id.get,
-      "_rev" -> objRevision,
-      "_metaData" -> Json.obj(
-        "modelVersion" -> modelVersion,
-        "updatedAt" -> DateTime.now(),
-        "createdAt" -> createdTime
-      )
-    )
-  }
-
-  /**
-   * create Mongo Index
-   * @param index
-   */
-  private def createIndex(index: Index): Future[Unit] =
-    collection.indexesManager.ensure(index) map { created =>
-      if (created)
-        log.debug(s"mongo index with $index key created.")
-      else
-        log.debug(s"mongo index with $index key already created.")
-    }
-
-  /**
-   * send event to gorilla event center and create snapshot
-   * @param evt
-   * @param currentSequence
+   * This function is responsible for get reference fields from object based on model schema
    * @param model
-   * @param referencedCollections
+   * @param obj
+   * @return
    */
-  private def persistEvent(evt: PersistentEvent, currentSequence: Long, model: Model, referencedCollections: List[R]) = {
-    globals.gorillaEventCenter ! evt
-    messageMarker = currentSequence
-    _materializerCurrentState = _materializerCurrentState.copy(lastSequenceNr = lastSequenceNr)
-    takeSnapshot(model, referencedCollections, currentSequence)
+  def getReferenceField(model: Model, obj: JsObject): Map[FieldKey, R] =
+    model.fields collect {
+      case (key, ReferenceField(_, true, _, _)) =>
+        key -> (obj \ key).as[R]
+      case (key, ReferenceField(_, false, _, _)) if ((obj \ key).asOpt[R]).isDefined =>
+        key -> (obj \ key).as[R]
+    }
+
+  def getModelReferenceField(model: Model): Map[FieldKey, ReferenceField] =
+    model.fields collect {
+      case f @ (key, rf: ReferenceField) => key -> rf
+    }
+
+  /**
+   * This function is responsible for send messages to get object for all reference field
+   * @param fields
+   */
+  def askAboutReferenceFields(fields: Map[FieldKey, R]): Map[R, FieldKey] =
+    fields.map { f =>
+      globals.materializerView ! GetObject(Helpers.getBucketIDFromR(f._2)(globals.config), f._2)
+      f._2 -> f._1
+    }
+
+  def writeReferenceField(obj: JsObject, referencedFields: Map[FieldKey, JsObject], model: Model): JsObject = {
+    val dereferenceFields = referencedFields map {
+      field =>
+        val fields = (model.fields(field._1).asInstanceOf[ReferenceField].fields ++ List(Model.RField, Model.RevisionField)).toSet
+        val obj = JsObject(field._2.value.filter(f => fields.contains(f._1)).toSeq)
+        val _r = (field._2 \ "_r").as[R]
+        field._1 -> Json.obj("value" -> _r, "ref" -> obj)
+    }
+    obj deepMerge JsObject(dereferenceFields.toSeq)
   }
 
 }
 
 object CollectionViewMaterializer {
 
+  sealed trait MaterializerState
+  case object Initialization extends MaterializerState
+  case object WithModel extends MaterializerState
+  case object WaitingDBOperation extends MaterializerState
+  case object WithingReferenceField extends MaterializerState
+
+  sealed trait MaterializerData
+  case object Empty extends MaterializerData
+  case class ModelData(model: Model, referencedCollections: Set[R]) extends MaterializerData
+  case class DBOperationInfo(
+    operation: DBOperation,
+    nextOperation: Option[DBOperation],
+    model: Model,
+    referencedCollections: Set[R],
+    collectionEvent: CollectionActorEvent,
+    currentMessageNum: Long
+  ) extends MaterializerData
+  case class ReferenceFieldsData(
+    operation: DBOperation,
+    obj: JsObject,
+    model: Model,
+    referencedCollections: Set[R],
+    received: Map[FieldKey, JsObject],
+    expected: Map[R, FieldKey],
+    collectionEvent: CollectionActorEvent,
+    currentMessageNum: Long
+  ) extends MaterializerData
+
   trait RoutableToMaterializer {
     def bucketId: BucketID
   }
 
+  case class GetObject(bucketId: BucketID, r: R) extends RoutableToMaterializer
+
   case class Envelope(bucketId: BucketID, message: Any) extends RoutableToMaterializer
 
-  case class SnapshotData(model: Model, referencedCollections: List[R], marker: Long)
+  case class SnapshotData(model: Model, referencedCollections: Set[R], marker: Long)
 
-  /**
-   * Materializer Failures
-   */
-  trait MaterializerFailure
-
-  object MaterializerFailure {
-
-    case class EventSavedFailed(failure: Throwable) extends MaterializerFailure
-
-    case class ObjectNotFound(r: R) extends MaterializerFailure
-
-    case class OperationNotComplete(op: String, error: Throwable) extends MaterializerFailure
-
-  }
-
-  case class MaterializerState(model: Option[Model], lastModelOp: Option[String], lastSequenceNr: Long, actorState: String)
+  case class MaterializerDebuggingState(model: Option[Model], lastModelOp: Option[String], lastSequenceNr: Long, actorState: String)
 
 }
