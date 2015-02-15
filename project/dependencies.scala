@@ -20,7 +20,7 @@ object Dependencies {
 
   object Akka {
     private val akkaBase = "com.typesafe.akka"
-    private val version = "2.3.8"
+    private val version = "2.3.9"
 
     val agent = akkaBase %% "akka-agent" % version
     val testKit = akkaBase %% "akka-testkit" % version % "test"

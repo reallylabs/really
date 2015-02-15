@@ -1,0 +1,3 @@
+GET     /                           io.really.io.controllers.Application.index
+GET     /:protocolVersion/socket            io.really.io.controllers.Application.socket(protocolVersion: String)
+->  / auth.Routes

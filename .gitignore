@@ -15,19 +15,19 @@ project/boot/
 project/plugins/project/
 
 # Scala-IDE specific
-really-core/.cache
-really-core/.classpath
-really-core/.project
-really-core/.settings
-really-io/.classpath
-really-io/.project
-really-io/.settings
-really-io/integration-test/environment
-really-io/integration-test/cache
-really-io/integration-test/*.pyc
+modules/really-core/.cache
+modules/really-core/.classpath
+modules/really-core/.project
+modules/really-core/.settings
+
+.classpath
+.project
+.settings
+integration-test/environment
+integration-test/cache
+integration-test/*.pyc
 .really
-really-io/.really
-really-core/.really
+modules/really-core/.really
 # Scala-IDE specific
 .scala_dependencies
 .worksheet
@@ -35,3 +35,12 @@ really-core/.really
 
 # really-docs specific
 really-docs/target
+
+# Play framework specific
+logs
+project/project
+project/target
+target
+tmp
+dist
+.cache

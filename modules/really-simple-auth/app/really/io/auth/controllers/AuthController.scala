@@ -1,16 +1,16 @@
 /**
  * Copyright (C) 2014-2015 Really Inc. <http://really.io>
  */
-package controllers
+package really.io.auth.controllers
 
-import io.really.token.generator.{ AuthType, JWTGenerator }
 import io.really.quickSand.QuickSand
+import io.really.token.generator.{ AuthType, JWTGenerator }
 import org.joda.time.DateTime
 import play.api._
 import play.api.libs.json.{ JsObject, Json }
 import play.api.mvc._
 
-object Application extends Controller {
+object AuthController extends Controller {
 
   val reallyConfig = Play.current.configuration.getConfig("really").getOrElse(Configuration.empty)
   val secret = reallyConfig.getString("secret")

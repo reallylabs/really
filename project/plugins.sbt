@@ -6,8 +6,6 @@ resolvers += "Sonatype Snapshots" at "http://oss.sonatype.org/content/repositori
 
 resolvers += "Typesafe repository" at "http://repo.typesafe.com/typesafe/releases/"
 
-addSbtPlugin("com.typesafe.sbteclipse" % "sbteclipse-plugin" % "2.5.0")
-
 addSbtPlugin("com.typesafe.sbt" % "sbt-multi-jvm" % "0.3.8")
 
 addSbtPlugin("com.typesafe.play" % "sbt-plugin" % "2.4.0-M2")
