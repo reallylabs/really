@@ -1,0 +1,7 @@
+language: scala
+scala:
+  - 2.11.5
+jdk:
+  - oraclejdk8
+notifications:
+  slack: reallyio:5GS2VfddFeJUWmxJ2tHW9ajS
