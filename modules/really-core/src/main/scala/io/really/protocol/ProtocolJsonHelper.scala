@@ -158,7 +158,7 @@ object ProtocolFormats {
     implicit val readResultWrites = (
       (__ \ R).write[R] and
       (__ \ Body).write[ReadResponseBody] and
-      (__ \ Meta \ "subscription").write[Option[String]]
+      (__ \ Meta \ "subscription").writeNullable[String]
     )(unlift(ReadResult.unapply))
 
     /*

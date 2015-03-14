@@ -119,7 +119,6 @@ class ResponseWritesSpec extends BaseActorSpec {
     val obj = Json.toJson(response)
 
     assertResult(Json.obj(
-      "meta" -> Json.obj("subscription" -> JsNull),
       "r" -> "/users/*/",
       "body" -> Json.obj(
         "items" -> List(Json.obj("body" -> Json.obj("name" -> "Ahmed", "age" -> 24), "meta" -> Json.obj()))

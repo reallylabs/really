@@ -20,14 +20,15 @@ object Protocol {
     body: Option[JsObject] = None,
     error: Option[Error] = None
   ): JsValue =
-    Json.obj(
-      "tag" -> tag,
-      "meta" -> meta,
-      "r" -> r,
-      "rev" -> rev,
-      "evt" -> evt,
-      "body" -> body,
-      "error" -> error
+    JsObject(
+      Seq[(String, JsValue)]() ++
+        tag.map("tag" -> Json.toJson(_)) ++
+        meta.map("meta" -> Json.toJson(_)) ++
+        r.map("r" -> Json.toJson(_)) ++
+        rev.map("rev" -> Json.toJson(_)) ++
+        evt.map("evt" -> Json.toJson(_)) ++
+        body.map("body" -> Json.toJson(_)) ++
+        error.map("error" -> Json.toJson(_))
     )
 
   def initialized(tag: Long, userInfo: UserInfo): JsValue =
