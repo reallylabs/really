@@ -7,6 +7,7 @@ import _root_.io.really.rql.RQL.Query
 import _root_.io.really.rql.RQLTokens.PaginationToken
 import _root_.io.really.model.FieldKey
 import play.api.data.validation.ValidationError
+import play.api.libs.functional.syntax._
 import play.api.libs.json._
 
 package object protocol {
@@ -217,7 +218,15 @@ package object protocol {
    * Represent implicit JSON Format for Read Response Body
    */
   object ReadResponseBody {
-    implicit val fmt = Json.format[ReadResponseBody]
+    val read = Json.reads[ReadResponseBody]
+
+    val write = (
+      (__ \ "tokens").writeNullable[ReadTokens] and
+      (__ \ "totalResults").writeNullable[Int] and
+      (__ \ "items").write[List[ReadItem]]
+    )(unlift(ReadResponseBody.unapply))
+
+    implicit val fmt = Format[ReadResponseBody](read, write)
   }
 
   /*
@@ -258,22 +267,21 @@ package object protocol {
 
     object FieldUpdatedOpWrites extends Writes[FieldUpdatedOp] {
       def writes(o: FieldUpdatedOp): JsValue =
-        Json.obj(o.key -> Json.obj(
-          "op" -> o.op,
-          "opValue" -> o.opValue
-        //          "opBy" -> o.opBy
-        ))
+        Json.obj(o.key -> JsObject(Seq(
+          ("op" -> Json.toJson(o.op))
+        ) ++
+          o.opValue.map("opValue" -> _)))
+
     }
 
     implicit val fmt = Format[FieldUpdatedOp](reads, FieldUpdatedOpWrites)
 
     object FieldUpdatedOpListWrites extends Writes[List[FieldUpdatedOp]] {
       def writes(l: List[FieldUpdatedOp]): JsValue =
-        Json.toJson(l.map(o => o.key -> Json.obj(
-          "op" -> o.op,
-          "opValue" -> o.opValue
-        //          "opBy" -> o.opBy
-        )).toMap)
+        Json.toJson(l.map(o => o.key -> JsObject(Seq(
+          ("op" -> Json.toJson(o.op))
+        ) ++
+          o.opValue.map("opValue" -> _))).toMap)
     }
 
   }
