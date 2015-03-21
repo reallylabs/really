@@ -8,13 +8,13 @@ import akka.actor.{ ActorLogging, ActorRef, Actor }
 import akka.contrib.pattern.Aggregator
 import io.really.R
 import io.really.RequestContext
-import io.really.Request.SubscribeOnObject
+import io.really.Request.SubscribeOnObjects
 import io.really.gorilla.SubscriptionManager.{ SubscriptionDone, SubscribeOnR }
 import io.really.protocol.SubscriptionBody
 import scala.collection.mutable.ArrayBuffer
 import io.really.ReallyGlobals
 
-class SubscribeAggregator(request: SubscribeOnObject, delegate: ActorRef, subscriptionManager: ActorRef,
+class SubscribeAggregator(request: SubscribeOnObjects, delegate: ActorRef, subscriptionManager: ActorRef,
     globals: ReallyGlobals) extends Actor with Aggregator with ActorLogging {
 
   import context._

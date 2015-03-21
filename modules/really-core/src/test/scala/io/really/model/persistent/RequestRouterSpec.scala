@@ -104,7 +104,7 @@ class RequestRouterSpec extends BaseActorSpec {
   }
 
   it should "forward message to subscription manager if command is Subscribe" in {
-    val req = Request.SubscribeOnObject(
+    val req = Request.SubscribeOnObjects(
       ctx, SubscriptionBody(List.empty),
       TestProbe().ref
     )
@@ -113,7 +113,7 @@ class RequestRouterSpec extends BaseActorSpec {
   }
 
   it should "forward message to subscription manager if command is Unsubscribe" in {
-    val req = Request.UnsubscribeFromObject(
+    val req = Request.UnsubscribeFromObjects(
       ctx, UnsubscriptionBody(List.empty),
       TestProbe().ref
     )

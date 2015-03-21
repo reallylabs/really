@@ -8,7 +8,7 @@ import akka.actor.Props
 import akka.testkit.{ EventFilter, TestProbe, TestActorRef }
 import com.typesafe.config.ConfigFactory
 import io.really._
-import _root_.io.really.Request.SubscribeOnObject
+import _root_.io.really.Request.SubscribeOnObjects
 import _root_.io.really.gorilla.SubscribeAggregator.{ Subscribed, UnsupportedResponse }
 import _root_.io.really.gorilla.SubscriptionManager.{ SubscriptionDone, SubscribeOnR }
 import _root_.io.really.protocol.{ SubscriptionFailure, SubscriptionBody, SubscriptionOp }
@@ -34,7 +34,7 @@ class SubscribeAggregatorSpec(config: ReallyConfig) extends BaseActorSpec(config
     val pushChannel = TestProbe()
     val delegate = TestProbe()
     val body = SubscriptionBody(List(SubscriptionOp(r1, 1)))
-    val rSub = SubscribeOnObject(ctx, body, pushChannel.ref)
+    val rSub = SubscribeOnObjects(ctx, body, pushChannel.ref)
     val aggregator = TestActorRef[SubscribeAggregator](Props(new SubscribeAggregator(rSub, delegate.ref, manager,
       globals)))
     probe.watch(aggregator)
@@ -48,7 +48,7 @@ class SubscribeAggregatorSpec(config: ReallyConfig) extends BaseActorSpec(config
     val delegate = TestProbe()
     val body = SubscriptionBody(List(SubscriptionOp(r1, 1), SubscriptionOp(r2, 1), SubscriptionOp(r3, 1),
       SubscriptionOp(r4, 1), SubscriptionOp(r5, 1)))
-    val rSub = SubscribeOnObject(ctx, body, pushChannel.ref)
+    val rSub = SubscribeOnObjects(ctx, body, pushChannel.ref)
     TestActorRef[SubscribeAggregator](Props(new SubscribeAggregator(rSub, delegate.ref, manager,
       globals)))
     delegate.expectMsg(Subscribed(Set(r2, r4)))
@@ -60,7 +60,7 @@ class SubscribeAggregatorSpec(config: ReallyConfig) extends BaseActorSpec(config
     val delegate = TestProbe()
     val body = SubscriptionBody(List(SubscriptionOp(r1, 1), SubscriptionOp(r2, 1), SubscriptionOp(r3, 1),
       SubscriptionOp(r4, 1), SubscriptionOp(r5, 1)))
-    val rSub = SubscribeOnObject(ctx, body, pushChannel.ref)
+    val rSub = SubscribeOnObjects(ctx, body, pushChannel.ref)
     TestActorRef[SubscribeAggregator](Props(new SubscribeAggregator(rSub, delegate.ref, manager, globals)))
     delegate.expectMsg(Subscribed(Set.empty))
   }
@@ -71,7 +71,7 @@ class SubscribeAggregatorSpec(config: ReallyConfig) extends BaseActorSpec(config
     val delegate = TestProbe()
     val body = SubscriptionBody(List(SubscriptionOp(r1, 1), SubscriptionOp(r2, 1), SubscriptionOp(r3, 1),
       SubscriptionOp(r4, 1), SubscriptionOp(r5, 1)))
-    val rSub = SubscribeOnObject(ctx, body, pushChannel.ref)
+    val rSub = SubscribeOnObjects(ctx, body, pushChannel.ref)
     EventFilter.warning(
       message = s"Subscribe Aggregator timed out while waiting the subscriptions to be fulfilled for requester:" +
       s" ${delegate.ref}",

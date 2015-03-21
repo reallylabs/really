@@ -9,7 +9,6 @@ import io.really._
 import play.api.data.validation.ValidationError
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
-import play.api.libs.json.util._
 import play.api.libs.json.Writes._
 
 /*
@@ -45,7 +44,7 @@ object ProtocolFormats {
     object Subscribe {
       val bodyReads = (__ \ 'body).read[SubscriptionBody]
 
-      def read(ctx: RequestContext, replyTo: ActorRef) = (bodyReads) map (body => Request.SubscribeOnObject(ctx, body, replyTo))
+      def read(ctx: RequestContext, replyTo: ActorRef) = (bodyReads) map (body => Request.SubscribeOnObjects(ctx, body, replyTo))
     }
 
     /*
@@ -54,7 +53,7 @@ object ProtocolFormats {
     object Unsubscribe {
       val bodyReads = (__ \ 'body).read[UnsubscriptionBody]
 
-      def read(ctx: RequestContext, replyTo: ActorRef) = (bodyReads) map (body => Request.UnsubscribeFromObject(ctx, body, replyTo))
+      def read(ctx: RequestContext, replyTo: ActorRef) = (bodyReads) map (body => Request.UnsubscribeFromObjects(ctx, body, replyTo))
     }
 
     /*

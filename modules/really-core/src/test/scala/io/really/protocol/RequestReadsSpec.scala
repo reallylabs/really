@@ -6,8 +6,6 @@ package io.really.protocol
 import akka.testkit.TestProbe
 import io.really.rql.RQL.Query.QueryReads
 import io.really.rql.RQLTokens.PaginationToken
-import org.joda.time.DateTime
-import org.scalatest.{ Matchers, FlatSpec }
 import play.api.libs.json._
 import io.really._
 
@@ -29,7 +27,7 @@ class RequestReadsSpec extends BaseActorSpec {
 
     val result = req.validate(ProtocolFormats.RequestReads.Subscribe.read(ctx, replyTo))
 
-    assertResult(Request.SubscribeOnObject(
+    assertResult(Request.SubscribeOnObjects(
       ctx,
       SubscriptionBody(
         List(
@@ -91,20 +89,20 @@ class RequestReadsSpec extends BaseActorSpec {
       "cmd" -> "unsubscribe",
       "body" -> Json.obj(
         "subscriptions" -> List(
-          Json.obj("r" -> "/users/12131231232/", "fields" -> Set("name", "age")),
-          Json.obj("r" -> "/users/121312787632/", "fields" -> Set.empty[String])
+          R("/users/12131231232/"),
+          R("/users/121312787632/")
         )
       )
     )
 
     val result = req.validate(ProtocolFormats.RequestReads.Unsubscribe.read(ctx, replyTo))
 
-    assertResult(Request.UnsubscribeFromObject(
+    assertResult(Request.UnsubscribeFromObjects(
       ctx,
       UnsubscriptionBody(
         List(
-          UnsubscriptionOp(R("/users/12131231232/"), Set("name", "age")),
-          UnsubscriptionOp(R("/users/121312787632/"), Set.empty)
+          R("/users/12131231232/"),
+          R("/users/121312787632/")
         )
       ),
       replyTo
