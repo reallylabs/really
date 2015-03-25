@@ -148,22 +148,9 @@ package object protocol {
   }
 
   /*
-   * Represents unsubscription operation for one object on unsubscribe request
-   */
-  case class UnsubscriptionOp(r: R, fields: Set[String] = Set.empty)
-
-  //TODO change fields type
-  /*
-   * Represent implicit JSON Format for SubscriptionOp
-   */
-  object UnsubscriptionOp {
-    implicit val fmt = Json.format[UnsubscriptionOp]
-  }
-
-  /*
    * Represent body request for unsubscribe request
    */
-  case class UnsubscriptionBody(subscriptions: List[UnsubscriptionOp])
+  case class UnsubscriptionBody(subscriptions: List[R])
 
   /*
    * Represent implicit JSON Format for SubscriptionBody

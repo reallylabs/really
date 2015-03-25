@@ -120,9 +120,9 @@ package io {
 
     object Request {
 
-      case class SubscribeOnObject(ctx: RequestContext, body: SubscriptionBody, pushChannel: ActorRef) extends Request with RoutableToSubscriptionManager
+      case class SubscribeOnObjects(ctx: RequestContext, body: SubscriptionBody, pushChannel: ActorRef) extends Request with RoutableToSubscriptionManager
 
-      case class UnsubscribeFromObject(ctx: RequestContext, body: UnsubscriptionBody, pushChannel: ActorRef) extends Request with RoutableToSubscriptionManager
+      case class UnsubscribeFromObjects(ctx: RequestContext, body: UnsubscriptionBody, pushChannel: ActorRef) extends Request with RoutableToSubscriptionManager
 
       case class GetSubscription(ctx: RequestContext, r: R) extends Request with RoutableByR with RoutableToSubscriptionManager
 

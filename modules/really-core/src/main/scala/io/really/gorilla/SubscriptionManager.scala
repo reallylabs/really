@@ -12,10 +12,11 @@ import _root_.io.really.Result
 import _root_.io.really.model.FieldKey
 import _root_.io.really.protocol.SubscriptionFailure
 import _root_.io.really.{ R, ReallyGlobals }
-import _root_.io.really.Request.{ SubscribeOnObject, UnsubscribeFromObject }
+import _root_.io.really.Request.{ SubscribeOnObjects, UnsubscribeFromObjects }
 
 /**
- * SubscriptionManager is sharded actor and responsible for managing the subscriptions on objects, rooms and queries
+ * SubscriptionManager is one actor per node and responsible for managing the subscriptions on objects, rooms and
+ * queries
  * @param globals
  */
 class SubscriptionManager(globals: ReallyGlobals) extends Actor with ActorLogging {
@@ -24,7 +25,7 @@ class SubscriptionManager(globals: ReallyGlobals) extends Actor with ActorLoggin
 
   import SubscriptionManager._
 
-  private[gorilla] var rSubscriptions: Map[SubscriberIdentifier, InternalRSubscription] = Map.empty
+  private[gorilla] var rSubscriptions: Map[(SubscriberIdentifier, R), InternalRSubscription] = Map.empty
   private[gorilla] var roomSubscriptions: Map[SubscriberIdentifier, InternalRSubscription] = Map.empty
 
   def failedToRegisterNewSubscription(originalSender: ActorRef, r: R, newSubscriber: ActorRef, reason: String) = {
@@ -49,7 +50,7 @@ class SubscriptionManager(globals: ReallyGlobals) extends Actor with ActorLoggin
    * case `UnubscribeFromR` is expected to come internally from the Unubscribe request aggregator
    */
   def objectSubscriptionsHandler: Receive = {
-    case request: SubscribeOnObject =>
+    case request: SubscribeOnObjects =>
       request.body.subscriptions.length match {
         case 1 =>
           val subscriptionOp = request.body.subscriptions.head
@@ -62,21 +63,26 @@ class SubscriptionManager(globals: ReallyGlobals) extends Actor with ActorLoggin
             request.pushChannel
           ))
         case len if len > 1 =>
-          context.actorOf(Props(new SubscribeAggregator(request, sender(), self, globals)))
+          val delegate = sender()
+          context.actorOf(Props(new SubscribeAggregator(request, delegate, self, globals)))
       }
 
-    case request: UnsubscribeFromObject =>
+    case UnsubscribeFromObjects(ctx, body, pushChannel) =>
+      body.subscriptions.foreach {
+        r =>
+          ???
+      }
       ???
     case SubscribeOnR(subData) =>
       val replyTo = sender()
-      rSubscriptions.get(subData.pushChannel.path).map {
+      rSubscriptions.get((subData.pushChannel.path, subData.r)).map {
         rSub =>
           rSub.objectSubscriber ! UpdateSubscriptionFields(subData.fields)
       }.getOrElse {
         globals.gorillaEventCenter ! NewSubscription(replyTo, subData)
       }
     case ObjectSubscribed(subData, replyTo, objectSubscriber) =>
-      rSubscriptions += subData.pushChannel.path -> InternalRSubscription(objectSubscriber, subData.r)
+      rSubscriptions += (subData.pushChannel.path, subData.r) -> InternalRSubscription(objectSubscriber, subData.r)
       context.watch(objectSubscriber) //TODO handle death
       context.watch(subData.pushChannel) //TODO handle death
       if (replyTo == self) {
@@ -85,10 +91,10 @@ class SubscriptionManager(globals: ReallyGlobals) extends Actor with ActorLoggin
         replyTo ! SubscriptionDone(subData.r)
       }
     case UnsubscribeFromR(subData) => //TODO Ack the delegate
-      rSubscriptions.get(subData.pushChannel.path).map {
+      rSubscriptions.get((subData.pushChannel.path, subData.r)).map {
         rSub =>
           rSub.objectSubscriber ! Unsubscribe
-          rSubscriptions -= subData.pushChannel.path
+          rSubscriptions -= ((subData.pushChannel.path, subData.r))
       }
   }
 
