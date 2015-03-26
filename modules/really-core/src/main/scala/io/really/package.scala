@@ -7,6 +7,7 @@ import scala.language.implicitConversions
 package io {
 
   import akka.event.LoggingAdapter
+  import scala.slick.driver.H2Driver.simple._
   import play.api.data.validation.ValidationError
   import reactivemongo.api.DefaultDB
   import akka.actor.{ Props, ActorSystem, ActorRef }
@@ -56,7 +57,7 @@ package io {
 
       def objectSubscriberProps(rSubscription: RSubscription): Props
 
-      def replayerProps(rSubscription: RSubscription, objectSubscriber: ActorRef, maxMarker: Option[Revision]): Props
+      def replayerProps(rSubscription: RSubscription, objectSubscriber: ActorRef, maxMarker: Option[Revision], session: Session): Props
 
       def receptionistProps: Props
 
@@ -229,6 +230,11 @@ package io {
       case class ObjectGone(_r: R) extends CommandError {
         val r = Some(_r)
         val error = Error(410, "object.gone", None)
+      }
+
+      case class UnknownR(_r: R) extends CommandError {
+        val r = Some(_r)
+        val error = Error(404, "model.unknown", None)
       }
 
       case object ModelNotFound extends CommandError {

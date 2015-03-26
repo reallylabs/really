@@ -16,7 +16,7 @@ object Dependencies {
   val h2 = "com.h2database" % "h2" % "1.3.175"
   val playScalaTest = "org.scalatestplus" %% "play" % "1.2.0" % "test"
   val leveldb = "org.iq80.leveldb" % "leveldb" % "0.7"
-  val jwtScala = "io.really" %% "jwt-scala" % "1.1"
+  val jwtScala = "io.really" %% "jwt-scala" % "1.2.2"
 
   object Akka {
     private val akkaBase = "com.typesafe.akka"

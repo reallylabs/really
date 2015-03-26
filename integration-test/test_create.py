@@ -5,19 +5,19 @@ import json
 from helper import Helper
 
 class TestCreateFunction(unittest.TestCase):
-
-    def test_create_no_initialize(self):
-        ws = websocket.create_connection(Helper.really_server)
-        ws.send("""{
-            "tag": 1,
-            "traceId" : "trace123",
-            "cmd":"create",
-            "accessToken":"Ac66bf"
-            }""")
-
-        result= ws.recv()
-        self.assertEqual(result,"""{"r":null,"error":{"code":400,"message":"initialize.required"},"tag":1}""")
-        ws.close()
+    #
+    # def test_create_no_initialize(self):
+    #     ws = websocket.create_connection(Helper.really_server)
+    #     ws.send("""{
+    #         "tag": 1,
+    #         "traceId" : "trace123",
+    #         "cmd":"create",
+    #         "accessToken":"Ac66bf"
+    #         }""")
+    #
+    #     result= ws.recv()
+    #     self.assertEqual(result,"""{"r":null,"error":{"code":400,"message":"initialize.required"},"tag":1}""")
+    #     ws.close()
 
 
     def test_valid_create(self):
@@ -40,11 +40,12 @@ class TestCreateFunction(unittest.TestCase):
               "r" : "/users/",
               "body" : {
                 "firstName": "Ahmed",
-                "age": 18
+                "age": 21
                }
             }""")
         create_data= ws.recv()
         create_result = json.loads(create_data)
+        print(create_result)
         self.assertEqual(create_result["body"]["firstName"], "Ahmed")
 
 

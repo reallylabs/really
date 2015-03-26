@@ -5,7 +5,7 @@ import com.typesafe.sbt.SbtMultiJvm.MultiJvmKeys.MultiJvm
 
 version in Global := "0.1-SNAPSHOT"
 
-scalaVersion in Global := "2.11.5"
+scalaVersion in Global := "2.11.6"
 
 scalacOptions in Global ++= Seq("-feature", "-deprecation")
 

@@ -44,7 +44,8 @@ class TestUpdateFunction(unittest.TestCase):
               "r" : "/users/",
               "body" : {
                 "firstName": "Hatem",
-                "lastName" : "AlSum"
+                "lastName" : "AlSum",
+                "age": 25
                }
             }""")
         create_data= ws.recv()

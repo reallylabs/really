@@ -36,15 +36,15 @@ class RequestRouter(globals: ReallyGlobals, persistId: String) extends Persisten
     case req: Request with RoutableToCollectionActor if validR(req.r) =>
       globals.collectionActor forward req
     case req: Request with RoutableToCollectionActor =>
-      sender ! RequestRouterResponse.RNotFound(req.r)
+      sender ! RNotFound(req.r)
     case req: Request with RoutableToReadHandler if validR(req.r) =>
       globals.readHandler forward req
     case req: Request with RoutableToReadHandler =>
-      sender ! RequestRouterResponse.RNotFound(req.r)
+      sender ! RNotFound(req.r)
     case req: RoutableToSubscriptionManager =>
       globals.subscriptionManager forward req
     case req: Request =>
-      sender ! RequestRouterResponse.UnsupportedCmd(req.getClass.getName)
+      sender ! UnsupportedCmd(req.getClass.getName)
   }
 
 }
@@ -53,12 +53,8 @@ object RequestRouter {
 
   trait RequestRouterResponse
 
-  object RequestRouterResponse {
+  case class RNotFound(r: R) extends RequestRouterResponse
 
-    case class RNotFound(r: R) extends RequestRouterResponse
-
-    case class UnsupportedCmd(cmd: String) extends RequestRouterResponse
-
-  }
+  case class UnsupportedCmd(cmd: String) extends RequestRouterResponse
 
 }

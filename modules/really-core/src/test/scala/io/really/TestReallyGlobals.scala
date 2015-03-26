@@ -67,7 +67,7 @@ class TestReallyGlobals(override val config: ReallyConfig, override val actorSys
   override val requestRouterProps = Props(new RequestRouter(this, modelRegistryPersistentId))
   override val readHandlerProps = Props(classOf[ReadHandler], this)
 
-  implicit val session = db.createSession()
+  val session = db.createSession()
 
   override def gorillaEventCenterProps = Props(classOf[GorillaEventCenterFixture], this, session)
 
@@ -80,7 +80,7 @@ class TestReallyGlobals(override val config: ReallyConfig, override val actorSys
     Props(classOf[ObjectSubscriber], rSubscription, this)
 
   def replayerProps(rSubscription: RSubscription, objectSubscriber: ActorRef, maxMarker: Option[Revision]): Props =
-    Props(classOf[Replayer], this, objectSubscriber, rSubscription, maxMarker)
+    Props(new Replayer(this, objectSubscriber, rSubscription, maxMarker)(session))
 
   override def boot() = {
     //Create h2 tables if it wasn't exist

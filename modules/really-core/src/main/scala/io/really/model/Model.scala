@@ -224,6 +224,7 @@ package object model {
     def executePostUpdate(config: ReallyConfig, globals: ReallyGlobals, context: RequestContext, updated: JsObject): Unit = ???
 
     def executePostDelete(config: ReallyConfig, globals: ReallyGlobals, context: RequestContext, updated: JsObject): Unit = ???
+    override def toString() = s"$r (v: ${collectionMeta.version}) => " + fields.foldLeft("")((acc, f) => acc + s"(${f._1}: ${f._2.dataType}) ")
   }
 
   object Model {
