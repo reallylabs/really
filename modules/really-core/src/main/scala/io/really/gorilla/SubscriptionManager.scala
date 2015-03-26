@@ -6,13 +6,15 @@ package io.really.gorilla
 
 import scala.collection.mutable.Map
 import akka.actor._
-import _root_.io.really.{ R, ReallyGlobals, RequestContext }
+import _root_.io.really.RequestContext
 import _root_.io.really.rql.RQL.Query
 import _root_.io.really.Result
 import _root_.io.really.model.FieldKey
 import _root_.io.really.protocol.SubscriptionFailure
 import _root_.io.really.{ R, ReallyGlobals }
 import _root_.io.really.Request.{ SubscribeOnObjects, UnsubscribeFromObjects }
+import io.really.Result.SubscribeResult
+import io.really.protocol.SubscriptionOpResult
 
 /**
  * SubscriptionManager is one actor per node and responsible for managing the subscriptions on objects, rooms and
@@ -86,7 +88,7 @@ class SubscriptionManager(globals: ReallyGlobals) extends Actor with ActorLoggin
       context.watch(objectSubscriber) //TODO handle death
       context.watch(subData.pushChannel) //TODO handle death
       if (replyTo == self) {
-        subData.requestDelegate ! SubscribeAggregator.Subscribed(Set(subData.r))
+        subData.requestDelegate ! SubscribeResult(Set(SubscriptionOpResult(subData.r, subData.fields)))
       } else {
         replyTo ! SubscriptionDone(subData.r)
       }

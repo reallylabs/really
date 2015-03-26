@@ -15,8 +15,9 @@ import _root_.io.really.fixture.PersistentModelStoreFixture
 import _root_.io.really.gorilla.mock.TestObjectSubscriber
 import _root_.io.really.gorilla.mock.TestObjectSubscriber._
 import _root_.io.really.protocol.{ SubscriptionBody, SubscriptionOp }
-import _root_.io.really.gorilla.SubscribeAggregator.Subscribed
 import slick.driver.H2Driver.simple.Session
+import _root_.io.really.Result.SubscribeResult
+import _root_.io.really.protocol.SubscriptionOpResult
 
 class SubscriptionManagerSpec extends BaseActorSpecWithMongoDB {
 
@@ -94,7 +95,14 @@ class SubscriptionManagerSpec extends BaseActorSpecWithMongoDB {
     val sub5 = SubscriptionOp(r5, 1L)
     subscriptionManger.tell(Request.SubscribeOnObjects(ctx, SubscriptionBody(List(sub1, sub2, sub3, sub4, sub5)),
       pushChannel.ref), caller.ref)
-    caller.expectMsg(Subscribed(Set(r1, r2, r3, r4, r5)))
+    caller.expectMsg(SubscribeResult(Set(
+      SubscriptionOpResult(r1, Set.empty),
+      SubscriptionOpResult(r2, Set.empty),
+      SubscriptionOpResult(r3, Set.empty),
+      SubscriptionOpResult(r4, Set.empty),
+      SubscriptionOpResult(r5, Set.empty)
+    )))
+
     subs.size shouldBe 4
     subs.get((pushChannel.ref.path, r1)).get.r shouldBe r1
     subs.get((pushChannel.ref.path, r2)).get.r shouldBe r2
@@ -115,19 +123,19 @@ class SubscriptionManagerSpec extends BaseActorSpecWithMongoDB {
     val sub = SubscriptionOp(r, 1L)
     subscriptionManger.tell(Request.SubscribeOnObjects(ctx, SubscriptionBody(List(sub)),
       pushChannel1.ref), pushChannel1.ref)
-    pushChannel1.expectMsg(Subscribed(Set(r)))
+    pushChannel1.expectMsg(SubscribeResult(Set(SubscriptionOpResult(r, Set.empty))))
 
     subscriptionManger.tell(Request.SubscribeOnObjects(ctx, SubscriptionBody(List(sub)),
       pushChannel2.ref), pushChannel2.ref)
-    pushChannel2.expectMsg(Subscribed(Set(r)))
+    pushChannel2.expectMsg(SubscribeResult(Set(SubscriptionOpResult(r, Set.empty))))
 
     subscriptionManger.tell(Request.SubscribeOnObjects(ctx, SubscriptionBody(List(sub)),
       pushChannel3.ref), pushChannel3.ref)
-    pushChannel3.expectMsg(Subscribed(Set(r)))
+    pushChannel3.expectMsg(SubscribeResult(Set(SubscriptionOpResult(r, Set.empty))))
 
     subscriptionManger.tell(Request.SubscribeOnObjects(ctx, SubscriptionBody(List(sub)),
       pushChannel4.ref), pushChannel4.ref)
-    pushChannel4.expectMsg(Subscribed(Set(r)))
+    pushChannel4.expectMsg(SubscribeResult(Set(SubscriptionOpResult(r, Set.empty))))
 
     subs.size shouldBe 4
     subs.get((pushChannel1.ref.path, r)).get.r shouldBe r
