@@ -38,6 +38,7 @@ class RequestRouter(globals: ReallyGlobals, persistId: String) extends Persisten
     case req: Request with RoutableToCollectionActor =>
       sender ! RNotFound(req.r)
     case req: Request with RoutableToReadHandler if validR(req.r) =>
+      log.info("Routing Request: {}", req)
       globals.readHandler forward req
     case req: Request with RoutableToReadHandler =>
       sender ! RNotFound(req.r)

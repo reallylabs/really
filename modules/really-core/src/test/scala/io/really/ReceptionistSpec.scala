@@ -6,10 +6,11 @@ package io.really
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
-import akka.actor.{ PoisonPill, Props, ActorRef }
+import akka.actor.{ Props, PoisonPill, ActorRef }
 import akka.testkit.{ TestActorRef, TestProbe }
 import akka.pattern.ask
 import play.api.libs.json.{ Json, JsObject }
+import _root_.io.really.gorilla._
 
 import _root_.io.really.protocol.{ GetOpts }
 

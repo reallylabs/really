@@ -42,7 +42,6 @@ class WebSocketHandler(
   }
 
   private[socket] def decodeAccessToken(tag: Long, token: String): Either[CommandError, (FiniteDuration, UserInfo)] = {
-    log.info("accessToken Secret: {}", ioGlobals.config.io.accessTokenSecret)
     JWT.decode(token, Some(ioGlobals.config.io.accessTokenSecret)) match {
       case JWTResult.JWT(header, payload) =>
         (payload \ "expires").asOpt[Long] match {

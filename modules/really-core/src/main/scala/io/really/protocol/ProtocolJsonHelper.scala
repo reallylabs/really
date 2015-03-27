@@ -60,8 +60,10 @@ object ProtocolFormats {
      * JSON Reads for [[io.really.Request.Get]] Request
      */
     object Get {
-      val cmdOptsReads = (__ \ 'cmdOpts).read[GetOpts]
-
+      val cmdOptsReads = (__ \ 'cmdOpts).readNullable[GetOpts].map {
+        case Some(opts) => opts
+        case None => GetOpts()
+      }
       def read(ctx: RequestContext, replyTo: ActorRef) = (rObjectReads and cmdOptsReads)((r, cmdOpts) => Request.Get(ctx, r, cmdOpts))
     }
 
@@ -205,7 +207,7 @@ object ProtocolFormats {
    */
   object CommandErrorWrites {
     implicit val commandErrorWrites = (
-      (__ \ "r").write[Option[R]] and
+      (__ \ "r").writeNullable[R] and
       (__ \ "error").write[ProtocolError.Error]
     )(unlift(CommandError.unapply))
   }

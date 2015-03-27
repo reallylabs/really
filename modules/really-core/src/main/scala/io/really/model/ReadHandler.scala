@@ -41,7 +41,8 @@ class ReadHandler(globals: ReallyGlobals) extends Actor with Stash with ActorLog
   def receive: Receive = handleRequests
 
   def handleRequests: Receive = {
-    case Request.Get(ctx, r, cmdOpts) =>
+    case g @ Request.Get(ctx, r, cmdOpts) =>
+      log.info("Get Request: {}", g)
       val requester = sender()
       getModel(r) map {
         case Right(model) =>

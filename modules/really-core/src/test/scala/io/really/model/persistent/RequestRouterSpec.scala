@@ -62,7 +62,7 @@ class RequestRouterSpec extends BaseActorSpec {
         "age" -> "29"
       )
     )
-    expectMsgType[RequestRouter.RequestRouterResponse.RNotFound]
+    expectMsgType[RequestRouter.RNotFound]
   }
 
   it should "forward message to read handler if command is Get" in {
