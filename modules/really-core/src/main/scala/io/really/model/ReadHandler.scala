@@ -291,7 +291,7 @@ class ReadHandler(globals: ReallyGlobals) extends Actor with Stash with ActorLog
     }
 
   private def addSystemFields(storedDoc: JsObject, normalizedObject: JsObject): JsObject =
-    normalizedObject ++ Json.obj("_r" -> (storedDoc \ "_r"), "_rev" -> (storedDoc \ "_rev"))
+    normalizedObject ++ Json.obj("_r" -> (storedDoc \ "_r"), "_rev" -> (storedDoc \ "_rev").as[Long])
 
   /**
    * Get fields that will be queried from the Projection DB
