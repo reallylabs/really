@@ -50,11 +50,15 @@ class WebSocketHandler(
               case JsSuccess(tokenInfo, _) =>
                 val duration = (exp - DateTime.now().getMillis).millis
                 Right((duration, tokenInfo))
-              case _ => Left(CommandError.InvalidAccessToken)
+              case e =>
+                log.warning("Access token does not conform to UserInfo format: {}", e)
+                Left(CommandError.InvalidAccessToken)
             }
           case _ => Left(CommandError.ExpiredAccessToken)
         }
-      case e => Left(CommandError.InvalidAccessToken)
+      case e =>
+        log.warning("Could not decode access token: {}", e)
+        Left(CommandError.InvalidAccessToken)
     }
   }
 

@@ -3,6 +3,7 @@
  */
 package io.really
 
+import model.persistent.RequestRouter._
 import scala.util.{ Success, Failure }
 import akka.actor._
 import play.api.libs.json._
@@ -53,8 +54,13 @@ class RequestDelegate(globals: ReallyGlobals, ctx: RequestContext, replyTo: Acto
       replyWith(response)
     case error: CommandError =>
       replyWith(error)
+    case RNotFound(r) =>
+      replyWith(CommandError.UnknownR(r))
+    case UnsupportedCmd(cmd) =>
+      replyWith(CommandError.InvalidCommand(cmd))
+
     case other =>
-      log.warning("RequestDelegate received unknown response due to a coding bug. response was: {}.", other)
+      log.warning("RequestDelegate received unknown response due to a coding bug. response was: {} from {}.", other, sender())
       replyWith(CommandError.InternalServerError.default)
   }
 

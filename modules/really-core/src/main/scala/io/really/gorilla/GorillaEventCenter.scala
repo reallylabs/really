@@ -48,9 +48,9 @@ class GorillaEventCenter(globals: ReallyGlobals)(implicit session: Session) exte
       val objectSubscriber = context.actorOf(globals.objectSubscriberProps(rSub))
       val replayer = markers.filter(_.r === rSub.r).firstOption match {
         case Some((_, rev)) =>
-          context.actorOf(globals.replayerProps(rSub, objectSubscriber, Some(rev)))
+          context.actorOf(globals.replayerProps(rSub, objectSubscriber, Some(rev), session))
         case None =>
-          context.actorOf(globals.replayerProps(rSub, objectSubscriber, None))
+          context.actorOf(globals.replayerProps(rSub, objectSubscriber, None, session))
       }
       globals.mediator ! Subscribe(rSub.r.toString, replayer)
       objectSubscriber ! ReplayerSubscribed(replayer)

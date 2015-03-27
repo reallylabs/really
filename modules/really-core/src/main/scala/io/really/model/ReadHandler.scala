@@ -41,7 +41,8 @@ class ReadHandler(globals: ReallyGlobals) extends Actor with Stash with ActorLog
   def receive: Receive = handleRequests
 
   def handleRequests: Receive = {
-    case Request.Get(ctx, r, cmdOpts) =>
+    case g @ Request.Get(ctx, r, cmdOpts) =>
+      log.info("Get Request: {}", g)
       val requester = sender()
       getModel(r) map {
         case Right(model) =>
@@ -290,7 +291,7 @@ class ReadHandler(globals: ReallyGlobals) extends Actor with Stash with ActorLog
     }
 
   private def addSystemFields(storedDoc: JsObject, normalizedObject: JsObject): JsObject =
-    normalizedObject ++ Json.obj("_r" -> (storedDoc \ "_r"), "_rev" -> (storedDoc \ "_rev"))
+    normalizedObject ++ Json.obj("_r" -> (storedDoc \ "_r"), "_rev" -> (storedDoc \ "_rev").as[Long])
 
   /**
    * Get fields that will be queried from the Projection DB

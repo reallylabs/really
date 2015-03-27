@@ -20,18 +20,17 @@ class RequestDelegateSpec extends BaseActorSpec {
 
   "Request Delegate" should "send validation error to client, if request is bad" in {
     val cmd = "get"
-    val body = Json.obj("r" -> R / 'users / 123) // cmdOpts is missing
+    val body = Json.obj() // r is missing
     val client = TestProbe()
     val delegate = system.actorOf(globals.requestProps(ctx, client.ref, cmd, body))
     expectNoMsg()
     client.expectMsg(Json.obj(
       "tag" -> ctx.tag,
-      "r" -> JsNull,
       "error" -> Json.obj(
         "code" -> 409,
         "message" -> "validation.failed",
         "errors" -> Json.obj(
-          "obj.cmdOpts" -> Seq(Json.obj(
+          "obj.r" -> Seq(Json.obj(
             "msg" -> "error.path.missing",
             "args" -> Seq.empty[String]
           ))
@@ -53,7 +52,6 @@ class RequestDelegateSpec extends BaseActorSpec {
     expectNoMsg()
     client.expectMsg(Json.obj(
       "tag" -> ctx.tag,
-      "r" -> JsNull,
       "error" -> Json.obj(
         "code" -> 454,
         "message" -> "Invalid command: got"
@@ -133,7 +131,6 @@ class RequestDelegateSpec extends BaseActorSpec {
 
     client.expectMsg(Json.obj(
       "tag" -> ctx.tag,
-      "r" -> JsNull,
       "error" -> Json.obj(
         "code" -> 500,
         "message" -> "internal.server.error"

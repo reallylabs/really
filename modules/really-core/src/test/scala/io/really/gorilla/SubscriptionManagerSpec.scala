@@ -4,18 +4,19 @@
 
 package io.really.gorilla
 
-import akka.actor.{ActorRef, Props}
-import akka.testkit.{TestProbe, TestActorRef}
-import akka.persistence.{Update => PersistenceUpdate}
+import akka.actor.{ ActorRef, Props }
+import akka.testkit.{ TestProbe, TestActorRef }
+import akka.persistence.{ Update => PersistenceUpdate }
 import io.really._
-import _root_.io.really.model.{Model, FieldKey}
-import _root_.io.really.model.persistent.ModelRegistry.{RequestModel, ModelResult}
+import _root_.io.really.model.{ Model, FieldKey }
+import _root_.io.really.model.persistent.ModelRegistry.{ RequestModel, ModelResult }
 import _root_.io.really.model.persistent.PersistentModelStore
 import _root_.io.really.fixture.PersistentModelStoreFixture
 import _root_.io.really.gorilla.mock.TestObjectSubscriber
 import _root_.io.really.gorilla.mock.TestObjectSubscriber._
-import _root_.io.really.protocol.{SubscriptionBody, SubscriptionOp}
+import _root_.io.really.protocol.{ SubscriptionBody, SubscriptionOp }
 import _root_.io.really.gorilla.SubscribeAggregator.Subscribed
+import slick.driver.H2Driver.simple.Session
 
 class SubscriptionManagerSpec extends BaseActorSpecWithMongoDB {
 
@@ -25,7 +26,7 @@ class SubscriptionManagerSpec extends BaseActorSpecWithMongoDB {
       Props(classOf[TestObjectSubscriber], rSubscription, this)
 
     override def replayerProps(rSubscription: RSubscription, objectSubscriber: ActorRef,
-                               maxMarker: Option[Revision]): Props = Props.empty
+      maxMarker: Option[Revision], session: Session): Props = Props.empty
   }
 
   val caller = TestProbe()
@@ -52,18 +53,18 @@ class SubscriptionManagerSpec extends BaseActorSpecWithMongoDB {
 
   "Subscription Manager" should "handle SubscribeOnR, create an ObjectSubscriptionActor and update the internal" +
     " state" in {
-    val subscriptionManger = TestActorRef[SubscriptionManager](globals.subscriptionManagerProps)
-    val subs = subscriptionManger.underlyingActor.rSubscriptions
-    subs.isEmpty shouldBe true
-    subscriptionManger.tell(SubscriptionManager.SubscribeOnR(rSub), caller.ref)
-    caller.expectMsg(SubscriptionManager.SubscriptionDone(rSub.r))
-    subs.size shouldBe 1
-    val expectedRSub = subs.get((rSub.pushChannel.path, r)).get
-    expectedRSub.r shouldEqual rSub.r
-    expectedRSub.objectSubscriber.tell(GetFieldList, caller.ref)
-    val msg = caller.expectMsgType[Set[FieldKey]]
-    msg shouldEqual Set("name")
-  }
+      val subscriptionManger = TestActorRef[SubscriptionManager](globals.subscriptionManagerProps)
+      val subs = subscriptionManger.underlyingActor.rSubscriptions
+      subs.isEmpty shouldBe true
+      subscriptionManger.tell(SubscriptionManager.SubscribeOnR(rSub), caller.ref)
+      caller.expectMsg(SubscriptionManager.SubscriptionDone(rSub.r))
+      subs.size shouldBe 1
+      val expectedRSub = subs.get((rSub.pushChannel.path, r)).get
+      expectedRSub.r shouldEqual rSub.r
+      expectedRSub.objectSubscriber.tell(GetFieldList, caller.ref)
+      val msg = caller.expectMsgType[Set[FieldKey]]
+      msg shouldEqual Set("name")
+    }
 
   it should "doesn't add same caller twice to subscriptionList" in {
     val subscriptionManger = TestActorRef[SubscriptionManager](globals.subscriptionManagerProps)

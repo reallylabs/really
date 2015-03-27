@@ -12,8 +12,8 @@ import play.api.mvc._
 
 object AuthController extends Controller {
 
-  val reallyConfig = Play.current.configuration.getConfig("really").getOrElse(Configuration.empty)
-  val secret = reallyConfig.getString("secret")
+  lazy val reallyConfig = Play.current.configuration.getConfig("really").getOrElse(Configuration.empty)
+  lazy val secret = reallyConfig.getString("io.security.secret-key")
 
   val tokenGenerator = JWTGenerator(secret.get)
 
