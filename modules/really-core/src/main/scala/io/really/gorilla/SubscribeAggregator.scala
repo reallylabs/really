@@ -6,13 +6,14 @@ package io.really.gorilla
 
 import akka.actor.{ ActorLogging, ActorRef, Actor }
 import akka.contrib.pattern.Aggregator
-import io.really.R
 import io.really.RequestContext
 import io.really.Request.SubscribeOnObjects
 import io.really.gorilla.SubscriptionManager.{ SubscriptionDone, SubscribeOnR }
 import io.really.protocol.SubscriptionBody
-import scala.collection.mutable.ArrayBuffer
 import io.really.ReallyGlobals
+import io.really.Result.SubscribeResult
+import io.really.protocol.SubscriptionOpResult
+import scala.collection.mutable.Set
 
 class SubscribeAggregator(request: SubscribeOnObjects, delegate: ActorRef, subscriptionManager: ActorRef,
     globals: ReallyGlobals) extends Actor with Aggregator with ActorLogging {
@@ -25,7 +26,7 @@ class SubscribeAggregator(request: SubscribeOnObjects, delegate: ActorRef, subsc
   class SubscribeAggregatorImpl(ctx: RequestContext, requestDelegate: ActorRef, body: SubscriptionBody,
       pushChannel: ActorRef) {
 
-    val results = ArrayBuffer.empty[R]
+    val results = Set.empty[SubscriptionOpResult]
     private[this] var processedCount = 0
 
     if (body.subscriptions.size > 0) {
@@ -52,7 +53,7 @@ class SubscribeAggregator(request: SubscribeOnObjects, delegate: ActorRef, subsc
       subscriptionManager ! SubscribeOnR(rSub)
       expectOnce {
         case SubscriptionDone(r) =>
-          results += r
+          results += SubscriptionOpResult(r, rSub.fields)
           processedCount += 1
           collectSubscriptions()
       }
@@ -61,7 +62,7 @@ class SubscribeAggregator(request: SubscribeOnObjects, delegate: ActorRef, subsc
     def collectSubscriptions(force: Boolean = false) {
       if (processedCount == body.subscriptions.size || force) {
         timer.cancel()
-        requestDelegate ! SubscribeAggregator.Subscribed(results.toSet)
+        requestDelegate ! SubscribeResult(results.toSet)
         context.stop(self)
       }
     }
@@ -70,8 +71,6 @@ class SubscribeAggregator(request: SubscribeOnObjects, delegate: ActorRef, subsc
 }
 
 object SubscribeAggregator {
-
-  case class Subscribed(rs: Set[R])
 
   case object TimedOut
 

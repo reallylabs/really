@@ -162,7 +162,7 @@ package object protocol {
   /*
    * Represent subscription result
    */
-  case class SubscriptionOpResult(r: R, fields: Set[String])
+  case class SubscriptionOpResult(r: R, fields: Set[FieldKey])
 
   //TODO change fields type
   /*

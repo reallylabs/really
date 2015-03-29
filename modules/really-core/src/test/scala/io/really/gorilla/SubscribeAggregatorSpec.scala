@@ -9,9 +9,10 @@ import akka.testkit.{ EventFilter, TestProbe, TestActorRef }
 import com.typesafe.config.ConfigFactory
 import io.really._
 import _root_.io.really.Request.SubscribeOnObjects
-import _root_.io.really.gorilla.SubscribeAggregator.{ Subscribed, UnsupportedResponse }
 import _root_.io.really.gorilla.SubscriptionManager.{ SubscriptionDone, SubscribeOnR }
 import _root_.io.really.protocol.{ SubscriptionFailure, SubscriptionBody, SubscriptionOp }
+import _root_.io.really.Result.SubscribeResult
+import _root_.io.really.protocol.SubscriptionOpResult
 import scala.concurrent.duration._
 
 class SubscribeAggregatorSpec(config: ReallyConfig) extends BaseActorSpec(config) {
@@ -38,7 +39,7 @@ class SubscribeAggregatorSpec(config: ReallyConfig) extends BaseActorSpec(config
     val aggregator = TestActorRef[SubscribeAggregator](Props(new SubscribeAggregator(rSub, delegate.ref, manager,
       globals)))
     probe.watch(aggregator)
-    delegate.expectMsg(Subscribed(Set(r1)))
+    delegate.expectMsg(SubscribeResult(Set(SubscriptionOpResult(r1, body.subscriptions(0).fields))))
     probe.expectTerminated(aggregator)
   }
 
@@ -51,7 +52,10 @@ class SubscribeAggregatorSpec(config: ReallyConfig) extends BaseActorSpec(config
     val rSub = SubscribeOnObjects(ctx, body, pushChannel.ref)
     TestActorRef[SubscribeAggregator](Props(new SubscribeAggregator(rSub, delegate.ref, manager,
       globals)))
-    delegate.expectMsg(Subscribed(Set(r2, r4)))
+    delegate.expectMsg(SubscribeResult(Set(
+      SubscriptionOpResult(r2, body.subscriptions(0).fields),
+      SubscriptionOpResult(r4, body.subscriptions(1).fields)
+    )))
   }
 
   it should "return empty response if the Subscription back-end is failing the requests" in {
@@ -62,7 +66,7 @@ class SubscribeAggregatorSpec(config: ReallyConfig) extends BaseActorSpec(config
       SubscriptionOp(r4, 1), SubscriptionOp(r5, 1)))
     val rSub = SubscribeOnObjects(ctx, body, pushChannel.ref)
     TestActorRef[SubscribeAggregator](Props(new SubscribeAggregator(rSub, delegate.ref, manager, globals)))
-    delegate.expectMsg(Subscribed(Set.empty))
+    delegate.expectMsg(SubscribeResult(Set.empty))
   }
 
   it should "return empty response if the Subscription back-end is unresponsive after Timeout" in {
@@ -79,7 +83,7 @@ class SubscribeAggregatorSpec(config: ReallyConfig) extends BaseActorSpec(config
     ).intercept {
       TestActorRef[SubscribeAggregator](Props(new SubscribeAggregator(rSub, delegate.ref, manager, globals)))
     }
-    delegate.expectMsg(Subscribed(Set.empty))
+    delegate.expectMsg(SubscribeResult(Set.empty))
   }
 
 }
