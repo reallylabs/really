@@ -6,6 +6,7 @@ package io.really.protocol
 import _root_.io.really.Result._
 import akka.actor.ActorRef
 import io.really._
+import _root_.io.really.rql.RQL
 import play.api.data.validation.ValidationError
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
@@ -60,10 +61,7 @@ object ProtocolFormats {
      * JSON Reads for [[io.really.Request.Get]] Request
      */
     object Get {
-      val cmdOptsReads = (__ \ 'cmdOpts).readNullable[GetOpts].map {
-        case Some(opts) => opts
-        case None => GetOpts()
-      }
+      val cmdOptsReads = (__ \ 'cmdOpts).readNullable[GetOpts].defaultsTo(GetOpts())
       def read(ctx: RequestContext, replyTo: ActorRef) = (rObjectReads and cmdOptsReads)((r, cmdOpts) => Request.Get(ctx, r, cmdOpts))
     }
 
@@ -81,8 +79,7 @@ object ProtocolFormats {
      * JSON Reads for [[_root_.io.really.Request.Read]] Request
      */
     object Read {
-      val cmdOptsReads = (__ \ 'cmdOpts).read[ReadOpts]
-
+      val cmdOptsReads = (__ \ 'cmdOpts).readNullable[ReadOpts].defaultsTo(ReadOpts(Set.empty, RQL.EmptyQuery, DEFAULT_QUERY_LIMIT)) //todo: d
       def read(ctx: RequestContext, replyTo: ActorRef) = (rCollectionReads and cmdOptsReads)((r, cmdOpts) => Request.Read(ctx, r, cmdOpts, replyTo))
     }
 

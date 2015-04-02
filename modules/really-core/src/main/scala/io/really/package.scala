@@ -30,6 +30,17 @@ package io {
     type Tag = Long
     type UID = String
 
+    // Constants
+    val DEFAULT_QUERY_LIMIT = 200
+
+    // Implicits
+    implicit class ReallyReads[T](reads: Reads[Option[T]]) {
+      def defaultsTo(value: T): Reads[T] = reads map {
+        case Some(v) => v
+        case None => value
+      }
+    }
+
     implicit def IntToToken(id: Int): TokenId = LongToToken(id)
 
     implicit def LongToToken(id: Long): TokenId = R.IdValue(id)

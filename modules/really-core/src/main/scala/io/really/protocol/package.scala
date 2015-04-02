@@ -6,12 +6,12 @@ package io.really
 import _root_.io.really.rql.RQL.Query
 import _root_.io.really.rql.RQLTokens.PaginationToken
 import _root_.io.really.model.FieldKey
+import _root_.io.really.rql.RQL
 import play.api.data.validation.ValidationError
 import play.api.libs.functional.syntax._
 import play.api.libs.json._
 
 package object protocol {
-
   /*
    * Represents request options on get request
    */
@@ -42,7 +42,18 @@ package object protocol {
    * Represent implicit JSON Format for ReadOpts
    */
   object ReadOpts {
-    implicit val reads = Json.reads[ReadOpts]
+
+    //    implicit val reads = Json.reads[ReadOpts]
+    implicit val reads = (
+      (__ \ 'fields).readNullable[Set[FieldKey]].defaultsTo(Set.empty) and
+      (__ \ 'query).readNullable[Query].defaultsTo(RQL.EmptyQuery) and
+      (__ \ 'limit).readNullable[Int].defaultsTo(DEFAULT_QUERY_LIMIT) and
+      (__ \ 'ascending).readNullable[Boolean].defaultsTo(false) and
+      (__ \ 'paginationToken).readNullable[PaginationToken] and
+      (__ \ 'skip).readNullable[Int].defaultsTo(0) and
+      (__ \ 'includeTotalCount).readNullable[Boolean].defaultsTo(false) and
+      (__ \ 'subscribe).readNullable[Boolean].defaultsTo(false)
+    )(ReadOpts.apply _)
   }
 
   sealed trait UpdateCommand
