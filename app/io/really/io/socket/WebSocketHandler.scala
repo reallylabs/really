@@ -90,6 +90,7 @@ class WebSocketHandler(
 
   def initializedReceive(expiresIn: FiniteDuration, userInfo: UserInfo): Receive = {
     case msg: String =>
+      log.debug("Websocket Got {}", msg)
       asJsObject(msg).map { request =>
         request.validate((tagReads and traceIdReads and cmdReads).tupled) match {
           case JsSuccess((tag, traceId, cmd), _) =>

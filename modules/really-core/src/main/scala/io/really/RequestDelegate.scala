@@ -13,8 +13,12 @@ class RequestDelegate(globals: ReallyGlobals, ctx: RequestContext, replyTo: Acto
 
   import CommandErrorWrites._
 
-  def replyWith[T](o: T)(implicit tjs: Writes[T]): Unit =
-    replyWith(Json.toJson(o).as[JsObject])
+  def replyWith[T](o: T)(implicit tjs: Writes[T]): Unit = {
+    log.debug("Delegate got: {}", o)
+    val rep = Json.toJson(o).as[JsObject]
+    log.debug("Delegate reply: {}", rep)
+    replyWith(rep)
+  }
 
   def replyWith(response: JsObject): Unit = {
     val taggedResponse = response ++ Json.obj("tag" -> ctx.tag)
