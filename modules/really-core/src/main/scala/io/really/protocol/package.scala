@@ -143,7 +143,15 @@ package object protocol {
    * Represent implicit JSON Format for SubscriptionOp
    */
   object SubscriptionOp {
-    implicit val fmt = Json.format[SubscriptionOp]
+    //    implicit val fmt = Json.format[SubscriptionOp]
+    implicit val subOpReads: Reads[SubscriptionOp] = (
+      (__ \ 'r).read[R] ~
+      (__ \ 'rev).read[Revision] ~
+      (__ \ 'fields).readNullable[Set[FieldKey]].defaultsTo(Set.empty)
+    )(SubscriptionOp.apply _)
+    implicit val subOpWrites: Writes[SubscriptionOp] = Json.writes[SubscriptionOp]
+
+    implicit val subFmt: Format[SubscriptionOp] = Format(subOpReads, subOpWrites)
   }
 
   /*

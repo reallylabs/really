@@ -7,6 +7,7 @@ fields:
     type: String
   age:
     type: Long
+    required: true
   locale:
     type: String
     validation: |

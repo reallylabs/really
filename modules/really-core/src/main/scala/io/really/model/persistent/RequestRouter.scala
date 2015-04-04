@@ -32,17 +32,20 @@ class RequestRouter(globals: ReallyGlobals, persistId: String) extends Persisten
 
   def handleRequest: Receive = {
     case req: Request.Create if validR(req.r) =>
+      log.debug("Routing Create Request to CollectionActor: {}", req)
       globals.collectionActor forward req.copy(r = req.r / globals.quickSand.nextId())
     case req: Request with RoutableToCollectionActor if validR(req.r) =>
+      log.debug("Routing Request to CollectionActor: {}", req)
       globals.collectionActor forward req
     case req: Request with RoutableToCollectionActor =>
       sender ! RNotFound(req.r)
     case req: Request with RoutableToReadHandler if validR(req.r) =>
-      log.info("Routing Request: {}", req)
+      log.debug("Routing Request to ReadHandler: {}", req)
       globals.readHandler forward req
     case req: Request with RoutableToReadHandler =>
       sender ! RNotFound(req.r)
     case req: RoutableToSubscriptionManager =>
+      log.debug("Routing Request to SubscriptionManager: {}", req)
       globals.subscriptionManager forward req
     case req: Request =>
       sender ! UnsupportedCmd(req.getClass.getName)
