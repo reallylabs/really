@@ -1,0 +1,27 @@
+version: 3
+fields:
+  firstName:
+    type: string
+    required : true
+  lastName:
+    type: String
+  age:
+    type: Long
+    required: true
+
+  fullName:
+    type: Calculated
+    valueType: String
+    dependsOn: firstName, lastName
+    value: |
+      function calculate(firstName, lastName) {
+        var fullName = firstName
+        if (lastName != undefined)
+          fullName += " " + lastName
+        return fullName;
+      }
+
+  locale:
+    type: String
+    validation: |
+      value.length <= 3

@@ -17,9 +17,9 @@ import scala.collection.JavaConversions._
 import scala.collection.immutable.TreeMap
 import scala.io.Source
 
-case class InvalidField(reason: String) extends Exception
-case class InvalidReferenceField(reason: String) extends Exception
-case class InvalidModelFile(reason: String) extends Exception
+case class InvalidField(reason: String) extends Exception(reason)
+case class InvalidReferenceField(reason: String) extends Exception(reason)
+case class InvalidModelFile(reason: String) extends Exception(reason)
 
 class ModelLoader(dir: String, actorSystem: ActorSystem) {
 
@@ -42,7 +42,7 @@ class ModelLoader(dir: String, actorSystem: ActorSystem) {
 
   private val modelsRegistry: Map[R, ModelInfo] = walkFilesTree(mainDirectoryFile).toMap
 
-  val models: List[Model] = modelsRegistry.values.map {
+  lazy val models: List[Model] = modelsRegistry.values.map {
     modelInfo =>
       Model(
         modelInfo.r,
@@ -154,8 +154,12 @@ class ModelLoader(dir: String, actorSystem: ActorSystem) {
   private def getFields(fieldsMap: LinkedHashMap[String, Object]): Map[FieldKey, Field[_]] = {
     val fields = fieldsMap.partition {
       case (fieldKey, value) =>
-        val field = value.asInstanceOf[LinkedHashMap[String, String]]
-        isValueField(field.get("type"))
+        if (!value.isInstanceOf[util.LinkedHashMap[_, _]]) {
+          throw new InvalidModelFile(s"No field configuration specified for key '$fieldKey'")
+        } else {
+          val field = value.asInstanceOf[LinkedHashMap[String, String]]
+          isValueField(field.get("type"))
+        }
     }
     val valueFields = parseValueFields(fields._1.toMap)
 
@@ -265,7 +269,7 @@ class ModelLoader(dir: String, actorSystem: ActorSystem) {
         val dep3 = valueFields(dependencies(2).trim)
         CalculatedField3(fieldKey, dataTypes(field.get("valueType").toLowerCase), field.get("value"), dep1, dep2, dep3)
       case _ =>
-        throw new DataTypeException(s"Un supported type of calculated field; Maximum length " +
+        throw new DataTypeException(s"Unsupported valueType of calculated field; Maximum length " +
           s"of field's dependencies is 3")
     }
   }
