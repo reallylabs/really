@@ -159,7 +159,7 @@ class ReadHandlerSpec extends BaseActorSpecWithMongoDB {
     val cmdOpts = ReadOpts(
       Set("title"),
       EmptyQuery,
-      1,
+      10,
       false,
       None,
       0,
@@ -173,10 +173,30 @@ class ReadHandlerSpec extends BaseActorSpecWithMongoDB {
     val result = Await.result(collection.save(userObj), 5.second)
     result.ok shouldBe true
 
+    val userObj2 = Json.obj(
+      "_deleted" -> true,
+      "_rev" -> 1, "_r" -> r / 111,
+      "_parent0" -> "authors/12/", "_id" -> 111
+    )
+    val result2 = Await.result(collection.save(userObj2), 5.second)
+    result2.ok shouldBe true
+
     globals.readHandler ! Request.Read(ctx, r, cmdOpts, TestProbe().ref)
     val ret = expectMsgType[ReadResult]
     ret.body.items.size shouldEqual (1)
+    ret.body.totalResults shouldEqual Some(2) //todo: should be 1 if RIO-108 is closed
     ret.body.items(0).body shouldEqual Json.obj("_r" -> "/authors/12/posts/112/", "_rev" -> 1, "title" -> "The post title")
+  }
+
+  it should "return object gone if trying to get a deleted object" in {
+    val r = R / 'cars / 2015
+    val userObj = Json.obj("_rev" -> 1, "_r" -> r, "_id" -> 2015, "_deleted" -> true)
+    val collection = globals.mongodbConnection.collection[JSONCollection]("cars")
+    val result = Await.result(collection.save(userObj), 5.second)
+    result.ok shouldBe true
+    globals.readHandler ! Request.Get(ctx, r, GetOpts(Set("model", "production")))
+    expectMsg(CommandError.ObjectGone(r))
+
   }
 
   it should "succeed and filter data according to query read option" in {

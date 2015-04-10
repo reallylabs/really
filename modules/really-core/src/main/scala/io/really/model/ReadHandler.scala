@@ -117,6 +117,9 @@ class ReadHandler(globals: ReallyGlobals) extends Actor with Stash with ActorLog
 
     val cursor: Cursor[JsObject] = collection.find(Json.obj("_r" -> r), filter).cursor[JsObject]
     cursor.headOption map {
+      case Some(doc) if (doc \ "_deleted").asOpt[Boolean].isDefined =>
+        //deleted document
+        Left(CommandError.ObjectGone(r))
       case Some(doc) =>
         val _r = (doc \ "_r").as[R]
         model.executeOnGet(ctx, globals, doc) match {
@@ -204,8 +207,8 @@ class ReadHandler(globals: ReallyGlobals) extends Actor with Stash with ActorLog
     val orderBy = Json.obj("_id" -> (if (cmdOpts.ascending) 1 else -1))
     val cursor = collection.find(cmdOpts.query, filter).sort(orderBy).cursor[JsObject]
     cursor.collect[List](cmdOpts.limit).map { docs =>
-      docs.map {
-        doc =>
+      docs.collect {
+        case doc: JsObject if (doc \ "_deleted").asOpt[Boolean].isEmpty =>
           model.executeOnGet(ctx, globals, doc) match {
             case Right(plan) =>
               val itemData = evaluateCalculatedFields(doc, requestedFields, model)
@@ -260,6 +263,7 @@ class ReadHandler(globals: ReallyGlobals) extends Actor with Stash with ActorLog
   private def getTotalCount(collection: JSONCollection, cmdOpts: ReadOpts): Future[Option[Int]] = {
     if (!cmdOpts.includeTotalCount) return Future.successful(None)
     val query = BSONDocumentFormat.partialReads(Json.toJson(cmdOpts.query).as[JsObject]).asOpt
+    // query shouldn't include the token or the _deleted to get accurate results (it token is included)
     val command = Count(collection.name, query, None)
     globals.mongodbConnection.command(command).map(Option[Int])
   }
@@ -300,7 +304,7 @@ class ReadHandler(globals: ReallyGlobals) extends Actor with Stash with ActorLog
    * @return
    */
   private def getFieldsObj(model: Model, fields: Set[FieldKey]): JsObject = {
-    fields.foldLeft(Json.obj("_r" -> 1, "_rev" -> 1)) {
+    fields.foldLeft(Json.obj("_r" -> 1, "_rev" -> 1, "_deleted" -> 1, "_metaData" -> 1)) {
       case (fieldsObj, field) =>
         model.fields.get(field) match {
           case Some(f: ActiveField[_]) => fieldsObj ++ Json.obj(field -> 1)
