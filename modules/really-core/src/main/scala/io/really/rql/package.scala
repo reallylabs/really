@@ -97,7 +97,6 @@ object RQL {
 
   abstract class Query {
     def isValid: Either[ValidationError, RQLSuccess]
-
     /**
      * Validate that this object match this query or not
      * @param obj
@@ -105,13 +104,24 @@ object RQL {
      * @return true or false
      */
     def validateObject(obj: JsObject, fields: Set[Field[_]]): Boolean
+    def and(q2: Query): Query = AndCombinator(this, q2)
+    // implemented to avoid double wrapping because the type doesn't protect it
+    def excludeDeleted = this match {
+      case a: AndExcludeDeleted => a
+      case e => AndExcludeDeleted(e)
+    }
   }
 
   case object EmptyQuery extends Query {
     def isValid: Either[ValidationError, RQLSuccess] = Right(RQLSuccess(this))
 
     def validateObject(obj: JsObject, fields: Set[Field[_]]): Boolean = true
+    //    def withNoDeleted() =
+  }
 
+  case class AndExcludeDeleted(query: Query) extends Query {
+    def isValid: Either[ValidationError, RQLSuccess] = query.isValid
+    def validateObject(obj: JsObject, fields: Set[Field[_]]): Boolean = query.validateObject(obj, fields)
   }
 
   case class SimpleQuery(key: Term, op: Operator, termValue: TermValue) extends Query with Positional {

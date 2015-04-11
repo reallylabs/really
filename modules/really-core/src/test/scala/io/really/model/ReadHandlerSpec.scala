@@ -184,7 +184,7 @@ class ReadHandlerSpec extends BaseActorSpecWithMongoDB {
     globals.readHandler ! Request.Read(ctx, r, cmdOpts, TestProbe().ref)
     val ret = expectMsgType[ReadResult]
     ret.body.items.size shouldEqual (1)
-    ret.body.totalResults shouldEqual Some(2) //todo: should be 1 if RIO-108 is closed
+    ret.body.totalResults shouldEqual Some(1)
     ret.body.items(0).body shouldEqual Json.obj("_r" -> "/authors/12/posts/112/", "_rev" -> 1, "title" -> "The post title")
   }
 
@@ -380,7 +380,7 @@ class ReadHandlerSpec extends BaseActorSpecWithMongoDB {
       false,
       None,
       0,
-      false,
+      true,
       false
     )
     //Add Dummy data
@@ -419,14 +419,14 @@ class ReadHandlerSpec extends BaseActorSpecWithMongoDB {
     globals.readHandler ! Request.Read(ctx, r, cmdOpts, TestProbe().ref)
     val ret = expectMsgType[ReadResult]
     ret.body.items.size shouldEqual (2)
-    ret.body.totalResults shouldBe None
+    ret.body.totalResults shouldBe Some(5)
     ret.body.tokens.get.nextToken shouldEqual PaginationToken(114, 1)
     ret.body.tokens.get.prevToken shouldEqual PaginationToken(115, 0)
 
     globals.readHandler ! Request.Read(ctx, r, cmdOpts.copy(ascending = true), TestProbe().ref)
     val ret2 = expectMsgType[ReadResult]
     ret2.body.items.size shouldEqual (2)
-    ret2.body.totalResults shouldBe None
+    ret2.body.totalResults shouldBe Some(5)
     ret2.body.tokens.get.nextToken shouldEqual PaginationToken(112, 1)
     ret2.body.tokens.get.prevToken shouldEqual PaginationToken(111, 0)
 
@@ -434,13 +434,14 @@ class ReadHandlerSpec extends BaseActorSpecWithMongoDB {
     globals.readHandler ! Request.Read(ctx, r, readOpts, TestProbe().ref)
     val ret3 = expectMsgType[ReadResult]
     ret3.body.items.size shouldEqual (2)
+    ret3.body.totalResults shouldBe Some(5)
     ret3.body.tokens.get.nextToken shouldEqual PaginationToken(112, 1)
     ret3.body.tokens.get.prevToken shouldEqual PaginationToken(113, 0)
 
     globals.readHandler ! Request.Read(ctx, r, readOpts.copy(ascending = true), TestProbe().ref)
     val ret4 = expectMsgType[ReadResult]
     ret4.body.items.size shouldEqual (2)
-    ret4.body.totalResults shouldBe None
+    ret4.body.totalResults shouldBe Some(5)
     ret4.body.tokens.get.nextToken shouldEqual PaginationToken(112, 1)
     ret4.body.tokens.get.prevToken shouldEqual PaginationToken(111, 0)
   }
