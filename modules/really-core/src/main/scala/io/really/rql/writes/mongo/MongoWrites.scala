@@ -46,7 +46,9 @@ object MongoWrites {
   }
 
   object AndCombinatorWrites extends Writes[AndCombinator] {
+
     import QueryWrites._
+
     def writes(aq: AndCombinator): JsObject = (aq.q1, aq.q2) match {
       case (q1: SimpleQuery, q2: SimpleQuery) if q1.key.term == q2.key.term && (q1.op == Eq || q2.op == Eq) =>
         Json.obj(
@@ -68,6 +70,21 @@ object MongoWrites {
     }
   }
 
+  object AndExcludeDeletedWrites extends Writes[AndExcludeDeleted] {
+
+    import QueryWrites._
+
+    def writes(ae: AndExcludeDeleted): JsObject = {
+      val exclude = Json.obj("_deleted" -> Json.obj("$exists" -> 0))
+      ae.query match {
+        case EmptyQuery => exclude
+        case q => Json.obj(
+          "$and" -> Json.arr(Json.toJson(q), exclude)
+        )
+      }
+    }
+  }
+
   /*
    * JSON Writes for Query
    */
@@ -77,8 +94,8 @@ object MongoWrites {
       case EmptyQuery => Json.obj()
 
       case sq: SimpleQuery => Json.toJson(sq)(SimpleQueryWrites).as[JsObject]
-
       case aq: AndCombinator => Json.toJson(aq)(AndCombinatorWrites).as[JsObject]
+      case ae: AndExcludeDeleted => Json.toJson(ae)(AndExcludeDeletedWrites).as[JsObject]
 
     }
   }

@@ -156,21 +156,24 @@ class ReadHandler(globals: ReallyGlobals) extends Actor with Stash with ActorLog
   private def handleRead(model: Model, ctx: RequestContext, r: R,
     collection: JSONCollection, cmdOpts: ReadOpts): Future[ReadResponseBody] = {
     val newQuery = getQuery(r, cmdOpts)
+    val queryWithoutPaginationOrDeleted = getQueryWithNoPagination(r, cmdOpts)
     for {
       items <- queryItems(model, collection, ctx, r, cmdOpts.copy(query = newQuery))
-      count <- getTotalCount(collection, cmdOpts.copy(query = newQuery))
+      count <- getTotalCount(collection, cmdOpts.copy(query = queryWithoutPaginationOrDeleted))
     } yield ReadResponseBody(getTokens(items), count, items)
   }
 
+  private def getQueryWithNoPagination(collectionR: R, cmdOpts: ReadOpts): Query = (cmdOpts.query and getInitialQuery(collectionR)).excludeDeleted
+
   private def getQuery(collectionR: R, cmdOpts: ReadOpts): Query = {
-    val query = AndCombinator(cmdOpts.query, getInitialQuery(collectionR))
+    val query = cmdOpts.query and getInitialQuery(collectionR)
     cmdOpts.paginationToken match {
       //prevToken
       case Some(PaginationToken(id, 0)) =>
-        AndCombinator(query, SimpleQuery(Term("_r"), Operator.Gt, TermValue(Json.toJson(collectionR / id))))
+        query and SimpleQuery(Term("_r"), Operator.Gt, TermValue(Json.toJson(collectionR / id)))
       //nextToken
       case Some(PaginationToken(id, 1)) =>
-        AndCombinator(query, SimpleQuery(Term("_r"), Operator.Lt, TermValue(Json.toJson(collectionR / id))))
+        query and SimpleQuery(Term("_r"), Operator.Lt, TermValue(Json.toJson(collectionR / id)))
       case _ =>
         query
     }
@@ -182,8 +185,8 @@ class ReadHandler(globals: ReallyGlobals) extends Actor with Stash with ActorLog
    * @return
    */
   private def getInitialQuery(r: R): Query =
-    r.tail.zipWithIndex.foldLeft(EmptyQuery: Query) {
-      case (acc, (token, index)) =>
+    r.tail.foldLeft(EmptyQuery: Query) {
+      (acc, token) =>
         if (!token.isWildcard) SimpleQuery(
           Term(s"_parent${r.tail.indexOf(token)}"),
           Operator.Eq, TermValue(JsString(token.toString))
