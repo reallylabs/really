@@ -88,10 +88,11 @@ class CollectionActorSpec extends BaseActorSpec with BeforeAndAfterEach {
     val userObj = Json.obj("name" -> "Hatem AlSum", "age" -> 30)
     val probe = TestProbe()
     globals.collectionActor.tell(Create(ctx, r, userObj), probe.ref)
-    val res = probe.expectMsgType[Result.CreateResult]
-    res.body \ "name" shouldBe JsString("Hatem AlSum")
-    res.body \ "age" shouldBe JsNumber(30)
-    res.body \ "_rev" shouldBe JsNumber(1)
+    globals.collectionActor.tell(GetState(r), probe.ref)
+    val state = probe.expectMsgType[CollectionActor.State]
+    state.obj \ "name" shouldBe JsString("Hatem AlSum")
+    state.obj \ "age" shouldBe JsNumber(30)
+    state.obj \ "_rev" shouldBe JsNumber(1)
 
     val newUserModel = BaseActorSpec.userModel.copy(
       fields = BaseActorSpec.userModel.fields + ("address" -> ValueField("address", DataType.RString, None, None, true))
@@ -117,8 +118,6 @@ class CollectionActorSpec extends BaseActorSpec with BeforeAndAfterEach {
     val userObj = Json.obj("name" -> "Foo Bar", "employees" -> 43)
     val probe = TestProbe()
     globals.collectionActor.tell(Create(ctx, r, userObj), probe.ref)
-    val res = probe.expectMsgType[Result.CreateResult]
-    res.body \ "name" shouldBe JsString("Foo Bar")
     //get company model
     modelRegistryRef.tell(RequestModel.GetModel(BaseActorSpec.companyModel.r, probe.ref), probe.ref)
     probe.expectMsg(ModelResult.ModelObject(BaseActorSpec.companyModel, List.empty))
@@ -164,7 +163,6 @@ class CollectionActorSpec extends BaseActorSpec with BeforeAndAfterEach {
     val userObj = Json.obj("name" -> "Foo Bar", "age" -> 38)
     val probe = TestProbe()
     globals.collectionActor.tell(Create(ctx, r, userObj), probe.ref)
-    val res = probe.expectMsgType[Result.CreateResult]
     globals.collectionActor.tell(UnsupportedCommand(r, "UNKNOWN CMD"), probe.ref)
     val resx = probe.expectMsgType[InvalidCommand]
     resx.reason should include("UNKNOWN CMD")
@@ -177,8 +175,6 @@ class CollectionActorSpec extends BaseActorSpec with BeforeAndAfterEach {
     val userObj = Json.obj("name" -> "Montaro", "age" -> 23)
     val probe = TestProbe()
     collectionActor.tell(Create(ctx, r, userObj), probe.ref)
-    val res = probe.expectMsgType[Result.CreateResult]
-    res.body \ "name" shouldBe JsString("Montaro")
     collectionActor.tell(GetState(r), probe.ref)
     val state = probe.expectMsgType[CollectionActor.State]
     state.obj \ "name" shouldBe JsString("Montaro")
@@ -201,12 +197,10 @@ class CollectionActorSpec extends BaseActorSpec with BeforeAndAfterEach {
     val collectionActor = system.actorOf(Props(new CollectionActorTest(globals)), actorName)
     val probe = TestProbe()
     collectionActor.tell(Create(ctx, r, Json.obj("name" -> "amal elshihaby", "age" -> 27)), probe.ref)
-    probe.expectMsgType[CreateResult]
     collectionActor.tell(GetState(r), probe.ref)
     probe.expectMsgType[CollectionActor.State]
     val body = UpdateBody(List(UpdateOp(UpdateCommand.Set, "name", JsString("Amal"))))
     collectionActor.tell(Update(ctx, r, 1l, body), probe.ref)
-    probe.expectMsgType[UpdateResult]
     collectionActor.tell(GetState(r), probe.ref)
     val state = probe.expectMsgType[CollectionActor.State]
     probe watch collectionActor
@@ -225,10 +219,6 @@ class CollectionActorSpec extends BaseActorSpec with BeforeAndAfterEach {
     val userObj = Json.obj("name" -> "Hatem AlSum", "age" -> 30)
     val probe = TestProbe()
     globals.collectionActor.tell(Create(ctx, r, userObj), probe.ref)
-    val res = probe.expectMsgType[Result.CreateResult]
-    res.body \ "name" shouldBe JsString("Hatem AlSum")
-    res.body \ "age" shouldBe JsNumber(30)
-    res.body \ "_rev" shouldBe JsNumber(1)
     globals.collectionActor.tell(GetState(r), probe.ref)
     val state = probe.expectMsgType[State]
     state.obj \ "name" shouldBe JsString("Hatem AlSum")
@@ -241,7 +231,6 @@ class CollectionActorSpec extends BaseActorSpec with BeforeAndAfterEach {
     val userObj = Json.obj("name" -> "Hatem AlSum", "age" -> 30)
     val probe = TestProbe()
     globals.collectionActor.tell(Create(ctx, r, userObj), probe.ref)
-    probe.expectMsgType[Result.CreateResult]
     globals.collectionActor.tell(Create(ctx, r, userObj), probe.ref)
     probe.expectMsgType[CommandError.AlreadyExists]
   }
@@ -261,8 +250,10 @@ class CollectionActorSpec extends BaseActorSpec with BeforeAndAfterEach {
     val userObj = Json.obj("model" -> "Toyota Corolla")
     val probe = TestProbe()
     globals.collectionActor.tell(Create(ctx, r, userObj), probe.ref)
-    val res = probe.expectMsgType[Result.CreateResult]
-    res.body \ "production" shouldBe JsNumber(1980)
+    globals.collectionActor.tell(GetState(r), probe.ref)
+    val state = probe.expectMsgType[State]
+    state.obj \ "production" shouldBe JsNumber(1980)
+
   }
 
   it should "reply with created object and contain calculated values" in {
@@ -270,8 +261,10 @@ class CollectionActorSpec extends BaseActorSpec with BeforeAndAfterEach {
     val userObj = Json.obj("model" -> "Mitsubishi Lancer", "production" -> 2010)
     val probe = TestProbe()
     globals.collectionActor.tell(Create(ctx, r, userObj), probe.ref)
-    val res = probe.expectMsgType[Result.CreateResult]
-    res.body \ "renewal" shouldBe JsNumber(2020)
+    globals.collectionActor.tell(GetState(r), probe.ref)
+    val state = probe.expectMsgType[State]
+    state.obj \ "renewal" shouldBe JsNumber(2020)
+
   }
 
   it should "reply with created object and contain CALCULATED values if dependant values not in model" in {
@@ -279,8 +272,10 @@ class CollectionActorSpec extends BaseActorSpec with BeforeAndAfterEach {
     val userObj = Json.obj("model" -> "Ford Focus")
     val probe = TestProbe()
     globals.collectionActor.tell(Create(ctx, r, userObj), probe.ref)
-    val res = probe.expectMsgType[Result.CreateResult]
-    res.body \ "renewal" shouldBe JsNumber(1990)
+    globals.collectionActor.tell(GetState(r), probe.ref)
+    val state = probe.expectMsgType[State]
+    state.obj \ "renewal" shouldBe JsNumber(1990)
+
   }
 
   it should "have the _r as a key in the persisted object" in {
@@ -288,7 +283,6 @@ class CollectionActorSpec extends BaseActorSpec with BeforeAndAfterEach {
     val userObj = Json.obj("name" -> "Hatem AlSum", "age" -> 30)
     val probe = TestProbe()
     globals.collectionActor.tell(Create(ctx, r, userObj), probe.ref)
-    probe.expectMsgType[Result.CreateResult]
     globals.collectionActor.tell(GetState(r), probe.ref)
     val state = probe.expectMsgType[State]
     state.obj \ "_r" shouldBe JsString(r.toString)
@@ -299,7 +293,6 @@ class CollectionActorSpec extends BaseActorSpec with BeforeAndAfterEach {
     val userObj = Json.obj("name" -> "Hatem AlSum", "age" -> 30)
     val probe = TestProbe()
     globals.collectionActor.tell(Create(ctx, r, userObj), probe.ref)
-    probe.expectMsgType[Result.CreateResult]
     globals.collectionActor.tell(GetState(r), probe.ref)
     val state = probe.expectMsgType[State]
     state.obj \ "_rev" shouldBe JsNumber(1)
@@ -318,11 +311,10 @@ class CollectionActorSpec extends BaseActorSpec with BeforeAndAfterEach {
     val Obj = Json.obj("name" -> "Hatem")
     val probe = TestProbe()
     globals.collectionActor.tell(Create(ctx, r, Obj), probe.ref)
-    probe.expectMsgType[Result.CreateResult]
     val cr = r / 'posts / globals.quickSand.nextId()
     val postObj = Json.obj("title" -> "First Post", "body" -> "First Body")
     globals.collectionActor.tell(Create(ctx, cr, postObj), probe.ref)
-    probe.expectMsgType[Result.CreateResult]
+    probe.expectNoMsg()
   }
 
   it should "validate the object parent is alive" in {
@@ -353,12 +345,10 @@ class CollectionActorSpec extends BaseActorSpec with BeforeAndAfterEach {
     val companyObj = Json.obj("name" -> "Cloud Niners")
     val probe = TestProbe()
     globals.collectionActor.tell(Create(ctx, companyR, companyObj), probe.ref)
-    probe.expectMsgType[Result.CreateResult]
 
     val userR = BaseActorSpec.userModel.r / globals.quickSand.nextId()
     val userObj = Json.obj("name" -> "Ahmed", "age" -> 30, "company" -> companyR)
     globals.collectionActor.tell(Create(ctx, userR, userObj), probe.ref)
-    probe.expectMsgType[Result.CreateResult]
   }
 
   it should "return invalid response if reference field refereed to Non exist object" in {
@@ -406,12 +396,11 @@ class CollectionActorSpec extends BaseActorSpec with BeforeAndAfterEach {
     val companyObj = Json.obj("name" -> "Cloud Niners")
     val probe = TestProbe()
     globals.collectionActor.tell(Create(ctx, companyR, companyObj), probe.ref)
-    probe.expectMsgType[Result.CreateResult]
 
     val userR = BaseActorSpec.userModel.r / globals.quickSand.nextId()
     val userObj = Json.obj("name" -> "Ahmed", "age" -> 30, "company" -> companyR)
     globals.collectionActor.tell(Create(ctx, userR, userObj), probe.ref)
-    probe.expectMsgType[Result.CreateResult]
+    probe.expectNoMsg()
   }
 
   it should "create object if reference field is optional and object doesn't contain reference field" in {
@@ -434,12 +423,10 @@ class CollectionActorSpec extends BaseActorSpec with BeforeAndAfterEach {
     val companyObj = Json.obj("name" -> "Cloud Niners")
     val probe = TestProbe()
     globals.collectionActor.tell(Create(ctx, companyR, companyObj), probe.ref)
-    probe.expectMsgType[Result.CreateResult]
 
     val userR = BaseActorSpec.userModel.r / globals.quickSand.nextId()
     val userObj = Json.obj("name" -> "Ahmed", "age" -> 30)
     globals.collectionActor.tell(Create(ctx, userR, userObj), probe.ref)
-    probe.expectMsgType[Result.CreateResult]
   }
 
   "Update" should "get ObjectNotFound for uncreated yet objects" in {
@@ -454,7 +441,6 @@ class CollectionActorSpec extends BaseActorSpec with BeforeAndAfterEach {
     val r = R / 'users / globals.quickSand.nextId()
     val probe = TestProbe()
     globals.collectionActor.tell(Create(ctx, r, Json.obj("name" -> "amal elshihaby", "age" -> 27)), probe.ref)
-    probe.expectMsgType[CreateResult]
     globals.collectionActor.tell(GetState(r), probe.ref)
     probe.expectMsgType[State]
     val body = UpdateBody(List(UpdateOp(UpdateCommand.AddToSet, "age", JsNumber(12))))
@@ -469,24 +455,21 @@ class CollectionActorSpec extends BaseActorSpec with BeforeAndAfterEach {
     val r = R / 'users / globals.quickSand.nextId()
     val probe = TestProbe()
     globals.collectionActor.tell(Create(ctx, r, Json.obj("name" -> "amal elshihaby", "age" -> 27)), probe.ref)
-    probe.expectMsgType[CreateResult]
     globals.collectionActor.tell(GetState(r), probe.ref)
     probe.expectMsgType[State]
     val body = UpdateBody(List(UpdateOp(UpdateCommand.Set, "name", JsString("Amal"))))
     globals.collectionActor.tell(Update(ctx, r, 1l, body), probe.ref)
-    probe.expectMsgType[UpdateResult]
+    probe.expectNoMsg()
   }
 
   it should "fail the data revision is lower than the field last touched revision and operation is Set operation" in {
     val r = R / 'users / globals.quickSand.nextId()
     val probe = TestProbe()
     globals.collectionActor.tell(Create(ctx, r, Json.obj("name" -> "amal elshihaby", "age" -> 27)), probe.ref)
-    probe.expectMsgType[CreateResult]
     globals.collectionActor.tell(GetState(r), probe.ref)
     probe.expectMsgType[State]
     val body = UpdateBody(List(UpdateOp(UpdateCommand.Set, "name", JsString("Amal"))))
     globals.collectionActor.tell(Update(ctx, r, 1l, body), probe.ref)
-    probe.expectMsgType[UpdateResult]
     globals.collectionActor.tell(Update(ctx, r, 1l, body), probe.ref)
     val em = probe.expectMsgType[CommandError.ValidationFailed]
     val error = em.asInstanceOf[CommandError.ValidationFailed].reason
@@ -497,21 +480,19 @@ class CollectionActorSpec extends BaseActorSpec with BeforeAndAfterEach {
     val r = R / 'users / globals.quickSand.nextId()
     val probe = TestProbe()
     globals.collectionActor.tell(Create(ctx, r, Json.obj("name" -> "amal elshihaby", "age" -> 27)), probe.ref)
-    probe.expectMsgType[CreateResult]
     globals.collectionActor.tell(GetState(r), probe.ref)
     probe.expectMsgType[State]
     val body = UpdateBody(List(UpdateOp(UpdateCommand.AddNumber, "age", JsNumber(2))))
     globals.collectionActor.tell(Update(ctx, r, 1l, body), probe.ref)
-    probe.expectMsgType[UpdateResult]
+    probe.expectNoMsg()
     globals.collectionActor.tell(Update(ctx, r, 1l, body), probe.ref)
-    probe.expectMsgType[UpdateResult]
+    probe.expectNoMsg()
   }
 
   it should "fail when sending an invalid value for AddNumber Operation" in {
     val r = R / 'users / globals.quickSand.nextId()
     val probe = TestProbe()
     globals.collectionActor.tell(Create(ctx, r, Json.obj("name" -> "amal elshihaby", "age" -> 27)), probe.ref)
-    probe.expectMsgType[CreateResult]
     globals.collectionActor.tell(GetState(r), probe.ref)
     probe.expectMsgType[State]
     val body = UpdateBody(List(UpdateOp(UpdateCommand.AddNumber, "age", JsString("a22"))))
@@ -525,7 +506,6 @@ class CollectionActorSpec extends BaseActorSpec with BeforeAndAfterEach {
     val r = R / 'users / globals.quickSand.nextId()
     val probe = TestProbe()
     globals.collectionActor.tell(Create(ctx, r, Json.obj("name" -> "amal elshihaby", "age" -> 27)), probe.ref)
-    probe.expectMsgType[CreateResult]
     globals.collectionActor.tell(GetState(r), probe.ref)
     probe.expectMsgType[State]
     val body = UpdateBody(List(UpdateOp(UpdateCommand.AddNumber, "name", JsNumber(1))))
@@ -539,12 +519,11 @@ class CollectionActorSpec extends BaseActorSpec with BeforeAndAfterEach {
     val r = R / 'users / globals.quickSand.nextId()
     val probe = TestProbe()
     globals.collectionActor.tell(Create(ctx, r, Json.obj("name" -> "amal elshihaby", "age" -> 27)), probe.ref)
-    probe.expectMsgType[CreateResult]
     globals.collectionActor.tell(GetState(r), probe.ref)
     probe.expectMsgType[State]
     val body = UpdateBody(List(UpdateOp(UpdateCommand.AddNumber, "age", JsNumber(1))))
     globals.collectionActor.tell(Update(ctx, r, 1l, body), probe.ref)
-    probe.expectMsgType[UpdateResult]
+    probe.expectNoMsg()
   }
 
   it should "update the calculated Fields too" in {
@@ -552,11 +531,8 @@ class CollectionActorSpec extends BaseActorSpec with BeforeAndAfterEach {
     val userObj = Json.obj("model" -> "Mitsubishi Lancer", "production" -> 2010, "renewal" -> 2030)
     val probe = TestProbe()
     globals.collectionActor.tell(Create(ctx, r, userObj), probe.ref)
-    val res = probe.expectMsgType[Result.CreateResult]
-    res.body \ "renewal" shouldBe JsNumber(2020)
     val body = UpdateBody(List(UpdateOp(UpdateCommand.Set, "production", JsNumber(2012))))
     globals.collectionActor.tell(Update(ctx, r, 1l, body), probe.ref)
-    probe.expectMsgType[UpdateResult]
     globals.collectionActor.tell(GetState(r), probe.ref)
     val state = probe.expectMsgType[State]
     state.obj shouldEqual Json.obj("model" -> "Mitsubishi Lancer", "production" -> 2012, "renewal" -> 2020,
@@ -567,7 +543,6 @@ class CollectionActorSpec extends BaseActorSpec with BeforeAndAfterEach {
     val r = R / 'users / globals.quickSand.nextId()
     val probe = TestProbe()
     globals.collectionActor.tell(Create(ctx, r, Json.obj("name" -> "amal elshihaby", "age" -> 27)), probe.ref)
-    probe.expectMsgType[CreateResult]
     globals.collectionActor.tell(GetState(r), probe.ref)
     probe.expectMsgType[State]
     val body = UpdateBody(List(UpdateOp(UpdateCommand.Set, "name", JsString("Amal"))))
@@ -596,23 +571,19 @@ class CollectionActorSpec extends BaseActorSpec with BeforeAndAfterEach {
     val companyR1 = BaseActorSpec.companyModel.r / globals.quickSand.nextId()
     val companyObj1 = Json.obj("name" -> "Cloud Niners")
     globals.collectionActor.tell(Create(ctx, companyR1, companyObj1), probe.ref)
-    probe.expectMsgType[Result.CreateResult]
 
     val userR = BaseActorSpec.userModel.r / globals.quickSand.nextId()
     val bucketID = Helpers.getBucketIDFromR(userR)
     val collectionActorTest = system.actorOf(Props(new CollectionActorWithCleanJournal(globals)), bucketID)
     val userObj = Json.obj("name" -> "Ahmed", "age" -> 30, "company" -> companyR1)
     collectionActorTest.tell(Create(ctx, userR, userObj), probe.ref)
-    probe.expectMsgType[Result.CreateResult]
 
     val companyR2 = BaseActorSpec.companyModel.r / globals.quickSand.nextId()
     val companyObj2 = Json.obj("name" -> "Really IO")
     globals.collectionActor.tell(Create(ctx, companyR2, companyObj2), probe.ref)
-    probe.expectMsgType[Result.CreateResult]
 
     val updateBody = UpdateBody(List(UpdateOp(UpdateCommand.Set, "company", JsString(companyR2.toString))))
     collectionActorTest.tell(Update(ctx, userR, 1l, updateBody), probe.ref)
-    probe.expectMsgType[UpdateResult]
 
     collectionActorTest.tell(GetState(userR), probe.ref)
     val state = probe.expectMsgType[State]
@@ -639,7 +610,6 @@ class CollectionActorSpec extends BaseActorSpec with BeforeAndAfterEach {
     val companyR1 = BaseActorSpec.companyModel.r / globals.quickSand.nextId()
     val companyObj1 = Json.obj("name" -> "Cloud Niners")
     globals.collectionActor.tell(Create(ctx, companyR1, companyObj1), probe.ref)
-    probe.expectMsgType[Result.CreateResult]
 
     val probe2 = TestProbe()
 
@@ -648,7 +618,6 @@ class CollectionActorSpec extends BaseActorSpec with BeforeAndAfterEach {
     val collectionActorTest = system.actorOf(Props(new CollectionActorWithCleanJournal(globals)), bucketID)
     val userObj = Json.obj("name" -> "Ahmed", "age" -> 30, "company" -> companyR1)
     collectionActorTest.tell(Create(ctx, userR, userObj), probe2.ref)
-    probe2.expectMsgType[Result.CreateResult]
 
     val companyR2 = BaseActorSpec.companyModel.r / globals.quickSand.nextId()
 
@@ -682,7 +651,6 @@ class CollectionActorSpec extends BaseActorSpec with BeforeAndAfterEach {
     val companyR1 = BaseActorSpec.companyModel.r / globals.quickSand.nextId()
     val companyObj1 = Json.obj("name" -> "Cloud Niners")
     globals.collectionActor.tell(Create(ctx, companyR1, companyObj1), probe.ref)
-    probe.expectMsgType[Result.CreateResult]
 
     val userR = BaseActorSpec.userModel.r / globals.quickSand.nextId()
     val bucketID = Helpers.getBucketIDFromR(userR)
@@ -690,11 +658,9 @@ class CollectionActorSpec extends BaseActorSpec with BeforeAndAfterEach {
 
     val userObj = Json.obj("name" -> "Ahmed", "age" -> 30, "company" -> companyR1)
     collectionActorTest.tell(Create(ctx, userR, userObj), probe.ref)
-    probe.expectMsgType[Result.CreateResult]
 
     val updateBody = UpdateBody(List(UpdateOp(UpdateCommand.Set, "company", JsNull)))
     collectionActorTest.tell(Update(ctx, userR, 1l, updateBody), probe.ref)
-    probe.expectMsgType[UpdateResult]
 
     collectionActorTest.tell(GetState(userR), probe.ref)
     val state = probe.expectMsgType[State]
@@ -722,12 +688,10 @@ class CollectionActorSpec extends BaseActorSpec with BeforeAndAfterEach {
     val companyR1 = BaseActorSpec.companyModel.r / globals.quickSand.nextId()
     val companyObj1 = Json.obj("name" -> "Cloud Niners")
     globals.collectionActor.tell(Create(ctx, companyR1, companyObj1), probe.ref)
-    probe.expectMsgType[Result.CreateResult]
 
     val userR = BaseActorSpec.userModel.r / globals.quickSand.nextId()
     val userObj = Json.obj("name" -> "Ahmed", "age" -> 30, "company" -> companyR1)
     globals.collectionActor.tell(Create(ctx, userR, userObj), probe.ref)
-    probe.expectMsgType[Result.CreateResult]
 
     val companyR2 = BaseActorSpec.companyModel.r / globals.quickSand.nextId()
 
@@ -746,7 +710,7 @@ class CollectionActorSpec extends BaseActorSpec with BeforeAndAfterEach {
     val r = R / 'users / 123123
     globals.collectionActor.tell(Create(ctx, r, Json.obj("name" -> "Tamer AbdulRadi", "age" -> 26)), system.deadLetters)
     globals.collectionActor.tell(Delete(ctx, r), self)
-    expectMsg(DeleteResult(r))
+    expectNoMsg()
   }
 
   it should "return Gone for already deleted objects" in {

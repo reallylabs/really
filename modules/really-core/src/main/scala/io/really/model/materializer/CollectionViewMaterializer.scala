@@ -5,6 +5,7 @@ package io.really.model.materializer
 
 import akka.actor.{ FSM, Stash, ActorLogging }
 import akka.persistence.{ SaveSnapshotFailure, SaveSnapshotSuccess, SnapshotOffer, PersistentView }
+import io.really.CommandError.OperationPartiallyComplete
 import io.really._
 import _root_.io.really.model.materializer.CollectionViewMaterializer.{ MaterializerData, MaterializerState }
 import _root_.io.really.model.{ ReferenceField, FieldKey, Model, Helpers }
@@ -98,6 +99,12 @@ class CollectionViewMaterializer(val globals: ReallyGlobals) extends PersistentV
    * @return
    */
   def handleRecover: StateFunction = {
+    case Event(SaveSnapshotSuccess(metadata), _) =>
+      log.debug("Snapshot was taken successfully")
+      stay
+    case Event(SaveSnapshotFailure(metadata, cause), _) =>
+      log.warning("Snapshot was NOT taken: {}", cause)
+      stay
     case Event(SnapshotOffer(metadata, snapshot: SnapshotData), _) =>
       log.debug(s"Current state for CollectionViewMaterializer with viewId: $viewId for CollectionActor with " +
         s"persistentId: $persistenceId: $materializerCurrentState")
@@ -156,7 +163,7 @@ class CollectionViewMaterializer(val globals: ReallyGlobals) extends PersistentV
    * @return
    */
   def handleCollectionEvents: StateFunction = {
-    case Event(evt @ CollectionActorEvent.Created(r, obj, modelVersion, reqContext), ModelData(model, referencedCollections)) if isPersistent =>
+    case Event(evt @ CollectionActorEvent.Created(r, obj, modelVersion, reqContext, _, _), ModelData(model, referencedCollections)) if isPersistent =>
       log.debug(s"CollectionViewMaterializer with viewId: $viewId for CollectionActor with persistentId: $persistenceId " +
         s"receive create event for obj with R: $r")
       log.debug(s"Current state for CollectionViewMaterializer with viewId: $viewId for CollectionActor with " +
@@ -187,7 +194,7 @@ class CollectionViewMaterializer(val globals: ReallyGlobals) extends PersistentV
         )
       }
 
-    case Event(evt @ CollectionActorEvent.Updated(r, ops, rev, modelVersion, reqContext), ModelData(model, referencedCollections)) if isPersistent =>
+    case Event(evt @ CollectionActorEvent.Updated(r, ops, rev, modelVersion, reqContext, _, _), ModelData(model, referencedCollections)) if isPersistent =>
       log.debug(s"CollectionViewMaterializer with viewId: $viewId for CollectionActor with persistentId: $persistenceId " +
         s"receive update event for obj with R: $r")
       log.debug(s"Current state for CollectionViewMaterializer with viewId: $viewId for CollectionActor with " +
@@ -195,7 +202,7 @@ class CollectionViewMaterializer(val globals: ReallyGlobals) extends PersistentV
       getObject(r) pipeTo self
       goto(WaitingDBOperation) using DBOperationInfo(DBOperation.Get, Some(DBOperation.Update), model, referencedCollections, evt, super.lastSequenceNr)
 
-    case Event(evt @ CollectionActorEvent.Deleted(r, newRev, modelVersion, reqContext), ModelData(model, referencedCollections)) if isPersistent =>
+    case Event(evt @ CollectionActorEvent.Deleted(r, newRev, modelVersion, reqContext, _, _), ModelData(model, referencedCollections)) if isPersistent =>
       log.debug("CollectionViewMaterializer with viewId: {} for CollectionActor with persistentId:  {} " +
         "receive delete event for obj with R: {}", viewId, persistenceId, r)
       log.debug("Current state for CollectionViewMaterializer with viewId: {} for CollectionActor with " +
@@ -228,6 +235,7 @@ class CollectionViewMaterializer(val globals: ReallyGlobals) extends PersistentV
   def handleDBResponses: StateFunction = {
     case Event(OperationSucceeded(r, obj), DBOperationInfo(DBOperation.Insert, None, model, referencedCollections, event: CollectionActorEvent.Created, currentSequence)) =>
       persistAndNotifyGorilla(PersistentCreatedEvent(event), currentSequence, model, referencedCollections)
+      event.bySender ! event.response
       unstashAll()
       goto(WithModel) using ModelData(model, referencedCollections)
 
@@ -253,7 +261,6 @@ class CollectionViewMaterializer(val globals: ReallyGlobals) extends PersistentV
       }
 
     case Event(OperationSucceeded(r, obj), DBOperationInfo(DBOperation.Get, Some(DBOperation.Delete), model, referencedCollections, event: CollectionActorEvent.Deleted, currentSequence)) =>
-      //      val _ / (_ / R.IdValue(_)) = r
       val newObj = obj.copy(obj.fields.filter(_._1.startsWith("_"))) ++ Json.obj(
         Model.DeletedField -> true
       )
@@ -262,18 +269,22 @@ class CollectionViewMaterializer(val globals: ReallyGlobals) extends PersistentV
 
     case Event(OperationSucceeded(r, obj), DBOperationInfo(DBOperation.Update, None, model, referencedCollections, event: CollectionActorEvent.Updated, currentSequence)) =>
       persistAndNotifyGorilla(PersistentUpdatedEvent(event, obj), currentSequence, model, referencedCollections)
+      event.bySender ! event.response
       //TODO notify to update any object refer to this object
       unstashAll()
       goto(WithModel) using ModelData(model, referencedCollections)
 
     case Event(OperationSucceeded(r, obj), DBOperationInfo(DBOperation.Delete, None, model, referencedCollections, event: CollectionActorEvent.Deleted, currentSequence)) =>
       persistAndNotifyGorilla(PersistentDeletedEvent(event), currentSequence, model, referencedCollections)
+      event.bySender ! event.response
       //TODO notify to update any object refer to this object
       unstashAll()
       goto(WithModel) using ModelData(model, referencedCollections)
 
-    case Event(OperationFailed(_, failure), DBOperationInfo(_, _, model, referencedCollections, _, _)) =>
+    case Event(OperationFailed(_, failure), DBOperationInfo(_, _, model, referencedCollections, event, _)) =>
       context.parent ! failure
+      //TODO: Should inform event.bySender that we have failed!
+      event.bySender ! OperationPartiallyComplete(event.r, "view is not updated")
       shutdown()
       unstashAll()
       goto(WithModel) using ModelData(model, referencedCollections)

@@ -5,7 +5,7 @@ package io.really.model
 
 import akka.actor._
 import akka.contrib.pattern.ShardRegion.Passivate
-import akka.persistence.{ RecoveryFailure, RecoveryCompleted, SnapshotOffer, PersistentActor }
+import akka.persistence._
 import io.really.CommandError._
 import io.really.Request.{ Update, Create, Delete }
 import io.really.Result.{ UpdateResult, CreateResult, DeleteResult }
@@ -54,6 +54,7 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor
   override def preStart() = {
     t1 = System.currentTimeMillis()
     super.preStart()
+    notifyMaterializerToUpdate()
   }
 
   override def receiveRecover: Receive = {
@@ -61,7 +62,7 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor
       log.debug(s"$persistenceId Persistor received a Create replay event: $evt")
       updateBucket(evt)
 
-    case evt @ CollectionActorEvent.Updated(r, ops, newRev, modelVersion, ctx) if bucket.get(r).isDefined =>
+    case evt @ CollectionActorEvent.Updated(r, ops, newRev, modelVersion, ctx, _, _) if bucket.get(r).isDefined =>
       log.debug(s"$persistenceId Persistor received an Update replay event: $evt")
       val modelObj = bucket(r)
       getUpdatedData(modelObj, ops, rev(modelObj.data)) match {
@@ -79,7 +80,10 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor
       log.warning(s"[[NOT IMPLEMENTED]] Got EVENT: $evt")
     //TODO: handle other events
 
-    //TODO handle saveSnapshot()
+    case SaveSnapshotSuccess(meta) =>
+      log.info("CollectionActor took a successful snapshot")
+    case SaveSnapshotFailure(meta, cause) =>
+      log.warning("CollectionActor failed to take a snapshot: {}", cause)
     case SnapshotOffer(_, snapshot: Map[R @unchecked, DataObject @unchecked]) => bucket = snapshot
 
     case RecoveryCompleted =>
@@ -355,18 +359,18 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor
    */
   def updateBucket(evt: CollectionActorEvent, data: Option[JsObject] = None) =
     evt match {
-      case CollectionActorEvent.Created(r, obj, modelVersion, ctx) =>
+      case CollectionActorEvent.Created(r, obj, modelVersion, ctx, _, _) =>
         val lastTouched = obj.keys.map(k => (k, 1l)).toMap
         bucket += r -> DataObject(obj, modelVersion, lastTouched)
 
-      case CollectionActorEvent.Updated(r, ops, newRev, modelVersion, ctx) if data.isDefined =>
+      case CollectionActorEvent.Updated(r, ops, newRev, modelVersion, ctx, _, _) if data.isDefined =>
         val modelObject = DataObject(data.get, modelVersion, bucket(r).lastTouched ++ getLastTouched(ops, rev(data.get)))
         bucket += r -> modelObject
 
-      case CollectionActorEvent.Updated(r, ops, newRev, modelVersion, ctx) =>
+      case CollectionActorEvent.Updated(r, ops, newRev, modelVersion, ctx, _, _) =>
         throw new IllegalStateException("Cannot update state of the data was not exist!")
 
-      case CollectionActorEvent.Deleted(r, newRev, modelVersion, _) =>
+      case CollectionActorEvent.Deleted(r, newRev, modelVersion, _, _, _) =>
         // Json.obj(Model.RevisionField -> 1l, Model.RField -> request.r)
         bucket += r -> DataObject(Json.obj(
           Model.RField -> r,
@@ -515,11 +519,12 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor
     model.executeValidate(request.ctx, globals, obj) match {
       case ModelHookStatus.Succeeded =>
         val newObj = obj ++ Json.obj(Model.RevisionField -> 1l, Model.RField -> request.r)
+        val response = CreateResult(request.r, newObj)
         persistEvent(
-          CollectionActorEvent.Created(request.r, newObj, model.collectionMeta.version, request.ctx),
+          CollectionActorEvent.Created(request.r, newObj, model.collectionMeta.version, request.ctx, requester, response),
           newObj,
           requester,
-          CreateResult(request.r, newObj)
+          response
         )
 
       case ModelHookStatus.Terminated(code, reason) =>
@@ -630,8 +635,9 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor
   private def updateAndReply(updateReq: Request.Update, prev: JsObject, after: JsObject, model: Model, requester: ActorRef): Unit = {
     model.executePreUpdate(updateReq.ctx, globals, prev, after, (updateReq.body.ops map { op => op.key })) match {
       case ModelHookStatus.Succeeded =>
+        val response = UpdateResult(updateReq.r, rev(after))
         persistEvent(CollectionActorEvent.Updated(updateReq.r, updateReq.body.ops, rev(after),
-          model.collectionMeta.version, updateReq.ctx), after, requester, UpdateResult(updateReq.r, rev(after)))
+          model.collectionMeta.version, updateReq.ctx, requester, response), after, requester, response)
       case ModelHookStatus.Terminated(code, reason) =>
         requester ! JSValidationFailed(updateReq.r, reason) //todo fix me, needs comprehensive reason to be communicated
     }
@@ -647,9 +653,10 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor
   private def deleteAndReply(deleteReq: Request.Delete, jsObj: JsObject, newRev: Revision, model: Model, requester: ActorRef): Unit = {
     model.executePreDelete(deleteReq.ctx, globals, jsObj) match {
       case ModelHookStatus.Succeeded =>
+        val response = DeleteResult(deleteReq.r)
         persistEvent(
-          CollectionActorEvent.Deleted(deleteReq.r, newRev, model.collectionMeta.version, deleteReq.ctx),
-          requester, DeleteResult(deleteReq.r)
+          CollectionActorEvent.Deleted(deleteReq.r, newRev, model.collectionMeta.version, deleteReq.ctx, requester, response),
+          requester, response
         )
       case ModelHookStatus.Terminated(code, reason) =>
         requester ! JSValidationFailed(deleteReq.r, reason) //todo fix me, needs comprehensive reason to be communicated
@@ -691,7 +698,6 @@ class CollectionActor(globals: ReallyGlobals) extends PersistentActor
       event =>
         updateBucket(event, jsObj)
         notifyMaterializerToUpdate()
-        requester ! result
     }
   }
 
@@ -749,18 +755,20 @@ object CollectionActor {
     def r: R
     def rev: Revision
     def context: RequestContext
+    def bySender: ActorRef
+    def response: Response
   }
 
   object CollectionActorEvent {
 
-    case class Created(r: R, obj: JsObject, modelVersion: ModelVersion, context: RequestContext) extends CollectionActorEvent {
+    case class Created(r: R, obj: JsObject, modelVersion: ModelVersion, context: RequestContext, bySender: ActorRef, response: Response) extends CollectionActorEvent {
       val rev = 1L
     }
 
     case class Updated(r: R, ops: List[UpdateOp], rev: Revision, modelVersion: ModelVersion,
-      context: RequestContext) extends CollectionActorEvent
+      context: RequestContext, bySender: ActorRef, response: Response) extends CollectionActorEvent
 
-    case class Deleted(r: R, rev: Revision, modelVersion: ModelVersion, context: RequestContext) extends CollectionActorEvent
+    case class Deleted(r: R, rev: Revision, modelVersion: ModelVersion, context: RequestContext, bySender: ActorRef, response: Response) extends CollectionActorEvent
 
   }
 

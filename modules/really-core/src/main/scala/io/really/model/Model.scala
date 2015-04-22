@@ -68,7 +68,9 @@ package object model {
         }
     }
 
+    @transient
     lazy val factory = new NashornScriptEngineFactory
+    @transient
     lazy val executeValidator: Option[Validator] = jsHooks.onValidate.map { onValidateCode =>
       val validateEngine = factory.getScriptEngine(Array("-strict", "--no-java", "--no-syntax-extensions"))
       JsTools.injectSDK(validateEngine.getContext.getBindings(ScriptContext.ENGINE_SCOPE))
@@ -86,6 +88,7 @@ package object model {
       validateEngine.asInstanceOf[Invocable].getInterface(classOf[Validator])
     }
 
+    @transient
     lazy val executeOnGetValidator: Option[OnGet] = jsHooks.preGet.map { onGetCode =>
       val jsEngine = JsTools.newEngineWithSDK()
       val code: String = s"""
@@ -107,6 +110,7 @@ package object model {
       jsEngine.asInstanceOf[Invocable].getInterface(classOf[OnGet])
     }
 
+    @transient
     lazy val executePreDeleteValidator: Option[PreDelete] = jsHooks.preDelete.map { preDeleteCode =>
       val validateEngine = factory.getScriptEngine(Array("-strict", "--no-java", "--no-syntax-extensions"))
       JsTools.injectSDK(validateEngine.getContext.getBindings(ScriptContext.ENGINE_SCOPE))
@@ -124,6 +128,7 @@ package object model {
       validateEngine.asInstanceOf[Invocable].getInterface(classOf[PreDelete])
     }
 
+    @transient
     lazy val executePreUpdateValidator: Option[PreUpdate] = jsHooks.preUpdate.map { preUpdateCode =>
       val validateEngine = factory.getScriptEngine(Array("-strict", "--no-java", "--no-syntax-extensions"))
       JsTools.injectSDK(validateEngine.getContext.getBindings(ScriptContext.ENGINE_SCOPE))

@@ -17,6 +17,7 @@ object Dependencies {
   val playScalaTest = "org.scalatestplus" %% "play" % "1.2.0" % "test"
   val leveldb = "org.iq80.leveldb" % "leveldb" % "0.7"
   val jwtScala = "io.really" %% "jwt-scala" % "1.2.2"
+  val akkaPersistenceMongo = "com.github.ironfish" %% "akka-persistence-mongo-casbah"  % "0.7.5" % "compile"
 
   object Akka {
     private val akkaBase = "com.typesafe.akka"

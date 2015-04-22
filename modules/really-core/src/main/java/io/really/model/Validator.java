@@ -3,6 +3,8 @@
  */
 package io.really.model;
 
-public interface Validator {
+import java.io.Serializable;
+
+public interface Validator extends Serializable {
     boolean validate(String value);
 }
