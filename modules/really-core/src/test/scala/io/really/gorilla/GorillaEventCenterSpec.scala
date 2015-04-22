@@ -53,7 +53,7 @@ class GorillaEventCenterSpec extends BaseActorSpec {
     val probe = TestProbe()
     val r = R / 'users / 123
     val obj = Json.obj("name" -> "Sara", "age" -> 20)
-    val event = Created(r, obj, 1l, ctx)
+    val event = Created(r, obj, 1l, ctx, system.deadLetters, Result.CreateResult(r, obj))
     globals.gorillaEventCenter.tell(PersistentCreatedEvent(event), probe.ref)
     globals.gorillaEventCenter.tell(GetState(r), probe.ref)
     probe.expectMsg("done")
@@ -75,7 +75,7 @@ class GorillaEventCenterSpec extends BaseActorSpec {
     val r = R / 'users / 124
     val obj = Json.obj("name" -> "Sara", "age" -> 20)
     val ops = List(UpdateOp(UpdateCommand.Set, "name", JsString("amal")))
-    val event = Updated(r, ops, 2l, 1l, ctx)
+    val event = Updated(r, ops, 2l, 1l, ctx, system.deadLetters, Result.UpdateResult(r, 4))
     globals.gorillaEventCenter.tell(PersistentUpdatedEvent(event, obj), probe.ref)
     globals.gorillaEventCenter.tell(GetState(r), probe.ref)
     probe.expectMsg("done")
@@ -97,7 +97,7 @@ class GorillaEventCenterSpec extends BaseActorSpec {
     val r = R / 'users / 124
     val obj = Json.obj("name" -> "Sara", "age" -> 20)
     val ops = List(UpdateOp(UpdateCommand.Set, "name", JsString("amal")))
-    val event = Updated(r, ops, 2l, 1l, ctx)
+    val event = Updated(r, ops, 2l, 1l, ctx, system.deadLetters, Result.CreateResult(r, obj))
     globals.gorillaEventCenter.tell(PersistentUpdatedEvent(event, obj), probe.ref)
     globals.gorillaEventCenter.tell(PersistentUpdatedEvent(event, obj), probe.ref)
     globals.gorillaEventCenter.tell(GetState(r), probe.ref)
@@ -118,7 +118,7 @@ class GorillaEventCenterSpec extends BaseActorSpec {
     val probe = TestProbe()
     val r = R / 'users / 123
     val obj = Json.obj("name" -> "Sara", "age" -> 20)
-    val event = Created(r, obj, 1l, ctx)
+    val event = Created(r, obj, 1l, ctx, system.deadLetters, Result.CreateResult(r, obj))
     globals.gorillaEventCenter.tell(PersistentCreatedEvent(event), probe.ref)
     globals.gorillaEventCenter.tell(PersistentCreatedEvent(event), probe.ref)
     globals.gorillaEventCenter.tell(GetState(r), probe.ref)
@@ -140,7 +140,7 @@ class GorillaEventCenterSpec extends BaseActorSpec {
     val r = R / 'users / globals.quickSand.nextId()
     val bucketID = Helpers.getBucketIDFromR(r)
     val obj = Json.obj("name" -> "Sara", "age" -> 20)
-    val event = Created(r, obj, 1l, ctx)
+    val event = Created(r, obj, 1l, ctx, system.deadLetters, Result.CreateResult(r, obj))
     globals.gorillaEventCenter.tell(PersistentCreatedEvent(event), probe.ref)
     globals.gorillaEventCenter.tell(GetState(r), probe.ref)
     probe.expectMsg("done")

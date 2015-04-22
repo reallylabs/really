@@ -59,15 +59,17 @@ class CollectionViewMaterializerSpec extends BaseActorSpecWithMongoDB {
   }
 
   def createObject(r: R, persistentActor: (ActorRef, TestProbe)) = {
+    val probe = TestProbe()
     val obj = Json.obj("name" -> "Ahmed")
     val fullObj = obj ++ Json.obj("_rev" -> 1, "_r" -> r)
-    val event = CollectionActor.CollectionActorEvent.Created(r, fullObj, modelVersion, ctx)
+    val event = CollectionActor.CollectionActorEvent.Created(r, fullObj, modelVersion, ctx, probe.ref, Result.CreateResult(r, obj))
     persistentActor._1 ! ReportingPersistentActor.Persist(event)
     persistentActor._2.expectMsg(ReportingPersistentActor.Persisted(event))
+    probe.expectMsg(Result.CreateResult(r, obj))
   }
 
-  def deleteObject(r: R, persistentActor: (ActorRef, TestProbe)) = {
-    val event = CollectionActor.CollectionActorEvent.Deleted(r, 3, modelVersion, ctx)
+  def deleteObject(r: R, persistentActor: (ActorRef, TestProbe), probe: TestProbe) = {
+    val event = CollectionActor.CollectionActorEvent.Deleted(r, 3, modelVersion, ctx, probe.ref, Result.DeleteResult(r))
     persistentActor._1 ! ReportingPersistentActor.Persist(event)
   }
 
@@ -110,8 +112,6 @@ class CollectionViewMaterializerSpec extends BaseActorSpecWithMongoDB {
     globals.collectionActor ! req
     expectMsgType[Result.CreateResult]
 
-    Thread.sleep(7000)
-
     globals.materializerView ! MaterializerTest.GetState(bucketId)
     expectMsg(CollectionViewMaterializer.MaterializerDebuggingState(Some(BaseActorSpec.authorModel), Some("ModelCreated"), 2, "with-model"))
 
@@ -132,8 +132,6 @@ class CollectionViewMaterializerSpec extends BaseActorSpecWithMongoDB {
     globals.collectionActor ! req
     expectMsgType[Result.CreateResult]
 
-    Thread.sleep(7000)
-
     globals.materializerView ! MaterializerTest.GetState(bucketId)
     expectMsg(CollectionViewMaterializer.MaterializerDebuggingState(Some(BaseActorSpec.authorModel), Some("ModelCreated"), 2, "with-model"))
 
@@ -151,8 +149,6 @@ class CollectionViewMaterializerSpec extends BaseActorSpecWithMongoDB {
 
     globals.collectionActor ! postReq
     expectMsgType[Result.CreateResult]
-
-    Thread.sleep(7000)
 
     globals.materializerView ! MaterializerTest.GetState(postBucketId)
     expectMsg(CollectionViewMaterializer.MaterializerDebuggingState(Some(BaseActorSpec.postModel), Some("ModelCreated"), 2, "with-model"))
@@ -173,8 +169,6 @@ class CollectionViewMaterializerSpec extends BaseActorSpecWithMongoDB {
     globals.collectionActor ! req
     expectMsgType[Result.UpdateResult]
 
-    Thread.sleep(7000)
-
     globals.materializerView ! MaterializerTest.GetState(bucketId)
     expectMsg(CollectionViewMaterializer.MaterializerDebuggingState(Some(BaseActorSpec.authorModel), Some("ModelCreated"), 3, "with-model"))
 
@@ -193,8 +187,6 @@ class CollectionViewMaterializerSpec extends BaseActorSpecWithMongoDB {
     globals.collectionActor ! req
     expectMsgType[Result.CreateResult]
 
-    Thread.sleep(7000)
-
     globals.materializerView ! MaterializerTest.GetState(bucketId)
     expectMsg(CollectionViewMaterializer.MaterializerDebuggingState(Some(BaseActorSpec.authorModel), Some("ModelCreated"), 2, "with-model"))
 
@@ -212,8 +204,6 @@ class CollectionViewMaterializerSpec extends BaseActorSpecWithMongoDB {
 
     globals.collectionActor ! postReq
     expectMsgType[Result.CreateResult]
-
-    Thread.sleep(7000)
 
     globals.materializerView ! MaterializerTest.GetState(postBucketId)
     expectMsg(CollectionViewMaterializer.MaterializerDebuggingState(Some(BaseActorSpec.postModel), Some("ModelCreated"), 2, "with-model"))
@@ -234,8 +224,6 @@ class CollectionViewMaterializerSpec extends BaseActorSpecWithMongoDB {
     globals.collectionActor ! req1
     expectMsgType[Result.CreateResult]
 
-    Thread.sleep(7000)
-
     globals.materializerView ! MaterializerTest.GetState(bucketId1)
     expectMsg(CollectionViewMaterializer.MaterializerDebuggingState(Some(BaseActorSpec.authorModel), Some("ModelCreated"), 2, "with-model"))
 
@@ -247,8 +235,6 @@ class CollectionViewMaterializerSpec extends BaseActorSpecWithMongoDB {
 
     globals.collectionActor ! updateReq
     expectMsgType[Result.UpdateResult]
-
-    Thread.sleep(7000)
 
     globals.materializerView ! MaterializerTest.GetState(postBucketId)
     expectMsg(CollectionViewMaterializer.MaterializerDebuggingState(Some(BaseActorSpec.postModel), Some("ModelCreated"), 3, "with-model"))
@@ -275,16 +261,16 @@ class CollectionViewMaterializerSpec extends BaseActorSpecWithMongoDB {
     val m @ (mActor, mProbe) = getMaterializer(bucketId)
 
     notifyMaterializer(m)
-
-    deleteObject(r, p)
+    val resultProbe = TestProbe()
+    deleteObject(r, p, resultProbe)
     pProbe.expectMsgType[ReportingPersistentActor.Persisted].event.asInstanceOf[CollectionActor.CollectionActorEvent.Deleted]
-    pProbe.expectNoMsg()
 
     notifyMaterializer(m)
-    Thread.sleep(1000)
-    mProbe.expectMsgType[CollectionActor.CollectionActorEvent.Deleted](duration)
 
+    mProbe.expectMsgType[CollectionActor.CollectionActorEvent.Deleted](duration)
+    resultProbe.expectMsg(Result.DeleteResult(r))
     val o = getObject(r).get
+
     assertResult(true)((o \ "_deleted").as[Boolean])
   }
 

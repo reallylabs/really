@@ -27,6 +27,7 @@ object CoreBuild {
       snakeyaml,
       embedmongo,
       reactivemongo,
+      akkaPersistenceMongo,
       slick,
       h2,
       Akka.multiNode

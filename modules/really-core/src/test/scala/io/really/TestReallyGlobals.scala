@@ -73,7 +73,7 @@ class TestReallyGlobals(override val config: ReallyConfig, override val actorSys
 
   override val collectionActorProps = Props(classOf[CollectionActorWithCleanJournal], this)
   override val subscriptionManagerProps = Props(classOf[SubscriptionManager], this)
-  override val materializerProps = Props(classOf[CollectionViewMaterializer], this)
+  override def materializerProps = Props(classOf[CollectionViewMaterializer], this)
   override val persistentModelStoreProps = Props(classOf[PersistentModelStoreFixture], this, modelRegistryPersistentId)
 
   override def objectSubscriberProps(rSubscription: RSubscription): Props =
@@ -121,7 +121,6 @@ class TestReallyGlobals(override val config: ReallyConfig, override val actorSys
       idExtractor = materializerSharding.idExtractor,
       shardResolver = materializerSharding.shardResolver
     ))
-
     mediator_.set(DistributedPubSubExtension(actorSystem).mediator)
 
     subscriptionManager_.set(actorSystem.actorOf(subscriptionManagerProps, "subscription-manager"))

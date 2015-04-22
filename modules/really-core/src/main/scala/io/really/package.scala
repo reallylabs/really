@@ -206,6 +206,11 @@ package io {
         val error = Error(409, "validation.model.failed", Some(reason))
       }
 
+      case class OperationPartiallyComplete(_r: R, reason: String) extends CommandError {
+        val r = Some(_r)
+        val error = Error(505, reason, None)
+      }
+
       case class ValidationFailed(reason: JsError, r: Option[R] = None) extends CommandError {
         val error = Error(409, "validation.failed", Some(reason))
       }
