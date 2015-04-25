@@ -1,10 +1,22 @@
-version: 1
+version: 4
 fields:
   name:
     type: String
     required : true
   description:
     type: String
+  product-title:
+    type: Calculated
+    dependsOn: name, production-year
+    valueType: String
+    value: |
+      function calculate(name, productionYear) {
+        return "Fancy " + name + " Product Made in " + productionYear;
+      }
+  production-year:
+    type: Long
+    default: |
+      2009
   creator:
     type: reference
     collectionR: /users

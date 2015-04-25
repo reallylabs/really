@@ -3,7 +3,9 @@
  */
 package io.really
 import akka.actor._
-import akka.persistence.PersistentActor
+import akka.persistence.{ PersistentView, PersistentActor }
+
+import scala.util.Random
 
 object TestActors {
   val echoActorProps = akka.testkit.TestActors.echoActorProps
@@ -13,6 +15,9 @@ object TestActors {
 
   def reportingPersistentActorProps(persistenceId: String, reportee: ActorRef) =
     Props(new ReportingPersistentActor(persistenceId, reportee))
+
+  def reportingPersistentViewProps(persistenceId: String, reportee: ActorRef) =
+    Props(new ReportingPersistentView(persistenceId, reportee))
 }
 
 class ReportingActor(reportee: ActorRef) extends Actor {
@@ -47,9 +52,21 @@ class ReportingPersistentActor(override val persistenceId: String, reportee: Act
   }
 
 }
+class ReportingPersistentView(override val persistenceId: String, reportee: ActorRef) extends PersistentView {
+  import ReportingPersistentActor._
+
+  override def viewId: String = "test-view-" + Random.nextString(4) + "-" + persistenceId
+
+  def receive: Receive = {
+    case msg if isPersistent =>
+      reportee ! ReceivedEvent(msg)
+  }
+
+}
 object ReportingPersistentActor {
   case class ReceivedRecover(msg: Any, sender: ActorRef)
   case class ReceivedCommand(msg: Any, sender: ActorRef)
+  case class ReceivedEvent(msg: Any)
   case class Persist(event: Any)
   case class Persisted(event: Any)
 }

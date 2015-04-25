@@ -23,7 +23,6 @@ class RequestDelegateSpec extends BaseActorSpec {
     val body = Json.obj() // r is missing
     val client = TestProbe()
     val delegate = system.actorOf(globals.requestProps(ctx, client.ref, cmd, body))
-    expectNoMsg()
     client.expectMsg(Json.obj(
       "tag" -> ctx.tag,
       "error" -> Json.obj(
@@ -49,7 +48,6 @@ class RequestDelegateSpec extends BaseActorSpec {
     )
     val client = TestProbe()
     val delegate = system.actorOf(globals.requestProps(ctx, client.ref, wrongCmd, body))
-    expectNoMsg()
     client.expectMsg(Json.obj(
       "tag" -> ctx.tag,
       "error" -> Json.obj(

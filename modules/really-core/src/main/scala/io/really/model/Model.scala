@@ -69,6 +69,39 @@ package object model {
     }
 
     @transient
+    lazy val reactiveFields: Map[FieldKey, ReactiveField[_]] =
+      fields.collect {
+        case (key, field: ReactiveField[_]) => key -> field
+      }.toMap
+
+    @transient
+    lazy val fieldsDependsOn: Map[FieldKey, Set[ReactiveField[_]]] = {
+      var inversedIndex: Map[FieldKey, Set[ReactiveField[_]]] = Map.empty
+      reactiveFields.collect {
+        case (k, v: CalculatedField[_]) =>
+          v.dependsOn.foreach {
+            field =>
+              if (inversedIndex.contains(field))
+                inversedIndex += field -> (inversedIndex(field) + v)
+              else
+                inversedIndex += field -> Set(v)
+          }
+      }
+      inversedIndex
+    }
+
+    @transient
+    lazy val activeFields: Map[FieldKey, ActiveField[_]] = fields.collect {
+      case (key, field: ActiveField[_]) => key -> field
+    }.toMap
+
+    @transient
+    lazy val referenceFields: Map[FieldKey, ReferenceField] =
+      fields.collect {
+        case (key, field @ ReferenceField(_, _, _, _)) => key -> field
+      }.toMap
+
+    @transient
     lazy val factory = new NashornScriptEngineFactory
     @transient
     lazy val executeValidator: Option[Validator] = jsHooks.onValidate.map { onValidateCode =>

@@ -18,6 +18,7 @@ case class ValueField[T](
     required: Boolean
 ) extends ActiveField[T] {
 
+  @transient
   private[this] lazy val validateExecutor: Option[Invocable] = validationExpression.map { onValidateCode =>
     val validateEngine = JsTools.newEngineWithSDK
     val codeTemplate =
@@ -30,6 +31,7 @@ case class ValueField[T](
     validateEngine.asInstanceOf[Invocable]
   }
 
+  @transient
   private[this] lazy val defaultExecutor: Option[Invocable] = default.map { defaultCode =>
     val engine = JsTools.newEngineWithSDK()
     val codeTemplate =

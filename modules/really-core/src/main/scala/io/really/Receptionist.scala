@@ -7,7 +7,7 @@ import java.util.concurrent.ThreadLocalRandom
 import scala.util.Random
 import akka.actor._
 import play.api.libs.json.JsObject
-//import akka.actor.SupervisorStrategy._
+import akka.actor.SupervisorStrategy._
 
 /**
  * Receives a [[Request]] instance and a requester [[akka.actor.ActorRef]] and instantiates a RequestActor
@@ -22,11 +22,11 @@ class Receptionist(global: ReallyGlobals) extends Actor with ActorLogging {
   type ReplyToActor = ActorRef
   type DelegateActor = ActorRef
   //  var inFlight = Map.empty[DelegateActor, ReplyToActor]
-  //  override val supervisorStrategy = OneForOneStrategy() {
-  //    case e: Exception =>
-  //      log.error("Delegate crashed {} we are not restarting it", e)
-  //      Stop
-  //  }
+  override val supervisorStrategy = OneForOneStrategy() {
+    case e: Exception =>
+      log.error("Delegate crashed {} we are not restarting it", e)
+      Stop
+  }
 
   def currentTime = System.currentTimeMillis
   val epoch = currentTime
