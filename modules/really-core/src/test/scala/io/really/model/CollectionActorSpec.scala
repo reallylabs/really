@@ -7,10 +7,12 @@ import akka.actor.{ ActorRef, ActorSystem, PoisonPill, Props }
 import akka.testkit.{ TestActorRef, TestProbe }
 import akka.persistence.{ Update => PersistenceUpdate }
 import io.really.CommandError.ParentNotFound
+import io.really.ReportingPersistentActor.ReceivedEvent
 import io.really.Request.{ Update, Delete, Create }
 import io.really.Result.{ UpdateResult, CreateResult, DeleteResult }
 import io.really.fixture.CollectionActorTest.GetState
 import io.really.fixture.{ CollectionActorWithCleanJournal, CollectionActorTest, PersistentModelStoreFixture }
+import io.really.model.CollectionActor.CollectionActorEvent.{ Updated, Created }
 import io.really.model.CollectionActor.{ GetExistenceState, State }
 import io.really.model.persistent.ModelRegistry.ModelResult.ModelObject
 import io.really.model.persistent.{ PersistentModelStore }
@@ -189,6 +191,8 @@ class CollectionActorSpec extends BaseActorSpec with BeforeAndAfterEach {
     val statex = probe.expectMsgType[CollectionActor.State]
     statex.obj \ "name" shouldBe JsString("Montaro")
     statex.obj \ "age" shouldBe JsNumber(23)
+    system.stop(collectionActor)
+    system.stop(collectionActorx)
   }
 
   it should "correctly retrieve the previously updated objects" in {
@@ -203,6 +207,7 @@ class CollectionActorSpec extends BaseActorSpec with BeforeAndAfterEach {
     collectionActor.tell(Update(ctx, r, 1l, body), probe.ref)
     collectionActor.tell(GetState(r), probe.ref)
     val state = probe.expectMsgType[CollectionActor.State]
+    (state.obj \ "name").as[String] shouldEqual "Amal"
     probe watch collectionActor
     collectionActor ! PoisonPill
     probe.expectTerminated(collectionActor)
@@ -211,7 +216,8 @@ class CollectionActorSpec extends BaseActorSpec with BeforeAndAfterEach {
     val statex = probe.expectMsgType[State]
     state shouldEqual statex
     (state.obj \ "name").as[String] shouldEqual "Amal"
-
+    system.stop(collectionActor)
+    system.stop(collectionActorx)
   }
 
   "Create Command" should "create object sucessfully" in {
@@ -314,7 +320,10 @@ class CollectionActorSpec extends BaseActorSpec with BeforeAndAfterEach {
     val cr = r / 'posts / globals.quickSand.nextId()
     val postObj = Json.obj("title" -> "First Post", "body" -> "First Body")
     globals.collectionActor.tell(Create(ctx, cr, postObj), probe.ref)
-    probe.expectNoMsg()
+    globals.collectionActor.tell(GetState(cr), probe.ref)
+    val state1 = probe.expectMsgType[State]
+    (state1.obj \ "_r").as[R] shouldEqual cr
+
   }
 
   it should "validate the object parent is alive" in {
@@ -400,7 +409,13 @@ class CollectionActorSpec extends BaseActorSpec with BeforeAndAfterEach {
     val userR = BaseActorSpec.userModel.r / globals.quickSand.nextId()
     val userObj = Json.obj("name" -> "Ahmed", "age" -> 30, "company" -> companyR)
     globals.collectionActor.tell(Create(ctx, userR, userObj), probe.ref)
-    probe.expectNoMsg()
+    globals.collectionActor.tell(GetState(userR), probe.ref)
+    val state1 = probe.expectMsgType[State]
+    (state1.obj \ "_r").as[R] shouldEqual userR
+    (state1.obj \ "name").as[String] shouldEqual "Ahmed"
+    (state1.obj \ "age").as[Int] shouldEqual 30
+    (state1.obj \ "company").as[R] shouldEqual companyR
+
   }
 
   it should "create object if reference field is optional and object doesn't contain reference field" in {
@@ -459,7 +474,9 @@ class CollectionActorSpec extends BaseActorSpec with BeforeAndAfterEach {
     probe.expectMsgType[State]
     val body = UpdateBody(List(UpdateOp(UpdateCommand.Set, "name", JsString("Amal"))))
     globals.collectionActor.tell(Update(ctx, r, 1l, body), probe.ref)
-    probe.expectNoMsg()
+    globals.collectionActor.tell(GetState(r), probe.ref)
+    val state1 = probe.expectMsgType[State]
+    (state1.obj \ "name").as[String] shouldEqual "Amal"
   }
 
   it should "fail the data revision is lower than the field last touched revision and operation is Set operation" in {
@@ -484,9 +501,14 @@ class CollectionActorSpec extends BaseActorSpec with BeforeAndAfterEach {
     probe.expectMsgType[State]
     val body = UpdateBody(List(UpdateOp(UpdateCommand.AddNumber, "age", JsNumber(2))))
     globals.collectionActor.tell(Update(ctx, r, 1l, body), probe.ref)
-    probe.expectNoMsg()
+    globals.collectionActor.tell(GetState(r), probe.ref)
+    val state1 = probe.expectMsgType[State]
+    (state1.obj \ "age").as[Int] shouldEqual 29
+
     globals.collectionActor.tell(Update(ctx, r, 1l, body), probe.ref)
-    probe.expectNoMsg()
+    globals.collectionActor.tell(GetState(r), probe.ref)
+    val state2 = probe.expectMsgType[State]
+    (state2.obj \ "age").as[Int] shouldEqual 31
   }
 
   it should "fail when sending an invalid value for AddNumber Operation" in {
@@ -523,20 +545,53 @@ class CollectionActorSpec extends BaseActorSpec with BeforeAndAfterEach {
     probe.expectMsgType[State]
     val body = UpdateBody(List(UpdateOp(UpdateCommand.AddNumber, "age", JsNumber(1))))
     globals.collectionActor.tell(Update(ctx, r, 1l, body), probe.ref)
-    probe.expectNoMsg()
+    globals.collectionActor.tell(GetState(r), probe.ref)
+    val state = probe.expectMsgType[State]
+    (state.obj \ "age").as[Int] shouldEqual 28
   }
 
   it should "update the calculated Fields too" in {
     val r = R / 'cars / globals.quickSand.nextId()
-    val userObj = Json.obj("model" -> "Mitsubishi Lancer", "production" -> 2010, "renewal" -> 2030)
+    val userObj = Json.obj("model" -> "Mitsubishi Lancer", "production" -> 2010)
     val probe = TestProbe()
     globals.collectionActor.tell(Create(ctx, r, userObj), probe.ref)
     val body = UpdateBody(List(UpdateOp(UpdateCommand.Set, "production", JsNumber(2012))))
     globals.collectionActor.tell(Update(ctx, r, 1l, body), probe.ref)
     globals.collectionActor.tell(GetState(r), probe.ref)
     val state = probe.expectMsgType[State]
-    state.obj shouldEqual Json.obj("model" -> "Mitsubishi Lancer", "production" -> 2012, "renewal" -> 2020,
+    state.obj shouldEqual Json.obj("model" -> "Mitsubishi Lancer", "production" -> 2012, "renewal" -> 2022,
       "_r" -> r, "_rev" -> 2)
+  }
+
+  it should "generate UpdateOps for calculated fields on update" in {
+    val r = R / 'cars / globals.quickSand.nextId()
+    val bucketID = TestHelpers.randomBucketID(r)
+    val collectionActor = TestActorRef[CollectionActor](Props(new CollectionActor(globals)), bucketID)
+    val collectionActorRef = collectionActor.underlyingActor
+    collectionActorRef.bucketId should be(bucketID)
+    collectionActorRef.persistenceId should be(bucketID)
+    val materializerProbe = TestProbe()
+    val mockMaterializer = system.actorOf(TestActors.reportingPersistentViewProps(collectionActorRef.persistenceId, materializerProbe.ref))
+    val userObj = Json.obj("model" -> "VW Jetta", "production" -> 2010)
+
+    collectionActor ! Create(ctx, r, userObj)
+    mockMaterializer ! akka.persistence.Update(await = true)
+    materializerProbe.receiveN(1)
+    val rev2 = materializerProbe.expectMsgPF(3.seconds) {
+      case ReceivedEvent(e: Created) => e.rev
+    }
+    val body = UpdateBody(List(UpdateOp(UpdateCommand.Set, "production", JsNumber(2012))))
+    collectionActor ! Update(ctx, r, rev2, body)
+    mockMaterializer ! akka.persistence.Update(await = true)
+    materializerProbe.expectMsgPF(3.seconds) {
+      case ReceivedEvent(e: Updated) =>
+        e.ops shouldEqual List(
+          UpdateOp(UpdateCommand.Set, "production", JsNumber(2012), None),
+          UpdateOp(UpdateCommand.Set, "renewal", JsNumber(2022), None)
+        )
+    }
+    system.stop(collectionActor)
+    system.stop(mockMaterializer)
   }
 
   it should "fail if the request revision is greater than the object revision" in {
@@ -710,7 +765,10 @@ class CollectionActorSpec extends BaseActorSpec with BeforeAndAfterEach {
     val r = R / 'users / 123123
     globals.collectionActor.tell(Create(ctx, r, Json.obj("name" -> "Tamer AbdulRadi", "age" -> 26)), system.deadLetters)
     globals.collectionActor.tell(Delete(ctx, r), self)
-    expectNoMsg()
+    globals.collectionActor.tell(GetState(r), self)
+    val state1 = expectMsgType[State]
+    (state1.obj \ "_deleted").as[Boolean] shouldEqual true
+
   }
 
   it should "return Gone for already deleted objects" in {
