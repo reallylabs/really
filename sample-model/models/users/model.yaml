@@ -14,7 +14,7 @@ fields:
     valueType: String
     dependsOn: firstName, lastName
     value: |
-      function calculate(firstName, lastName) {
+      function(firstName, lastName) {
         var fullName = firstName
         if (lastName != undefined)
           fullName += " " + lastName
