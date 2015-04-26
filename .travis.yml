@@ -3,7 +3,7 @@ scala:
   - 2.11.6
 jdk:
   - oraclejdk8
-sbt_args: -no-colors -J-Xms1600m -J-Xmx1600m -J-XX:MaxMetaspaceSize=1024m
+sbt_args:  -J-Xms1600m -J-Xmx1600m -J-XX:MaxMetaspaceSize=1024m
 
 notifications:
   slack: reallyio:5GS2VfddFeJUWmxJ2tHW9ajS
