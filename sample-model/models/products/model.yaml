@@ -10,7 +10,7 @@ fields:
     dependsOn: name, production-year
     valueType: String
     value: |
-      function calculate(name, productionYear) {
+      function(name, productionYear) {
         return "Fancy " + name + " Product Made in " + productionYear;
       }
   production-year:
