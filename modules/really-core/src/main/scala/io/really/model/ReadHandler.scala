@@ -114,7 +114,6 @@ class ReadHandler(globals: ReallyGlobals) extends Actor with Stash with ActorLog
     collection: JSONCollection, cmdOpts: GetOpts): Future[Either[CommandError, GetResult]] = {
     val requestedFields = getRequestFields(cmdOpts.fields, model)
     val filter = getFieldsObj(model, requestedFields)
-
     val cursor: Cursor[JsObject] = collection.find(Json.obj("_r" -> r), filter).cursor[JsObject]
     cursor.headOption map {
       case Some(doc) if (doc \ "_deleted").asOpt[Boolean].isDefined =>
@@ -124,10 +123,10 @@ class ReadHandler(globals: ReallyGlobals) extends Actor with Stash with ActorLog
         val _r = (doc \ "_r").as[R]
         model.executeOnGet(ctx, globals, doc) match {
           case Right(plan) =>
-            val itemData = evaluateCalculatedFields(doc, requestedFields, model)
+            val itemData = evaluateCalculatedFields(doc, availableFields(doc, requestedFields, model), model)
             Right(GetResult(
               _r,
-              addSystemFields(doc, normalizeObject(itemData, requestedFields, plan.hidden)),
+              addSystemFields(doc, normalizeObject(itemData, availableFields(doc, requestedFields, model), plan.hidden)),
               accessibleFields(cmdOpts.fields, plan.hidden)
             ))
           case Left(terminated) =>
@@ -214,9 +213,9 @@ class ReadHandler(globals: ReallyGlobals) extends Actor with Stash with ActorLog
         case doc: JsObject if (doc \ "_deleted").asOpt[Boolean].isEmpty =>
           model.executeOnGet(ctx, globals, doc) match {
             case Right(plan) =>
-              val itemData = evaluateCalculatedFields(doc, requestedFields, model)
+              val itemData = evaluateCalculatedFields(doc, availableFields(doc, requestedFields, model), model)
               Some(ReadItem(
-                addSystemFields(doc, normalizeObject(itemData, requestedFields, plan.hidden)),
+                addSystemFields(doc, normalizeObject(itemData, availableFields(doc, requestedFields, model), plan.hidden)),
                 Json.obj("fields" -> accessibleFields(cmdOpts.fields, plan.hidden))
               ))
             case Left(terminated) => None
@@ -237,6 +236,9 @@ class ReadHandler(globals: ReallyGlobals) extends Actor with Stash with ActorLog
    */
   private def getRequestFields(cmdFields: Set[FieldKey], model: Model): Set[FieldKey] =
     if (cmdFields.isEmpty) model.fields.keySet else cmdFields
+
+  private def availableFields(doc: JsObject, requestedFields: Set[FieldKey], model: Model) =
+    requestedFields.filter(f => model.reactiveFields.get(f).isDefined || (doc \ f).asOpt[JsValue].isDefined)
 
   private def accessibleFields(requested: Set[FieldKey], hidden: Set[FieldKey]) = requested -- hidden
 
@@ -314,7 +316,7 @@ class ReadHandler(globals: ReallyGlobals) extends Actor with Stash with ActorLog
           case Some(f: CalculatedField[_]) => fieldsObj ++ f.dependsOn.foldLeft(Json.obj()) {
             case (acc, v) => acc ++ Json.obj(v -> 1)
           }
-          //todo handle reference fields
+          case Some(f: ReferenceField) => fieldsObj ++ Json.obj(field -> 1)
           case _ => fieldsObj
         }
     }

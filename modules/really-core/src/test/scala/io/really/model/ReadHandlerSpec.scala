@@ -236,6 +236,37 @@ class ReadHandlerSpec extends BaseActorSpecWithMongoDB {
     ret.body.totalResults shouldBe Some(1)
   }
 
+  it should "return reference fields if requested" in {
+    val r = R / 'authors / 14 / 'posts
+    val cmdOpts = ReadOpts(
+      Set("title", "author"),
+      EmptyQuery,
+      10,
+      false,
+      None,
+      0,
+      true,
+      false
+    )
+    val collection = globals.mongodbConnection.collection[JSONCollection]("posts_authors")
+    val author = Json.obj("value" -> "authors/14/", "ref" -> Json.obj("_r" -> "authors/14/", "_rev" -> 1, "name" -> "Amal Elshihaby"))
+    val postObj = Json.obj("title" -> "The post title", "body" -> "The post body",
+      "_rev" -> 1, "_r" -> r / 112,
+      "_parent0" -> "authors/14/", "author" -> author, "_id" -> 112)
+    val result = Await.result(collection.save(postObj), 5.second)
+    result.ok shouldBe true
+    globals.readHandler ! Request.Read(ctx, r, cmdOpts, TestProbe().ref)
+    val ret = expectMsgType[ReadResult]
+    ret.body.items.size shouldEqual (1)
+    ret.body.items(0).body shouldEqual Json.obj(
+      "title" -> "The post title",
+      "author" -> author,
+      "_rev" -> 1, "_r" -> r / 112
+    )
+    ret.body.totalResults shouldBe Some(1)
+
+  }
+
   it should "return calculated fields if requested" in {
     val r = R / 'cars
     val query = SimpleQuery(Term("model"), Operator.Eq, TermValue(JsString("KIA")))
@@ -415,7 +446,6 @@ class ReadHandlerSpec extends BaseActorSpecWithMongoDB {
       "_parent0" -> "authors/15/", "_id" -> 115)
     val result5 = Await.result(collection.save(postObj5), 5.second)
     result5.ok shouldBe true
-
     globals.readHandler ! Request.Read(ctx, r, cmdOpts, TestProbe().ref)
     val ret = expectMsgType[ReadResult]
     ret.body.items.size shouldEqual (2)
